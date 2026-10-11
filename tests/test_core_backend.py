@@ -8,12 +8,7 @@ return real ``tesla_protocol`` protobuf messages (BLE) or REST-shaped dicts (clo
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 # Run from a source checkout without installing: make `socks` and `tests.fakes` importable.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -42,7 +37,8 @@ from socks.core.backend import (
 )
 from socks.core.commands import Command
 from socks.core.config import Settings
-from socks.core.model import KM_PER_MILE, ChargingState, ShiftState, Source
+from socks.core.model import ChargingState, ShiftState, Source
+from socks.history.units import KM_PER_MI
 from tests.fakes import FakeBackend
 
 VIN = "5YJ3E7EB0KF000001"
@@ -129,13 +125,13 @@ def test_parse_tesla_control_reference_payload() -> None:
     assert s.soc == 70
     assert s.charge_limit == 75
     assert s.charging is ChargingState.STOPPED
-    assert s.rated_range_km == pytest.approx(270.9 * KM_PER_MILE, abs=0.05)
+    assert s.rated_range_km == pytest.approx(270.9 * KM_PER_MI, abs=0.05)
     assert s.charger_power_kw == 1.0
     assert s.charger_voltage == 229
     assert s.charge_port_open is True
     assert s.plugged_in is True
     assert s.scheduled_charging_start == datetime(2026, 10, 11, 21, 0, tzinfo=UTC)
-    assert s.odometer_km == pytest.approx(2889.06 * KM_PER_MILE, abs=0.01)
+    assert s.odometer_km == pytest.approx(2889.06 * KM_PER_MI, abs=0.01)
     assert s.shift is ShiftState.P
     assert s.power_kw == -1.0
     assert s.speed_kmh is None
@@ -164,10 +160,10 @@ def test_parse_cloud_payload() -> None:
     assert s.charge_energy_added_kwh == 4.25
     assert s.minutes_to_limit == 95
     assert s.rated_range_km == pytest.approx(321.9, abs=0.05)
-    assert s.ideal_range_km == pytest.approx(210 * KM_PER_MILE, abs=0.05)
+    assert s.ideal_range_km == pytest.approx(210 * KM_PER_MI, abs=0.05)
     assert s.plugged_in is True
     assert s.scheduled_charging_start is None
-    assert s.odometer_km == pytest.approx(1795.1 * KM_PER_MILE, abs=0.01)
+    assert s.odometer_km == pytest.approx(1795.1 * KM_PER_MI, abs=0.01)
     assert s.shift is ShiftState.UNKNOWN and s.speed_kmh is None
     assert (s.inside_temp_c, s.outside_temp_c, s.climate_on, s.target_temp_c) == (
         19.5,
@@ -331,8 +327,8 @@ async def test_ble_read_state_from_protobuf(key_path: Path) -> None:
     assert (s.soc, s.usable_soc, s.charge_limit) == (55, 54, 80)
     assert s.charging is ChargingState.DISCONNECTED and s.plugged_in is False
     assert s.charger_power_kw == 0.0 and s.minutes_to_limit == 0  # zeros survive
-    assert s.rated_range_km == pytest.approx(180 * KM_PER_MILE, abs=0.05)
-    assert s.odometer_km == pytest.approx(2889.06 * KM_PER_MILE, abs=0.01)
+    assert s.rated_range_km == pytest.approx(180 * KM_PER_MI, abs=0.05)
+    assert s.odometer_km == pytest.approx(2889.06 * KM_PER_MI, abs=0.01)
     assert s.shift is ShiftState.D and s.speed_kmh == pytest.approx(50.0, abs=0.05)
     assert s.power_kw == 12.0
     assert (s.inside_temp_c, s.outside_temp_c, s.climate_on, s.target_temp_c) == (

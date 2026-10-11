@@ -22,20 +22,15 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 SECRET_ENV = "SOCKS_FLEET_CLIENT_SECRET"  # noqa: S105 - env var name
 
 
 def _settings(args: argparse.Namespace) -> Any:
-    settings: Any
-    try:
-        from socks.core.config import Settings
+    from socks.core.config import Settings
 
-        settings = Settings.load()
-    except ImportError:  # CORE not present (e.g. isolated tests)
-        settings = SimpleNamespace(client_id="", region="eu")
+    settings = Settings.load()
     cid = getattr(args, "client_id", None)
     region = getattr(args, "region", None)
     changed = False
@@ -43,7 +38,7 @@ def _settings(args: argparse.Namespace) -> Any:
         settings.client_id, changed = cid, True
     if region and region != settings.region:
         settings.region, changed = region, True
-    if changed and hasattr(settings, "save"):
+    if changed:
         settings.save()  # client_id and region are not secret
     return settings
 
@@ -133,7 +128,7 @@ def fleet_status(args: argparse.Namespace) -> int:
     from socks.fleet import oauth, partner
 
     settings = _settings(args)
-    st = asyncio.run(oauth.status(settings))
+    st = asyncio.run(oauth.status())
     print(f"client_id: {'set' if settings.client_id else 'NOT SET'}; region: {settings.region}")
     if not st.logged_in:
         print(f"Not logged in ({st.path}).")

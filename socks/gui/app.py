@@ -130,10 +130,9 @@ def main(argv: list[str] | None = None) -> int:
     icon, tray_icon = load_icons()
     app.setWindowIcon(icon)
 
-    from socks.gui._deps import deps
+    from socks.core.config import Settings, paths
     from socks.gui.main_window import AppContext, MainWindow
 
-    d = deps()
     extras: dict[str, object] = {}
     if args.fake:
         # Fake mode never reads or writes the real settings: throwaway config dir.
@@ -141,18 +140,15 @@ def main(argv: list[str] | None = None) -> int:
         settings_path = cfg_dir / "settings.toml"
         extras["settings_path"] = settings_path
         extras["fake_cfg_dir"] = cfg_dir
-        try:
-            settings = d.config.Settings.load(settings_path)
-        except TypeError:  # dev shim: load() takes no path and never writes
-            settings = d.config.Settings.load()
+        settings = Settings.load(settings_path)
     else:
-        settings = d.config.Settings.load()
-        cfg_dir = _config_dir(d)
+        settings = Settings.load()
+        cfg_dir = paths().config
     prefs = QSettings(str(cfg_dir / "gui.ini"), QSettings.Format.IniFormat)
     extras["config_dir"] = cfg_dir
     extras["redact_location"] = bool(args.screenshot)  # never put coordinates in images
     extras["tray_icon"] = tray_icon
-    ctx = AppContext(d, settings, args.fake, args.debug, icon, handler, prefs, extras)
+    ctx = AppContext(settings, args.fake, args.debug, icon, handler, prefs, extras)
     win = MainWindow(ctx)
     win.tabs.setCurrentIndex(max(0, min(3, args.tab)))
 
@@ -186,16 +182,6 @@ def main(argv: list[str] | None = None) -> int:
     return int(rc)
 
 
-def _config_dir(d: object) -> Path:
-    cfg = getattr(d, "config", None)
-    paths_fn = getattr(cfg, "paths", None)
-    if paths_fn is not None:
-        return Path(paths_fn().config)
-    from platformdirs import user_config_path
-
-    return user_config_path("socks", appauthor=False)
-
-
 def _first_paint(args: argparse.Namespace, win: object) -> None:
     from PySide6.QtCore import QTimer
 
@@ -217,7 +203,7 @@ def _first_paint(args: argparse.Namespace, win: object) -> None:
     if args.wizard or (not args.fake and needs_setup(settings)):
         QTimer.singleShot(0, win.open_wizard)  # type: ignore[attr-defined]
         return
-    if args.fake or getattr(settings, "prefer", "ble") == "ble":
+    if args.fake or settings.prefer == "ble":
         QTimer.singleShot(0, win.first_read)  # type: ignore[attr-defined]
 
 

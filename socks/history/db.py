@@ -13,11 +13,11 @@ import os
 import sqlite3
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 PURPOSES = ("business", "private", "commute")
 PLACE_KINDS = ("home", "work", "other")
 DEFAULT_PACK_KWH = 80.0  # Model 3 Long Range (NCA) usable pack; used until learned
@@ -142,6 +142,13 @@ SCHEMA_V3 = (
 )
 
 
+# v4: partial index for the recorder's "drives still missing an end position" lookup,
+# which otherwise walks every drive of the VIN on each GPS read.
+SCHEMA_V4 = (
+    "CREATE INDEX IF NOT EXISTS ix_drive_open_end ON drive (vin, end_ts) WHERE end_lat IS NULL",
+)
+
+
 def iso(dt: datetime) -> str:
     """UTC text form used for every stored timestamp (naive input is taken as UTC)."""
     if dt.tzinfo is None:
@@ -150,7 +157,13 @@ def iso(dt: datetime) -> str:
 
 
 def parse_ts(text: str) -> datetime:
-    return datetime.fromisoformat(text).astimezone(UTC)
+    dt = datetime.fromisoformat(text)  # stored text ends in 'Z': already UTC
+    return dt if dt.tzinfo is UTC else dt.astimezone(UTC)
+
+
+def local_zone(tz: tzinfo | None = None) -> tzinfo:
+    """``tz`` or the system's local zone: day boundaries and exported times use it."""
+    return tz or datetime.now().astimezone().tzinfo or UTC
 
 
 def _xdg_data_socks() -> Path:
@@ -197,7 +210,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
         current = int(row["value"]) if row else 0
     if current > SCHEMA_VERSION:
         raise DbError(f"history DB schema {current} is newer than supported {SCHEMA_VERSION}")
-    steps = ((1, SCHEMA_V1), (2, SCHEMA_V2), (3, SCHEMA_V3))
+    steps = ((1, SCHEMA_V1), (2, SCHEMA_V2), (3, SCHEMA_V3), (4, SCHEMA_V4))
     if current >= SCHEMA_VERSION:
         return
     with transaction(conn):
@@ -223,16 +236,11 @@ def transaction(conn: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
     conn.execute("COMMIT")
 
 
-def execute(conn: sqlite3.Connection, sql: str, params: Sequence[Any] = ()) -> sqlite3.Cursor:
-    return conn.execute(sql, tuple(params))
-
-
-def query(conn: sqlite3.Connection, sql: str, params: Sequence[Any] = ()) -> list[sqlite3.Row]:
-    return conn.execute(sql, tuple(params)).fetchall()
-
-
-def query_one(conn: sqlite3.Connection, sql: str, params: Sequence[Any] = ()) -> sqlite3.Row | None:
-    return conn.execute(sql, tuple(params)).fetchone()
+def tuples(conn: sqlite3.Connection) -> sqlite3.Cursor:
+    """A cursor yielding plain tuples: about 2x faster than sqlite3.Row for long scans."""
+    cur = conn.cursor()
+    cur.row_factory = None
+    return cur
 
 
 def scalar(conn: sqlite3.Connection, sql: str, params: Sequence[Any] = (), default: Any = None):

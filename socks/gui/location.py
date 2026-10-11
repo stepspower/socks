@@ -18,6 +18,8 @@ from typing import Any
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
+from socks.core import tripwatch
+
 log = logging.getLogger("socks.gui")
 
 PURPOSE_CYCLE: tuple[str | None, ...] = (None, "business", "private", "commute")
@@ -46,49 +48,43 @@ def purpose_for_key(key_text: str, is_delete: bool) -> tuple[bool, str | None]:
 # ----------------------------------------------------------- I/O-thread helpers
 
 
-def _with_db(db_path: Path, fn: Callable[[Any], Any]) -> Any:
-    from socks.gui._deps import open_db
-
-    db = open_db(db_path)
-    try:
-        return fn(db)
-    finally:
-        db.close()
-
-
 def set_purpose(db_path: Path, drive_id: int, purpose: str | None) -> None:
+    from socks.gui.history_io import with_db
     from socks.history import trips
 
-    _with_db(db_path, lambda db: trips.set_drive_purpose(db, drive_id, purpose))
+    with_db(db_path, lambda db: trips.set_drive_purpose(db, drive_id, purpose))
 
 
 def rename_place(db_path: Path, place_id: int, name: str, kind: str | None) -> None:
+    from socks.gui.history_io import with_db
     from socks.history import places
 
-    _with_db(db_path, lambda db: places.name_place(db, place_id, name, kind))
+    with_db(db_path, lambda db: places.name_place(db, place_id, name, kind))
 
 
 def rebuild_labels(db_path: Path, vin: str) -> tuple[int, int]:
     """learn_places + relabel_drives; returns (places, drives changed)."""
+    from socks.gui.history_io import with_db
     from socks.history import places
 
     def go(db: Any) -> tuple[int, int]:
         found = places.learn_places(db, vin)
         return len(found), int(places.relabel_drives(db, vin))
 
-    return _with_db(db_path, go)
+    return with_db(db_path, go)
 
 
 def place_label(db_path: Path | None, vin: str, lat: float, lon: float) -> str | None:
     if db_path is None:
         return None
+    from socks.gui.history_io import with_db
     from socks.history import places
 
     def go(db: Any) -> str | None:
         p = places.place_at(db, vin, lat, lon)
         return p.display_name if p is not None else places.cached_geocode(db, lat, lon)
 
-    return _with_db(db_path, go)
+    return with_db(db_path, go)
 
 
 async def geocode_once(settings: Any, db_path: Path, vin: str) -> int:
@@ -96,9 +92,9 @@ async def geocode_once(settings: Any, db_path: Path, vin: str) -> int:
     import aiohttp
 
     from socks.core.geocode import GeocodeRunner
-    from socks.gui._deps import open_db
+    from socks.history import db as dbm
 
-    db = open_db(db_path)
+    db = dbm.open(db_path)
     try:
         async with aiohttp.ClientSession() as session:
             return int(await GeocodeRunner(settings, session).run_once(db, vin))
@@ -114,7 +110,7 @@ class GeocodeGate:
         self._last: float | None = None
 
     def due(self, settings: Any, fake: bool) -> bool:
-        if fake or not getattr(settings, "geocode_enabled", False):
+        if fake or not settings.geocode_enabled:
             return False
         now = self._clock()
         if self._last is not None and now - self._last < GEOCODE_MIN_INTERVAL:
@@ -139,44 +135,31 @@ class TripWatch(QObject):
         self.settings = settings
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.poll_requested)
-        try:
-            from socks.core import tripwatch
-        except ImportError:
-            self._tw = None
-            self._mod = None
-        else:
-            self._mod = tripwatch
-            self._tw = tripwatch.TripWatcher(settings)
-
-    @property
-    def available(self) -> bool:
-        return self._tw is not None
+        self._tw = tripwatch.TripWatcher(settings)
 
     @property
     def polling(self) -> bool:
-        return bool(self._tw is not None and self._tw.polling)
+        return self._tw.polling
 
     def interval_s(self) -> int:
-        return max(MIN_TRIP_WATCH, int(getattr(self.settings, "trip_watch_interval_seconds", 600)))
+        return max(MIN_TRIP_WATCH, self.settings.trip_watch_interval_seconds)
 
     def on_state(self, state: Any) -> None:
-        if self._tw is not None:
-            self._apply(self._tw.on_state(state))
+        self._apply(self._tw.on_state(state))
 
     def on_error(self, exc: BaseException, now: datetime | None = None) -> None:
-        if self._tw is not None:
-            asleep = self._mod.is_asleep_error(exc)
-            self._apply(self._tw.on_unavailable(now or datetime.now(UTC), asleep=asleep))
+        asleep = tripwatch.is_asleep_error(exc)
+        self._apply(self._tw.on_unavailable(now or datetime.now(UTC), asleep=asleep))
 
     def stop(self) -> None:
         self.timer.stop()
 
     def _apply(self, action: Any) -> None:
-        name = getattr(action, "name", "NONE")
+        name = action.name
         if name == "START_CLOUD_POLL":
             self.timer.start(self.interval_s() * 1000)
             log.info("trip watch: car left, following via cloud every %d s", self.interval_s())
         elif name == "STOP_CLOUD_POLL":
             self.timer.stop()
             log.info("trip watch: stopped after %d cloud reads", self._tw.polls)
-        self.changed.emit(self.polling, self._tw.polls, self._mod.estimate_cost(self._tw.polls))
+        self.changed.emit(self.polling, self._tw.polls, tripwatch.estimate_cost(self._tw.polls))

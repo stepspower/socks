@@ -4,12 +4,7 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
-
 # Run from a source checkout without installing: make `socks` and `tests.fakes` importable.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import stat
 from pathlib import Path
 

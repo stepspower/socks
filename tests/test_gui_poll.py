@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 
 import pytest
@@ -12,38 +11,14 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 
-from socks.gui.main_window import is_asleep, read_state  # noqa: E402
-from socks.gui.tabs.settings import min_poll_seconds  # noqa: E402
+from socks.gui.main_window import is_asleep  # noqa: E402
+from socks.gui.tabs.settings import SettingsTab  # noqa: E402
 from socks.gui.widgets.poll_spinbox import PollSpinBox  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def qapp() -> object:
     return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
-
-
-class WakeAware:
-    def __init__(self) -> None:
-        self.calls: list[bool] = []
-
-    async def read_state(self, *, wake: bool = True) -> str:
-        self.calls.append(wake)
-        return "state"
-
-
-class Legacy:
-    async def read_state(self) -> str:
-        return "legacy"
-
-
-def test_read_state_passes_wake_flag() -> None:
-    b = WakeAware()
-    assert asyncio.run(read_state(b, wake=False)) == "state"
-    assert b.calls == [False]
-
-
-def test_read_state_falls_back_without_kwarg() -> None:
-    assert asyncio.run(read_state(Legacy(), wake=False)) == "legacy"
 
 
 def test_is_asleep() -> None:
@@ -62,9 +37,17 @@ def test_is_asleep() -> None:
     assert not is_asleep(NotAvailable("out of range"))
 
 
-def test_min_poll_fallback() -> None:
-    assert min_poll_seconds(object(), cloud_enabled=False) == 60
-    assert min_poll_seconds(object(), cloud_enabled=True) == 600
+def test_settings_tab_poll_floor_follows_cloud(qapp: object, tmp_path: object) -> None:
+    from socks.core.config import Settings
+
+    s = Settings(vin="", key_path=tmp_path / "k.pem", poll_seconds=120)  # type: ignore[operator]
+    tab = SettingsTab()
+    tab.load(s, close_to_tray=False)
+    assert tab.poll.minimum_on() == 60
+    tab.cloud.setChecked(True)
+    assert tab.poll.minimum_on() == 600 and tab.poll.value() == 600
+    tab._save()
+    assert s.cloud_enabled and s.poll_seconds == 600
 
 
 def test_spinbox_floor(qapp: object) -> None:

@@ -85,18 +85,13 @@ def _now(now: datetime | None) -> datetime:
     return (now or datetime.now(UTC)).astimezone(UTC)
 
 
-def _zone(tz: tzinfo | None) -> tzinfo:
-    return tz or datetime.now().astimezone().tzinfo or UTC
-
-
 def _drives(db: sqlite3.Connection, vin: str, since: datetime | None = None) -> list[_Drive]:
-    rows = dbm.query(
-        db,
+    rows = db.execute(
         "SELECT start_ts, end_ts, start_odo_km, end_odo_km, start_soc, end_soc FROM drive "
         "WHERE vin = ? AND start_ts >= ? AND start_odo_km IS NOT NULL "
         "AND end_odo_km IS NOT NULL ORDER BY start_ts",
         (vin, dbm.iso(since) if since else ""),
-    )
+    ).fetchall()
     out = []
     for r in rows:
         km = max(0.0, r["end_odo_km"] - r["start_odo_km"])
@@ -141,15 +136,14 @@ def summary(
     tz: tzinfo | None = None,
 ) -> Summary:
     now_u = _now(now)
-    zone = _zone(tz)
+    zone = dbm.local_zone(tz)
     drives = _drives(db, vin, since)
     cut7, cut30 = now_u - timedelta(days=7), now_u - timedelta(days=30)
-    row = dbm.query_one(
-        db,
+    row = db.execute(
         "SELECT COALESCE(SUM(energy_added_kwh), 0) AS kwh, COUNT(*) AS n FROM charge_session "
         "WHERE vin = ? AND start_ts >= ?",
         (vin, dbm.iso(cut30)),
-    )
+    ).fetchone()
     kwh = float(row["kwh"]) if row else 0.0
     per_day = _per_day(drives, zone)
     return Summary(
@@ -176,7 +170,7 @@ def daily_km(
     """One entry per day for the last ``days`` days, oldest first, zeros for empty days."""
     if days <= 0:
         return []
-    zone = _zone(tz)
+    zone = dbm.local_zone(tz)
     today = _now(now).astimezone(zone).date()
     first = today - timedelta(days=days - 1)
     start_local = datetime(first.year, first.month, first.day, tzinfo=zone)
@@ -191,11 +185,10 @@ def charge_sessions(
     db: sqlite3.Connection, vin: str, limit: int = 20, *, tariff: float = 0.0
 ) -> list[ChargeSession]:
     """Newest first."""
-    rows = dbm.query(
-        db,
+    rows = db.execute(
         "SELECT * FROM charge_session WHERE vin = ? ORDER BY start_ts DESC, id DESC LIMIT ?",
         (vin, max(0, limit)),
-    )
+    ).fetchall()
     out = []
     for r in rows:
         kwh = float(r["energy_added_kwh"] or 0.0)
@@ -218,12 +211,12 @@ def charge_sessions(
 def soc_series(
     db: sqlite3.Connection, vin: str, since: datetime | None = None
 ) -> list[tuple[datetime, int]]:
-    rows = dbm.query(
-        db,
+    rows = dbm.tuples(db).execute(
         "SELECT ts, soc FROM snapshot WHERE vin = ? AND soc IS NOT NULL AND ts >= ? ORDER BY ts",
         (vin, dbm.iso(since) if since else ""),
     )
-    return [(dbm.parse_ts(r["ts"]), int(r["soc"])) for r in rows]
+    parse = dbm.parse_ts
+    return [(parse(ts), int(soc)) for ts, soc in rows]
 
 
 def battery_health(db: sqlite3.Connection, vin: str) -> BatteryHealth:
@@ -232,36 +225,40 @@ def battery_health(db: sqlite3.Connection, vin: str) -> BatteryHealth:
     Uses snapshots with soc >= 20 (low SoC readings are too coarse) and the median of the
     first / last up-to-5 samples to damp noise.
     """
-    rows = dbm.query(
-        db,
-        "SELECT rated_range_km, soc FROM snapshot WHERE vin = ? AND soc >= ? "
-        "AND rated_range_km > 0 ORDER BY ts",
+    count = db.execute(
+        "SELECT COUNT(*) FROM snapshot WHERE vin = ? AND soc >= ? AND rated_range_km > 0",
         (vin, MIN_SOC_FOR_RANGE),
-    )
-    vals = [r["rated_range_km"] / r["soc"] * 100.0 for r in rows]
-    if not vals:
+    ).fetchone()[0]
+    if not count:
         return BatteryHealth()
-    n = min(5, max(1, len(vals) // 2))
-    first, latest = median(vals[:n]), median(vals[-n:])
-    return BatteryHealth(first, latest, (first - latest) / first * 100.0, len(vals))
+    n = min(5, max(1, count // 2))
+    first = db.execute(
+        "SELECT rated_range_km / soc * 100.0 FROM snapshot WHERE vin = ? AND soc >= ? "
+        "AND rated_range_km > 0 ORDER BY ts LIMIT ?",
+        (vin, MIN_SOC_FOR_RANGE, n),
+    ).fetchall()
+    latest = db.execute(
+        "SELECT rated_range_km / soc * 100.0 FROM snapshot WHERE vin = ? AND soc >= ? "
+        "AND rated_range_km > 0 ORDER BY ts DESC LIMIT ?",
+        (vin, MIN_SOC_FOR_RANGE, n),
+    ).fetchall()
+    f, la = median(r[0] for r in first), median(r[0] for r in latest)
+    return BatteryHealth(f, la, (f - la) / f * 100.0, count)
 
 
 def charging_curve(db: sqlite3.Connection, vin: str, session_id: int) -> list[tuple[int, float]]:
     """(soc %, kW) points from the snapshots recorded inside one session."""
-    sess = dbm.query_one(
-        db,
-        "SELECT start_ts, end_ts FROM charge_session WHERE id = ? AND vin = ?",
-        (session_id, vin),
-    )
+    sess = db.execute(
+        "SELECT start_ts, end_ts FROM charge_session WHERE id = ? AND vin = ?", (session_id, vin)
+    ).fetchone()
     if sess is None:
         return []
-    rows = dbm.query(
-        db,
+    rows = db.execute(
         "SELECT soc, charger_power_kw FROM snapshot WHERE vin = ? AND ts >= ? AND ts <= ? "
         "AND soc IS NOT NULL AND charger_power_kw IS NOT NULL AND charging = 'Charging' "
         "ORDER BY ts",
         (vin, sess["start_ts"], sess["end_ts"] or sess["start_ts"]),
-    )
+    ).fetchall()
     return [(int(r["soc"]), float(r["charger_power_kw"])) for r in rows]
 
 
@@ -273,19 +270,34 @@ def nerd_stats(
     tz: tzinfo | None = None,
 ) -> dict[str, str]:
     """Fun facts as ready-to-show strings (label -> value)."""
-    zone = _zone(tz)
+    zone = dbm.local_zone(tz)
     drives = _drives(db, vin)
-    sessions = charge_sessions(db, vin, 1_000_000)
+    n_sessions, total_kwh, charging_s = db.execute(
+        "SELECT COUNT(*), COALESCE(SUM(COALESCE(energy_added_kwh, 0.0)), 0.0), "
+        "COALESCE(SUM(strftime('%s', COALESCE(end_ts, start_ts)) - strftime('%s', start_ts)), 0) "
+        "FROM charge_session WHERE vin = ?",
+        (vin,),
+    ).fetchone()
+    fastest = db.execute(
+        "SELECT COALESCE(max_power_kw, 0.0), start_ts FROM charge_session WHERE vin = ? "
+        "ORDER BY COALESCE(max_power_kw, 0.0) DESC, start_ts DESC, id DESC LIMIT 1",
+        (vin,),
+    ).fetchone()
 
-    plugged = timedelta()
-    prev_ts: datetime | None = None
+    plugged_s = 0  # seconds between consecutive snapshots that start plugged in, capped
+    cap = PLUGGED_GAP_CAP.total_seconds()
+    prev_t: int | None = None
     prev_plugged = False
-    for r in dbm.query(db, "SELECT ts, plugged_in FROM snapshot WHERE vin = ? ORDER BY ts", (vin,)):
-        t = dbm.parse_ts(r["ts"])
-        if prev_ts is not None and prev_plugged:
-            plugged += min(t - prev_ts, PLUGGED_GAP_CAP)
-        prev_ts, prev_plugged = t, bool(r["plugged_in"])
-    charging = sum((s.end - s.start for s in sessions), timedelta())
+    for t, plugged_in in dbm.tuples(db).execute(
+        "SELECT CAST(strftime('%s', ts) AS INTEGER), plugged_in FROM snapshot "
+        "WHERE vin = ? ORDER BY ts",
+        (vin,),
+    ):
+        if prev_t is not None and prev_plugged:
+            plugged_s += min(t - prev_t, cap)
+        prev_t, prev_plugged = t, bool(plugged_in)
+    plugged = timedelta(seconds=plugged_s)
+    charging = timedelta(seconds=charging_s)
 
     out: dict[str, str] = {}
     out["Time plugged in"] = units.fmt_duration(plugged)
@@ -293,10 +305,9 @@ def nerd_stats(
     out["Charging share of plugged time"] = (
         units.fmt_percent(min(100.0, charging / plugged * 100.0)) if plugged else units.DASH
     )
-    fastest = max(sessions, key=lambda s: s.max_power_kw, default=None)
     out["Fastest charge"] = (
-        f"{units.fmt_power(fastest.max_power_kw)} on {fastest.start.astimezone(zone):%Y-%m-%d}"
-        if fastest and fastest.max_power_kw > 0
+        f"{units.fmt_power(fastest[0])} on {dbm.parse_ts(fastest[1]).astimezone(zone):%Y-%m-%d}"
+        if fastest and fastest[0] > 0
         else units.DASH
     )
     per_weekday = [0.0] * 7
@@ -308,10 +319,9 @@ def nerd_stats(
         if per_weekday[best] > 0
         else units.DASH
     )
-    total_kwh = sum(s.energy_kwh for s in sessions)
     out["Total energy charged"] = units.fmt_energy(total_kwh)
     out["Phone charges"] = f"{round(total_kwh / PHONE_CHARGE_KWH):,}"
-    out["Charge sessions"] = str(len(sessions))
+    out["Charge sessions"] = str(n_sessions)
     out["Longest drive"] = units.fmt_distance(max((d.km for d in drives), default=0.0), units_)
     return out
 
@@ -327,14 +337,13 @@ def estimate_pack_kwh(
     Each qualifying session implies energy / delta_soc * 100; the result is the median.
     Sessions with a smaller SoC delta, or an implied size outside 40-130 kWh, are ignored.
     """
-    rows = dbm.query(
-        db,
+    rows = db.execute(
         "SELECT start_ts, energy_added_kwh, start_soc, end_soc FROM charge_session "
         "WHERE vin = ? AND estimated = 0 AND energy_added_kwh > 0 "
         "AND start_soc IS NOT NULL AND end_soc IS NOT NULL AND end_soc - start_soc >= ? "
         "ORDER BY start_ts",
         (vin, max(1, min_delta_soc)),
-    )
+    ).fetchall()
     vals: list[float] = []
     stamps: list[datetime] = []
     lo, hi = PACK_PLAUSIBLE_KWH

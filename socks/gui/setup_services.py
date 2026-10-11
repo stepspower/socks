@@ -12,14 +12,14 @@ its contents are never returned, displayed or logged.
 from __future__ import annotations
 
 import asyncio
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
-DEFAULT_IMPORT = Path.home() / ".config" / "tesla" / "private_key.pem"
+from socks.core.keys import tesla_control_dir, validate_vin
+
+DEFAULT_IMPORT = tesla_control_dir() / "private_key.pem"
 PAIR_ROLES = ("driver", "owner")
 ROLE_HELP = {
     "driver": "Driver: can unlock, drive and use the car, but cannot add or remove keys.",
@@ -36,24 +36,14 @@ PRICE_NOTE = (
 
 
 def vin_feedback(text: str) -> tuple[bool, str]:
-    """(valid, message) for the live VIN field; uses core.keys when available."""
+    """(valid, message) for the live VIN field."""
     norm = text.strip().upper()
     if not norm:
         return False, "Enter the 17-character VIN."
     try:
-        from socks.core.keys import validate_vin
-    except ImportError:
-        validate_vin = None
-    if validate_vin is not None:
-        try:
-            validate_vin(norm)
-        except ValueError as exc:
-            return False, str(exc)
-        return True, "VIN looks valid."
-    if len(norm) != 17:
-        return False, f"VIN must be 17 characters, got {len(norm)}"
-    if not VIN_RE.match(norm):
-        return False, "VIN may only contain A-Z and 0-9, without I, O or Q"
+        validate_vin(norm)
+    except ValueError as exc:
+        return False, str(exc)
     return True, "VIN looks valid."
 
 
@@ -87,15 +77,10 @@ class RealServices:
     fake = False
 
     def __init__(self, key_dest: Path, domain: str | None = None) -> None:
-        self.key_dest = key_dest
-        if domain is None:
-            try:
-                from socks.fleet.partner import DEFAULT_DOMAIN
+        from socks.fleet.partner import DEFAULT_DOMAIN
 
-                domain = DEFAULT_DOMAIN
-            except ImportError:
-                domain = "auth.stepspower.net"
-        self.domain = domain
+        self.key_dest = key_dest
+        self.domain = domain or DEFAULT_DOMAIN
 
     # keys (blocking; run on the I/O thread) ----------------------------------
 
@@ -128,25 +113,16 @@ class RealServices:
     async def pair(self, vin: str, key_path: Path, role: str) -> bool:
         ble = self._ble(vin, key_path)
         try:
-            pair = getattr(ble, "pair", None)
-            if pair is None:
-                raise RuntimeError(
-                    "this SOCKS core cannot pair yet; use tesla-control add-key-request"
-                )
-            return bool(await pair(role=role))
+            return bool(await ble.pair(role=role))
         finally:
-            closer = getattr(ble, "close", None)
-            if closer is not None:
-                await closer()
+            await ble.close()
 
     async def test_connection(self, vin: str, key_path: Path) -> Any:
         ble = self._ble(vin, key_path)
         try:
             return await ble.read_state(wake=True)
         finally:
-            closer = getattr(ble, "close", None)
-            if closer is not None:
-                await closer()
+            await ble.close()
 
     # cloud ---------------------------------------------------------------------
 
@@ -168,15 +144,12 @@ class RealServices:
     async def token_status(self, settings: Any) -> Any:
         from socks.fleet import oauth
 
-        return await oauth.status(settings)
+        return await oauth.status()
 
     def pairing_link(self) -> str:
-        try:
-            from socks.fleet.partner import pairing_link
+        from socks.fleet.partner import pairing_link
 
-            return pairing_link(self.domain)
-        except ImportError:
-            return f"https://tesla.com/_ak/{self.domain}"
+        return pairing_link(self.domain)
 
 
 class FakeServices(RealServices):
@@ -216,7 +189,7 @@ class FakeServices(RealServices):
     async def token_status(self, settings: Any) -> Any:
         return SimpleNamespace(
             logged_in=self._logged_in,
-            region=getattr(settings, "region", "eu"),
+            region=settings.region,
             expires_at=None,
             expired=False,
             scopes=("openid", "vehicle_device_data") if self._logged_in else (),

@@ -28,7 +28,8 @@ from typing import Any
 
 from socks import __version__
 from socks.core.commands import COMMANDS, parse_command
-from socks.core.model import KM_PER_MILE, VehicleState, state_to_dict
+from socks.core.model import VehicleState, state_to_dict
+from socks.history.units import KM_PER_MI, c_to_f
 
 EXIT_OK, EXIT_FAIL, EXIT_USAGE, EXIT_REFUSED = 0, 1, 2, 3
 
@@ -69,13 +70,9 @@ def _parser() -> argparse.ArgumentParser:
     kp = ksub.add_parser("pair", help="ask the car (over Bluetooth) to accept this key")
     kp.add_argument("--role", choices=("driver", "owner"), default="driver")
     kp.add_argument("--vin", help="the car's VIN (default: from settings)")
-    try:
-        from socks.fleet.cli import add_fleet_parser
-    except ImportError:  # build without fleet support
-        f = sub.add_parser("fleet", help="Tesla Fleet API (cloud) setup (not available)")
-        f.set_defaults(func=_no_fleet)
-    else:
-        add_fleet_parser(sub)
+    from socks.fleet.cli import add_fleet_parser
+
+    add_fleet_parser(sub)
     return p
 
 
@@ -146,9 +143,7 @@ async def _run(args: argparse.Namespace) -> int:
         print(f"socks-cli: {e}", file=sys.stderr)
         return EXIT_FAIL
     finally:
-        closer = getattr(backend, "close", None)
-        if closer is not None:
-            await closer()
+        await backend.close()
 
 
 def _load_settings(path: Path | None) -> Any:
@@ -162,8 +157,9 @@ def _make_backend(args: argparse.Namespace, settings: Any) -> Any:
 
     if args.fake:
         return be.fake_backend(start=None)
-    token = _token_provider(settings)
-    router = be.build_router(settings, token)
+    from socks.fleet.oauth import token_provider
+
+    router = be.build_router(settings, token_provider(settings))
     if args.source == "ble":
         return be.Router(router.ble, None)
     if args.source == "cloud":
@@ -171,21 +167,6 @@ def _make_backend(args: argparse.Namespace, settings: Any) -> Any:
             return be.Router(None, None)  # -> NotAvailable with a clear reason
         return be.Router(None, router.cloud, be.Source.CLOUD)
     return router
-
-
-def _token_provider(settings: Any) -> Any:
-    """Access-token provider from socks.fleet, if that module offers one."""
-    if not settings.cloud_enabled:
-        return None
-    try:
-        from socks.fleet import oauth
-    except ImportError:
-        return None
-
-    async def provider() -> str | None:
-        return await oauth.access_token(settings)
-
-    return provider
 
 
 def _source_label(backend: Any) -> str:
@@ -217,17 +198,17 @@ def format_status(
     def dist(km: float | None) -> str:
         if km is None:
             return "-"
-        return f"{km / KM_PER_MILE:,.1f} mi" if imperial else f"{km:,.1f} km"
+        return f"{km / KM_PER_MI:,.1f} mi" if imperial else f"{km:,.1f} km"
 
     def speed(kmh: float | None) -> str:
         if kmh is None:
             return "-"
-        return f"{kmh / KM_PER_MILE:.0f} mph" if imperial else f"{kmh:.0f} km/h"
+        return f"{kmh / KM_PER_MI:.0f} mph" if imperial else f"{kmh:.0f} km/h"
 
     def temp(c: float | None) -> str:
         if c is None:
             return "-"
-        return f"{c * 9 / 5 + 32:.1f} °F" if imperial else f"{c:.1f} °C"
+        return f"{c_to_f(c):.1f} °F" if imperial else f"{c:.1f} °C"
 
     def opt(value: Any, unit: str = "") -> str:
         return "-" if value is None else f"{value}{unit}"
@@ -372,14 +353,6 @@ async def _key_pair(args: argparse.Namespace, settings: Any) -> int:
         "No confirmation received. Check the car's Locks screen: if the key is listed, "
         "pairing worked; otherwise run 'socks-cli key pair' again."
     )
-    return EXIT_FAIL
-
-
-# ---------------------------------------------------------------- fleet
-
-
-def _no_fleet(args: argparse.Namespace) -> int:
-    print("socks-cli: fleet support is not installed in this build", file=sys.stderr)
     return EXIT_FAIL
 
 

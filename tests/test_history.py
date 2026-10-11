@@ -4,20 +4,12 @@
 
 from __future__ import annotations
 
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-try:
-    from socks.core.model import ChargingState, ShiftState, Source, VehicleState
-except ImportError:  # CORE's model not merged yet
-    from _model_stub import ChargingState, ShiftState, Source, VehicleState
-
+from socks.core.model import ChargingState, ShiftState, Source, VehicleState
 from socks.history import db as dbm
 from socks.history import stats, units
 from socks.history.recorder import Recorder
@@ -121,7 +113,7 @@ def test_charge_energy_estimate_when_no_counter(tmp_path):
 def test_two_drives_with_lunch_gap(rec):
     feed_drive(rec, T0 + timedelta(hours=1), 1000.0, 20.0)
     feed_drive(rec, T0 + timedelta(hours=6), 1020.0, 15.0)
-    rows = dbm.query(rec.conn, "SELECT * FROM drive ORDER BY start_ts")
+    rows = rec.conn.execute("SELECT * FROM drive ORDER BY start_ts").fetchall()
     assert len(rows) == 2
     assert [(r["start_odo_km"], r["end_odo_km"]) for r in rows] == [
         (1000.0, 1020.0),
@@ -140,7 +132,7 @@ def test_drive_closed_by_gap_without_park_read(rec):
     rec.record(st(T0, odometer_km=1000.0, shift=ShiftState.D))
     rec.record(st(T0 + timedelta(minutes=5), odometer_km=1004.0, shift=ShiftState.D))
     rec.record(st(T0 + timedelta(minutes=30), odometer_km=1004.0, shift=ShiftState.P))
-    (r,) = dbm.query(rec.conn, "SELECT * FROM drive")
+    (r,) = rec.conn.execute("SELECT * FROM drive").fetchall()
     assert r["end_odo_km"] == 1004.0
     assert dbm.parse_ts(r["end_ts"]) == T0 + timedelta(minutes=5)
     assert dbm.get_meta(rec.conn, f"open_drive:{VIN}") is None
@@ -149,7 +141,7 @@ def test_drive_closed_by_gap_without_park_read(rec):
 def test_drive_found_by_odometer_jump_while_parked(rec):
     rec.record(st(T0, odometer_km=1000.0))
     rec.record(st(T0 + timedelta(hours=1), odometer_km=1012.0))  # cloud poll, shift P
-    (r,) = dbm.query(rec.conn, "SELECT * FROM drive")
+    (r,) = rec.conn.execute("SELECT * FROM drive").fetchall()
     assert (r["start_odo_km"], r["end_odo_km"]) == (1000.0, 1012.0)
 
 
@@ -251,18 +243,17 @@ def test_nerd_stats_and_soc_series(rec):
 def test_units():
     assert units.fmt_distance(160.9344, "imperial") == "100.0 mi"
     assert units.fmt_distance(12.34, "metric") == "12.3 km"
-    assert units.fmt_temp(100.0, "imperial") == "212.0 °F"
-    assert units.fmt_efficiency(155.0, "metric") == "155 Wh/km"
+    assert units.fmt_energy(37.456) == "37.5 kWh" and units.fmt_power(None) == units.DASH
+    assert units.fmt_percent(12.6) == "13 %"
     assert units.fmt_distance(None) == units.DASH
     assert units.fmt_duration(timedelta(minutes=125)) == "2 h 05 min"
-    assert units.mi_to_km(units.km_to_mi(42.0)) == pytest.approx(42.0)
+    assert units.km_to_mi(units.KM_PER_MI) == pytest.approx(1.0)
     assert units.f_to_c(units.c_to_f(21.5)) == pytest.approx(21.5)
 
 
 def add_session(rec, soc0, soc1, kwh, day, estimated=0):
     t = T0 + timedelta(days=day)
-    dbm.execute(
-        rec.conn,
+    rec.conn.execute(
         "INSERT INTO charge_session (vin, start_ts, end_ts, start_soc, end_soc, "
         "energy_added_kwh, max_power_kw, source, estimated) VALUES (?,?,?,?,?,?,?,?,?)",
         (VIN, dbm.iso(t), dbm.iso(t + timedelta(hours=1)), soc0, soc1, kwh, 7.0, "ble", estimated),

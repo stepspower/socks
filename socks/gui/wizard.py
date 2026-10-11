@@ -12,7 +12,6 @@ from __future__ import annotations
 import dataclasses
 from collections.abc import Callable
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 from PySide6.QtCore import QRectF, QSize, Qt, Signal
@@ -435,9 +434,7 @@ class CloudPage(_Page):
     def _fleet_settings(self) -> Any:
         s = self.wiz.settings
         cid = self.client_id.text().strip()
-        if dataclasses.is_dataclass(s) and not isinstance(s, type):
-            return dataclasses.replace(s, client_id=cid)
-        return SimpleNamespace(client_id=cid, region=getattr(s, "region", "eu"))
+        return dataclasses.replace(s, client_id=cid)
 
     def _take_secret(self) -> str:
         """Read and immediately clear the secret field (memory only, single use)."""
@@ -484,11 +481,11 @@ class CloudPage(_Page):
             return await w.bridge.io(svc.token_status(settings))
 
         def done(st: Any) -> tuple[str, bool]:
-            if not getattr(st, "logged_in", False):
+            if not st.logged_in:
                 return "Not logged in.", False
             self.wiz.logged_in = True
-            scopes = ", ".join(getattr(st, "scopes", ()) or ()) or "–"
-            return f"Logged in (region {getattr(st, 'region', '?')}; scopes {scopes}).", True
+            scopes = ", ".join(st.scopes) or "–"
+            return f"Logged in (region {st.region}; scopes {scopes}).", True
 
         self.login_action.run(
             w.bridge, work, done, "Waiting for the browser login (complete it in the browser)…"
@@ -534,13 +531,13 @@ class SetupWizard(QWizard):
         self.setWindowTitle("Set up")
         self.setWizardStyle(QWizard.WizardStyle.ClassicStyle)
         self.bridge, self.services, self.settings, self.units = bridge, services, settings, units
-        self.vin: str = getattr(settings, "vin", "") or ""
-        kp = getattr(settings, "key_path", None)
+        self.vin: str = settings.vin
+        kp = settings.key_path
         self.current_key: Path | None = Path(kp) if kp and Path(kp).is_file() else None
         self.key_path: Path = self.current_key or services.key_dest
         self.key_result: KeyResult | None = None
-        self.cloud_enabled = bool(getattr(settings, "cloud_enabled", False))
-        self.client_id: str = getattr(settings, "client_id", "") or ""
+        self.cloud_enabled: bool = settings.cloud_enabled
+        self.client_id: str = settings.client_id
         self.logged_in = False
         for page in (CarPage, KeyPage, PairPage, CloudPage, DonePage):
             self.addPage(page(self))
@@ -563,5 +560,5 @@ class SetupWizard(QWizard):
 
 
 def needs_setup(settings: Any) -> bool:
-    kp = getattr(settings, "key_path", None)
-    return not getattr(settings, "vin", "") or not (kp and Path(kp).is_file())
+    kp = settings.key_path
+    return not settings.vin or not (kp and Path(kp).is_file())

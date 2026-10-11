@@ -8,14 +8,12 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 QtWidgets = pytest.importorskip("PySide6.QtWidgets")
 
-from socks.gui._deps import seed_fake_history  # noqa: E402
 from socks.gui.history_export import (  # noqa: E402
     ExportItem,
     default_filename,
@@ -24,6 +22,7 @@ from socks.gui.history_export import (  # noqa: E402
     export_items,
     run_export,
 )
+from socks.gui.history_io import seed_fake_history  # noqa: E402
 
 VIN = "5YJ3E7EB0KF000001"
 
@@ -55,12 +54,15 @@ def test_items_and_names() -> None:
 
 
 def test_drive_rows() -> None:
+    from socks.history.trips import Drive
+
     start = datetime(2026, 10, 1, 7, 30, tzinfo=UTC)
-    d = SimpleNamespace(start=start, end=start + timedelta(minutes=30), km=20.0, start_soc=80,
-                        end_soc=76)  # fmt: skip
+    d = Drive(1, VIN, start, start + timedelta(minutes=30), 100.0, 120.0, 80, 76,
+              purpose="business", start_label="Home", end_label="Work")  # fmt: skip
     row = drive_rows([d])[0]
     assert row["minutes"] == 30 and row["avg_kmh"] == pytest.approx(40.0)
-    still = SimpleNamespace(start=start, end=start, km=0.0, start_soc=None, end_soc=None)
+    assert row["route"] == "Home → Work" and row["purpose"] == "business" and row["id"] == 1
+    still = Drive(2, VIN, start, start, 100.0, 100.0, None, None)
     assert drive_rows([still])[0]["avg_kmh"] is None
 
 
@@ -96,3 +98,37 @@ def test_chart_export(qapp: object, tmp_path: Path) -> None:
     assert (tmp_path / "c.png").read_bytes()[:4] == b"\x89PNG"
     assert c.save_image(str(tmp_path / "c.svg"), "svg")
     assert "<svg" in (tmp_path / "c.svg").read_text()
+
+
+def test_chart_hover_finds_nearest_point_fast(qapp: object) -> None:
+    import time
+
+    from socks.gui.widgets.chart import Chart
+
+    c = Chart()
+    c.resize(800, 300)
+    t0 = datetime(2026, 1, 1, tzinfo=UTC)
+    pts = [(t0 + timedelta(minutes=10 * i), float(i % 100)) for i in range(20_000)]
+    c.set_series("line", pts, "SoC", 100)
+    r = c._plot_rect()
+    start = time.perf_counter()
+    assert c.nearest_index(r.left() - 50) == 0
+    assert c.nearest_index(r.right() + 50) == len(pts) - 1
+    mid = c.nearest_index(r.center().x())
+    assert abs(mid - len(pts) // 2) <= len(pts) / r.width() + 1
+    assert time.perf_counter() - start < 0.05  # was O(n²): seconds for a few thousand points
+
+
+def test_chart_decimation_keeps_extremes(qapp: object) -> None:
+    from PySide6.QtCore import QPointF
+
+    from socks.gui.widgets.chart import _decimate
+
+    pts = [QPointF(i / 10, (i * 37) % 101) for i in range(1000)]  # 10 points per pixel column
+    out = _decimate(pts)
+    assert len(out) <= 4 * 100
+    for col in range(100):
+        ys = [p.y() for p in pts if int(p.x()) == col]
+        kept = [p.y() for p in out if int(p.x()) == col]
+        assert min(kept) == min(ys) and max(kept) == max(ys)
+    assert out[0] == pts[0] and out[-1] == pts[-1]

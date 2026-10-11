@@ -83,7 +83,7 @@ class ControlsTab(QWidget):
         self.limit.valueChanged.connect(lambda v: self.limit_label.setText(f"{v} %"))
         self.set_units("metric")
 
-        by_value = {getattr(c, "value", str(c)): c for c in commands}
+        by_value = {c.value: c for c in commands}
         placed: set[Any] = set()
         lay = QVBoxLayout(self)
         lay.addWidget(self.result)

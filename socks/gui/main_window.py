@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import contextlib
 import html
-import inspect
 import logging
 import shutil
 import tempfile
@@ -34,15 +33,10 @@ from PySide6.QtWidgets import (
     QToolButton,
 )
 
+from socks.core.commands import COMMANDS
+from socks.core.config import paths
+from socks.core.model import Source
 from socks.gui import fmt
-from socks.gui._deps import (
-    Deps,
-    history_db_path,
-    load_history,
-    make_fake_backend,
-    make_real_backend,
-    seed_fake_history,
-)
 from socks.gui.async_bridge import AsyncBridge, describe
 from socks.gui.location import (
     GeocodeGate,
@@ -55,7 +49,7 @@ from socks.gui.location import (
 )
 from socks.gui.tabs.controls import ControlsTab
 from socks.gui.tabs.history import HistoryTab
-from socks.gui.tabs.settings import SettingsTab, min_poll_seconds
+from socks.gui.tabs.settings import SettingsTab
 from socks.gui.tabs.status import StatusTab
 from socks.gui.widgets.confirm_dialog import confirm
 from socks.gui.widgets.log_view import LogView, QtLogHandler
@@ -69,7 +63,6 @@ FAKE_POLL_SECONDS = 5
 
 @dataclass
 class AppContext:
-    deps: Deps
     settings: Any
     fake: bool
     debug: bool
@@ -90,16 +83,18 @@ class MainWindow(QMainWindow):
         self._fake_dir: str | None = None
         self._seeded = False
         self._history_dirty = True
-        self._vin: str = getattr(ctx.settings, "vin", "") or ""
+        self._vin: str = ctx.settings.vin
         self._last: Any = None
         self._quitting = False
+        self._fake_cloud_backend: Any = None
+        self._wizard: Any = None
 
         # Qt appends the application display name ("— SOCKS").
         self.setWindowTitle("fake car" if ctx.fake else "")
         self.setWindowIcon(ctx.icon)
         self.resize(980, 700)
 
-        commands = ctx.deps.commands.COMMANDS
+        commands = COMMANDS
         self.status_tab = StatusTab()
         self.controls_tab = ControlsTab(commands)
         self.history_tab = HistoryTab()
@@ -172,9 +167,6 @@ class MainWindow(QMainWindow):
         self.tray: QSystemTrayIcon | None = None
         self._setup_tray()
 
-        for name in ctx.deps.shimmed:
-            log.warning("using development shim for %s", name)
-
     # ------------------------------------------------------------- set-up
 
     def _actions(self) -> None:
@@ -216,10 +208,15 @@ class MainWindow(QMainWindow):
 
     def _get_backend(self) -> Any:
         if self._backend is None:
+            from socks.core import backend as be
+
             if self.ctx.fake:
-                self._backend = make_fake_backend(self._vin)
+                self._backend = be.fake_backend(start=None, delay=0.3)
             else:
-                self._backend = make_real_backend(self.ctx.settings)
+                from socks.fleet.oauth import token_provider
+
+                s = self.ctx.settings
+                self._backend = be.build_router(s, token_provider(s))
         return self._backend
 
     def refresh(self, *, wake: bool = True, ble_only: bool = False, poll: bool = False) -> None:
@@ -237,12 +234,10 @@ class MainWindow(QMainWindow):
         self.status_tab.set_busy(True)
         try:
             backend = self._get_backend()
-            if backend is None:
-                raise RuntimeError("no backend available (core.backend missing)")
-            if ble_only and not self.ctx.fake and getattr(backend, "ble", None) is not None:
+            if ble_only and not self.ctx.fake and backend.ble is not None:
                 backend = backend.ble
             loc = self._location_enabled()
-            state = await self.bridge.io(read_state(backend, wake=wake, include_location=loc))
+            state = await self.bridge.io(backend.read_state(wake=wake, include_location=loc))
         except Exception as exc:  # noqa: BLE001 - shown inline, never a modal
             self.trip_watch.on_error(exc)
             msg = describe(exc)
@@ -281,7 +276,7 @@ class MainWindow(QMainWindow):
         if s is None:
             return
         self.status_tab.update_age()
-        src = getattr(s.source, "value", str(s.source)).upper()
+        src = s.source.value.upper()
         msg = f"Last update {fmt.local_time(s.ts)} ({fmt.age(s.ts)}) via {src}"
         if self._poll_note:
             msg += f" · {self._poll_note}"
@@ -297,13 +292,13 @@ class MainWindow(QMainWindow):
 
     def _poll_seconds(self) -> int:
         s = self.ctx.settings
-        n = int(getattr(s, "poll_seconds", 0) or 0)
+        n = s.poll_seconds
         if self.ctx.fake:
             return n or FAKE_POLL_SECONDS
         if n <= 0:
             return 0
         # Enforce the floor here too: settings files can be hand-edited.
-        return max(n, min_poll_seconds(s, bool(getattr(s, "cloud_enabled", False))))
+        return max(n, s.min_poll_seconds())
 
     def _apply_poll(self) -> None:
         n = self._poll_seconds()
@@ -313,44 +308,40 @@ class MainWindow(QMainWindow):
             self.poll_timer.stop()
 
     def _units(self) -> str:
-        return getattr(self.ctx.settings, "units", "metric") or "metric"
+        return self.ctx.settings.units or "metric"
 
     def _apply_units(self) -> None:
         u = self._units()
         self.status_tab.set_units(u)
         self.controls_tab.set_units(u)
-        self.history_tab.set_units(u, getattr(self.ctx.settings, "currency", "EUR"))
+        self.history_tab.set_units(u, self.ctx.settings.currency)
 
     # ------------------------------------------------------------ history
 
-    async def _ensure_history(self) -> Path | None:
-        """Path of the DB to use (None when the history module is shimmed)."""
-        d = self.ctx.deps
-        if d.history_db is None:
-            return None
+    async def _ensure_history(self) -> Path:
+        """Path of the DB to use (a throwaway, seeded one in fake mode)."""
         if self._history_path is None:
             if self.ctx.fake:
                 # Never pollute the real history with fake data.
                 self._fake_dir = tempfile.mkdtemp(prefix="socks-fake-")
                 self._history_path = Path(self._fake_dir) / "history.sqlite"
             else:
-                self._history_path = history_db_path(self.ctx.settings)
+                self._history_path = paths().history_db
         if self.ctx.fake and not self._seeded and self._vin:
             self._seeded = True
+            from socks.gui.history_io import seed_fake_history
+
             await self.bridge.run_sync(seed_fake_history, self._history_path, self._vin)
             log.info("seeded throwaway history DB with synthetic data")
         return self._history_path
 
     async def _record(self, state: Any) -> None:
-        d = self.ctx.deps
-        if d.recorder_mod is None:
-            return
         try:
             path = await self._ensure_history()
-            if path is None:
-                return
             if self._recorder is None:
-                self._recorder = await self.bridge.run_sync(d.recorder_mod.Recorder, path)
+                from socks.history.recorder import Recorder
+
+                self._recorder = await self.bridge.run_sync(Recorder, path)
             await self.bridge.run_sync(self._recorder.record, state)
             self._history_dirty = True
             if self._geocode_gate.due(self.ctx.settings, self.ctx.fake):
@@ -384,7 +375,9 @@ class MainWindow(QMainWindow):
             path = await self._ensure_history()
             days = self.history_tab.period_days()
             since = datetime.now(UTC) - timedelta(days=days) if days else None
-            tariff = float(getattr(self.ctx.settings, "tariff_eur_per_kwh", 0.0) or 0.0)
+            tariff = self.ctx.settings.tariff_eur_per_kwh
+            from socks.gui.history_io import load_history
+
             data = await self.bridge.run_sync(
                 load_history, path, self._vin, since, days or 365, tariff, self._units()
             )
@@ -395,14 +388,14 @@ class MainWindow(QMainWindow):
             self.history_tab.note.setText(f"Could not load history: {msg}")
             return
         self.history_tab.set_busy(False)
-        note = "synthetic data (fake mode)" if self.ctx.fake or path is None else ""
+        note = "synthetic data (fake mode)" if self.ctx.fake else ""
         self.history_tab.show_data(data, note)
         self._history_dirty = False
 
     def _export_history(self, item: Any) -> None:
         from socks.gui.history_export import default_filename, ensure_suffix, run_export
 
-        if not self._vin or self.ctx.deps.history_db is None:
+        if not self._vin:
             self.history_tab.note.setText("Nothing to export yet.")
             return
         days = self.history_tab.period_days()
@@ -443,8 +436,8 @@ class MainWindow(QMainWindow):
         """The single gate: every command that changes the car passes here."""
         if self.bridge.busy(self.controls_tab):
             return
-        info = self.ctx.deps.commands.COMMANDS[cmd]
-        dangerous = bool(info.dangerous) or getattr(cmd, "value", "") in ALWAYS_DANGEROUS
+        info = COMMANDS[cmd]
+        dangerous = info.dangerous or cmd.value in ALWAYS_DANGEROUS
         detail = [self.controls_tab.describe_arg(cmd, arg)]
         if info.needs_wake:
             detail.append("The car will be woken up if it is asleep.")
@@ -460,10 +453,7 @@ class MainWindow(QMainWindow):
     async def _send(self, cmd: Any, arg: Any, label: str) -> None:
         self.controls_tab.set_busy(cmd)
         try:
-            backend = self._get_backend()
-            if backend is None:
-                raise RuntimeError("no backend available (core.backend missing)")
-            await self.bridge.io(backend.send(cmd, arg))
+            await self.bridge.io(self._get_backend().send(cmd, arg))
         except Exception as exc:  # noqa: BLE001 - shown inline, never a modal
             msg = describe(exc)
             if getattr(exc, "maybe_executed", False):
@@ -499,9 +489,7 @@ class MainWindow(QMainWindow):
             Path(self.ctx.gui_prefs.fileName()).chmod(0o600)
         if not self.ctx.fake and self._backend is not None:
             old, self._backend = self._backend, None  # rebuilt from new settings on next use
-            closer = getattr(old, "close", None)
-            if closer is not None:
-                self.bridge.spawn(self, self.bridge.io(closer()), "close old backend")
+            self.bridge.spawn(self, self.bridge.io(old.close()), "close old backend")
         if s.vin and s.vin != self._vin and not self.ctx.fake:
             self._vin = s.vin
             self._history_dirty = True
@@ -513,10 +501,10 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------ location
 
     def _location_enabled(self) -> bool:
-        return bool(getattr(self.ctx.settings, "location_enabled", True))
+        return self.ctx.settings.location_enabled
 
     async def _update_location(self, s: Any) -> None:
-        lat, lon = getattr(s, "latitude", None), getattr(s, "longitude", None)
+        lat, lon = s.latitude, s.longitude
         if not self._location_enabled() or lat is None or lon is None:
             self.status_tab.set_location(None)
             return
@@ -540,13 +528,13 @@ class MainWindow(QMainWindow):
 
     async def _trip_read(self) -> None:
         backend = self._get_backend()
-        cloud = self._fake_cloud() if self.ctx.fake else getattr(backend, "cloud", None)
+        cloud = self._fake_cloud() if self.ctx.fake else backend.cloud
         if cloud is None:
             log.warning("trip watch: no cloud backend (enable the cloud and log in)")
             self.trip_watch.stop()
             return
         try:
-            state = await self.bridge.io(read_state(cloud, wake=False, include_location=True))
+            state = await self.bridge.io(cloud.read_state(wake=False, include_location=True))
         except Exception as exc:  # noqa: BLE001
             log.info("trip watch read failed: %s", describe(exc))
             self.trip_watch.on_error(exc)
@@ -557,13 +545,10 @@ class MainWindow(QMainWindow):
         await self._update_location(state)
 
     def _fake_cloud(self) -> Any:
-        if getattr(self, "_fake_cloud_backend", None) is None:
-            b = self.ctx.deps.backend_mod
-            src = self.ctx.deps.model.Source.CLOUD
-            factory = getattr(b, "fake_backend", None) if b is not None else None
-            self._fake_cloud_backend = (
-                factory(start=None, delay=0.3, source=src) if factory else None
-            )
+        if self._fake_cloud_backend is None:
+            from socks.core.backend import fake_backend
+
+            self._fake_cloud_backend = fake_backend(start=None, delay=0.3, source=Source.CLOUD)
         return self._fake_cloud_backend
 
     def _trip_changed(self, polling: bool, reads: int, usd: float) -> None:
@@ -621,7 +606,7 @@ class MainWindow(QMainWindow):
         from socks.gui.setup_services import FakeServices, RealServices
         from socks.gui.wizard import SetupWizard
 
-        if getattr(self, "_wizard", None) is not None:
+        if self._wizard is not None:
             self._wizard.raise_()
             return
         key_dest = Path(self.ctx.extras.get("config_dir", Path.home())) / "private_key.pem"
@@ -688,7 +673,9 @@ class MainWindow(QMainWindow):
         self.trip_watch.stop()
         rec, backend = self._recorder, self._backend
         self._recorder = self._backend = None
-        self.bridge.shutdown(finalizers=[f for f in (_closer(backend), _sync_closer(rec)) if f])
+        self.bridge.shutdown(
+            finalizers=[f for f in (backend.close if backend else None, _sync_closer(rec)) if f]
+        )
         for tmp in (self._fake_dir, self.ctx.extras.get("fake_cfg_dir")):
             if tmp:
                 shutil.rmtree(tmp, ignore_errors=True)
@@ -697,51 +684,21 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, QApplication.quit)
 
 
-def read_state(backend: Any, *, wake: bool, include_location: bool | None = None) -> Any:
-    """``backend.read_state(wake=...)`` when supported, else the plain call.
-
-    Without the kwarg a poll could wake the car, so that fallback is logged once.
-    """
-    fn = backend.read_state
-    try:
-        params = inspect.signature(fn).parameters
-    except (TypeError, ValueError):
-        params = {}
-    varkw = any(p.kind is p.VAR_KEYWORD for p in params.values())
-    if "wake" in params or varkw:
-        if include_location is not None and ("include_location" in params or varkw):
-            return fn(wake=wake, include_location=include_location)
-        return fn(wake=wake)
-    if not wake and not getattr(read_state, "_warned", False):
-        read_state._warned = True  # type: ignore[attr-defined]
-        log.warning("backend has no read_state(wake=False); polls may wake the car")
-    return fn()
-
-
-try:
-    from socks.core.backend import ASLEEP as _ASLEEP
-except ImportError:  # core not present: dev shim
-    _ASLEEP = "Asleep"
-
-
 def is_asleep(exc: BaseException) -> bool:
     """True when a non-waking read reports the car asleep (``CommandError.kind == ASLEEP``)."""
     kind = getattr(exc, "kind", None)
     if kind is not None:
-        return str(kind).lower() == str(_ASLEEP).lower()
-    return "asleep" in str(exc).lower()  # backends without CommandError.kind
+        from socks.core.backend import ASLEEP
 
-
-def _closer(obj: Any) -> Any:
-    return getattr(obj, "close", None)
+        return str(kind).lower() == ASLEEP.lower()
+    return "asleep" in str(exc).lower()  # errors that are not CommandError
 
 
 def _sync_closer(obj: Any) -> Any:
-    fn = getattr(obj, "close", None)
-    if fn is None:
+    if obj is None:
         return None
 
     async def run() -> None:
-        fn()
+        obj.close()
 
     return run

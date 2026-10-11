@@ -8,8 +8,6 @@ file, it only shows whether the path exists.
 
 from __future__ import annotations
 
-import dataclasses
-import re
 from pathlib import Path
 from typing import Any
 
@@ -31,11 +29,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from socks.core.config import MIN_POLL_BLE, MIN_POLL_CLOUD, MIN_TRIP_WATCH_INTERVAL
+from socks.core.keys import is_valid_vin, tesla_control_dir
 from socks.gui.widgets.colors import ok, warn
 from socks.gui.widgets.poll_spinbox import PollSpinBox
 
-VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
-DEFAULT_KEY = Path.home() / ".config/tesla/private_key.pem"
+DEFAULT_KEY = tesla_control_dir() / "private_key.pem"
 PRICE_NOTE = (
     "The Tesla Fleet API is billed per request: data read $0.002, command $0.001, "
     "wake $0.02. SOCKS uses Bluetooth first; keep polling off unless you need it."
@@ -43,20 +42,6 @@ PRICE_NOTE = (
 
 
 CLOUD_READ_USD = 0.002
-FALLBACK_MIN_POLL = (60, 600)  # (BLE only, cloud enabled) until core provides min_poll_seconds
-
-
-def min_poll_seconds(settings: Any, cloud_enabled: bool) -> int:
-    """Minimum non-zero poll interval; prefers core's ``Settings.min_poll_seconds()``."""
-    fn = getattr(settings, "min_poll_seconds", None)
-    if callable(fn) and dataclasses.is_dataclass(settings):
-        try:
-            return int(
-                dataclasses.replace(settings, cloud_enabled=cloud_enabled).min_poll_seconds()
-            )
-        except (TypeError, ValueError):
-            pass
-    return FALLBACK_MIN_POLL[1] if cloud_enabled else FALLBACK_MIN_POLL[0]
 
 
 class SettingsTab(QWidget):
@@ -204,30 +189,21 @@ class SettingsTab(QWidget):
 
     def load(self, s: Any, close_to_tray: bool, poll_in_background: bool = False) -> None:
         self._settings = s
-        self.vin.setText(getattr(s, "vin", "") or "")
-        kp = getattr(s, "key_path", None)
-        self.key_path.setText(str(kp) if kp else "")
-        self._select(self.units, getattr(s, "units", "metric"))
-        self._select(self.prefer, getattr(s, "prefer", "ble"))
-        self.cloud.setChecked(bool(getattr(s, "cloud_enabled", False)))
-        self._select(self.region, getattr(s, "region", "eu"))
-        self.client_id.setText(getattr(s, "client_id", "") or "")
-        self.poll.setValue(int(getattr(s, "poll_seconds", 0) or 0))
-        self.tariff.setValue(float(getattr(s, "tariff_eur_per_kwh", 0.0) or 0.0))
-        self.currency.setText(getattr(s, "currency", "EUR") or "EUR")
+        self.vin.setText(s.vin)
+        self.key_path.setText(str(s.key_path) if s.key_path else "")
+        self._select(self.units, s.units)
+        self._select(self.prefer, s.prefer)
+        self.cloud.setChecked(s.cloud_enabled)
+        self._select(self.region, s.region)
+        self.client_id.setText(s.client_id)
+        self.poll.setValue(s.poll_seconds)
+        self.tariff.setValue(s.tariff_eur_per_kwh)
+        self.currency.setText(s.currency or "EUR")
         self.close_to_tray.setChecked(close_to_tray)
-        self.location.setChecked(bool(getattr(s, "location_enabled", True)))
-        self.trip_watch.setChecked(bool(getattr(s, "trip_watch_enabled", False)))
-        self.trip_interval.setValue(int(getattr(s, "trip_watch_interval_seconds", 600) or 600))
-        self.geocode.setChecked(bool(getattr(s, "geocode_enabled", False)))
-        for box, attr in (
-            (self.location, "location_enabled"),
-            (self.trip_watch, "trip_watch_enabled"),
-            (self.geocode, "geocode_enabled"),
-        ):
-            if not hasattr(s, attr):
-                box.setEnabled(False)
-                box.setToolTip("Not available in this version of SOCKS core")
+        self.location.setChecked(s.location_enabled)
+        self.trip_watch.setChecked(s.trip_watch_enabled)
+        self.trip_interval.setValue(s.trip_watch_interval_seconds)
+        self.geocode.setChecked(s.geocode_enabled)
         self.poll_bg.setChecked(poll_in_background)
         self._cloud_toggled(self.cloud.isChecked())
         self._key_status(self.key_path.text())
@@ -239,7 +215,7 @@ class SettingsTab(QWidget):
 
     def _save(self) -> None:
         vin = self.vin.text().strip().upper()
-        if vin and not VIN_RE.match(vin):
+        if vin and not is_valid_vin(vin):
             self.show_result(
                 "VIN must be 17 characters (letters except I, O, Q, and digits).", False
             )
@@ -250,8 +226,7 @@ class SettingsTab(QWidget):
             return
         s.vin = vin
         kp = self.key_path.text().strip()
-        if hasattr(s, "key_path"):
-            s.key_path = Path(kp).expanduser() if kp else type(s)().key_path
+        s.key_path = Path(kp).expanduser() if kp else type(s)().key_path
         s.units = self.units.currentData()
         s.prefer = self.prefer.currentData()
         s.cloud_enabled = self.cloud.isChecked()
@@ -262,14 +237,10 @@ class SettingsTab(QWidget):
         self.poll.setValue(s.poll_seconds)
         s.tariff_eur_per_kwh = float(self.tariff.value())
         s.currency = (self.currency.text().strip() or "EUR").upper()
-        for attr, value in (
-            ("location_enabled", self.location.isChecked()),
-            ("trip_watch_enabled", self.trip_watch.isChecked() and self.cloud.isChecked()),
-            ("trip_watch_interval_seconds", max(300, int(self.trip_interval.value()))),
-            ("geocode_enabled", self.geocode.isChecked()),
-        ):
-            if hasattr(s, attr):
-                setattr(s, attr, value)
+        s.location_enabled = self.location.isChecked()
+        s.trip_watch_enabled = self.trip_watch.isChecked() and self.cloud.isChecked()
+        s.trip_watch_interval_seconds = max(MIN_TRIP_WATCH_INTERVAL, self.trip_interval.value())
+        s.geocode_enabled = self.geocode.isChecked()
         self.save_requested.emit()
 
     def show_result(self, text: str, success: bool) -> None:
@@ -307,7 +278,7 @@ class SettingsTab(QWidget):
         self.key_state.setText(msg)
 
     def _update_poll_minimum(self) -> None:
-        self.poll.set_minimum_on(min_poll_seconds(self._settings, self.cloud.isChecked()))
+        self.poll.set_minimum_on(MIN_POLL_CLOUD if self.cloud.isChecked() else MIN_POLL_BLE)
         self._poll_note_update()
 
     def _poll_note_update(self, *_a: object) -> None:
@@ -333,9 +304,7 @@ class SettingsTab(QWidget):
         self.trip_note.setText(text)
 
     def _cloud_toggled(self, on: bool) -> None:
-        self.trip_watch.setEnabled(
-            on and self._settings is not None and hasattr(self._settings, "trip_watch_enabled")
-        )
+        self.trip_watch.setEnabled(on and self._settings is not None)
         self.trip_interval.setEnabled(on)
         self._trip_note_update()
         self._update_poll_minimum()

@@ -4,10 +4,8 @@
 
 from __future__ import annotations
 
-import sys
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import aiohttp
@@ -16,8 +14,6 @@ from aiohttp import web
 from aiohttp.test_utils import TestServer
 
 # Run from a source checkout without installing: make `socks` importable.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from socks.core import geocode
 from socks.core.config import Settings
 from socks.core.geocode import GeocodeRunner, format_label, reverse
@@ -30,7 +26,7 @@ REPLY = {
 
 @pytest.fixture
 async def nominatim(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(geocode, "MIN_INTERVAL", 0.2)
+    monkeypatch.setattr(geocode, "MIN_INTERVAL", 0.05)
     seen: list[dict[str, Any]] = []
     mode = {"status": 200, "body": REPLY}
 
@@ -69,7 +65,7 @@ async def test_rate_limit_respected(nominatim) -> None:
     for _ in range(3):
         await reverse(52.0, 5.0, session=session, base_url=url)
     gaps = [b["t"] - a["t"] for a, b in zip(seen, seen[1:], strict=False)]
-    assert len(gaps) == 2 and all(g >= 0.19 for g in gaps)
+    assert len(gaps) == 2 and all(g >= 0.045 for g in gaps)
 
 
 async def test_failures_return_none(nominatim) -> None:

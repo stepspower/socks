@@ -77,7 +77,7 @@ def _b(v: bool | None) -> int | None:
 
 
 def _pos(s: VehicleState) -> tuple[float | None, float | None]:
-    lat, lon = getattr(s, "latitude", None), getattr(s, "longitude", None)
+    lat, lon = s.latitude, s.longitude
     return (lat, lon) if lat is not None and lon is not None else (None, None)
 
 
@@ -148,11 +148,10 @@ class Recorder:
 
     def _get_seen(self, vin: str) -> _Seen | None:
         if vin not in self._seen:
-            row = dbm.query_one(
-                self.conn,
+            row = self.conn.execute(
                 "SELECT ts, soc, odometer_km FROM snapshot WHERE vin = ? ORDER BY ts DESC LIMIT 1",
                 (vin,),
-            )
+            ).fetchone()
             self._seen[vin] = (
                 _Seen(dbm.parse_ts(row["ts"]), row["odometer_km"], row["soc"]) if row else None
             )
@@ -168,16 +167,15 @@ class Recorder:
 
     def _insert_snapshot(self, s: VehicleState, ts: datetime) -> None:
         vals = _values(s)
-        dbm.execute(
-            self.conn,
+        self.conn.execute(
             _INSERT_SNAPSHOT,
             (s.vin, dbm.iso(ts), s.source.value, *(vals[c] for c in _TRACKED), *_pos(s)),
         )
 
     def _should_snapshot(self, s: VehicleState, ts: datetime) -> bool:
-        last = dbm.query_one(
-            self.conn, "SELECT * FROM snapshot WHERE vin = ? ORDER BY ts DESC LIMIT 1", (s.vin,)
-        )
+        last = self.conn.execute(
+            "SELECT * FROM snapshot WHERE vin = ? ORDER BY ts DESC LIMIT 1", (s.vin,)
+        ).fetchone()
         if last is None or ts - dbm.parse_ts(last["ts"]) >= SNAPSHOT_MAX_AGE:
             return True
         lat, lon = _pos(s)
@@ -190,8 +188,7 @@ class Recorder:
 
     def _track_range(self, s: VehicleState) -> None:
         if s.rated_range_km and s.soc and s.soc >= MIN_SOC_FOR_RANGE_AT_100:
-            dbm.execute(
-                self.conn,
+            self.conn.execute(
                 "INSERT OR IGNORE INTO meta (key, value) VALUES (?, ?)",
                 (
                     f"first_seen_rated_range_at_100:{s.vin}",
@@ -224,8 +221,7 @@ class Recorder:
         if open_id is None:
             if not charging:
                 return
-            cur = dbm.execute(
-                self.conn,
+            cur = self.conn.execute(
                 "INSERT INTO charge_session (vin, start_ts, end_ts, start_soc, end_soc, "
                 "energy_added_kwh, max_power_kw, source, estimated) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)",
@@ -242,7 +238,7 @@ class Recorder:
             )
             open_id = int(cur.lastrowid or 0)
             self._set_open("charge", vin, open_id)
-        row = dbm.query_one(self.conn, "SELECT * FROM charge_session WHERE id = ?", (open_id,))
+        row = self.conn.execute("SELECT * FROM charge_session WHERE id = ?", (open_id,)).fetchone()
         if row is None:  # stale meta
             self._set_open("charge", vin, None)
             return
@@ -260,8 +256,7 @@ class Recorder:
         if estimated and row["start_soc"] is not None and end_soc is not None:
             energy = max(0, end_soc - row["start_soc"]) / 100.0 * self.pack_kwh
         source = row["source"] if row["source"] == s.source.value else "mixed"
-        dbm.execute(
-            self.conn,
+        self.conn.execute(
             "UPDATE charge_session SET end_ts = ?, end_soc = ?, energy_added_kwh = ?, "
             "max_power_kw = ?, source = ?, estimated = ? WHERE id = ?",
             (dbm.iso(ts), end_soc, energy, max_kw, source, int(estimated), open_id),
@@ -302,8 +297,7 @@ class Recorder:
                 start = (dbm.iso(ts), odo, s.soc)
                 pos = places.position_at_or_before(self.conn, vin, ts, DRIVE_START_WINDOW_S)
             lat0, lon0 = pos or (None, None)
-            cur = dbm.execute(
-                self.conn,
+            cur = self.conn.execute(
                 "INSERT INTO drive (vin, start_ts, end_ts, start_odo_km, end_odo_km, "
                 "start_soc, end_soc, start_lat, start_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (vin, start[0], dbm.iso(ts), start[1], odo, start[2], s.soc, lat0, lon0),
@@ -311,8 +305,7 @@ class Recorder:
             self._set_open("drive", vin, int(cur.lastrowid or 0))
             return
         if active:
-            dbm.execute(
-                self.conn,
+            self.conn.execute(
                 "UPDATE drive SET end_ts = ?, end_odo_km = COALESCE(?, end_odo_km), "
                 "end_soc = COALESCE(?, end_soc) WHERE id = ?",
                 (dbm.iso(ts), odo, s.soc, open_id),

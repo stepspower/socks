@@ -43,10 +43,6 @@ class AppPaths:
         return self.config / "private_key.pem"
 
     @property
-    def public_key_file(self) -> Path:
-        return self.config / "public_key.pem"
-
-    @property
     def history_db(self) -> Path:
         return self.data / "history.sqlite"
 

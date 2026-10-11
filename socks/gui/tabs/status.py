@@ -108,7 +108,7 @@ class StatusTab(QWidget):
 
     def set_commands(self, commands: dict[Any, Any]) -> None:
         """Create inline editors/chips for the commands core offers (others stay hidden)."""
-        self._cmds = {getattr(c, "value", str(c)): c for c in commands}
+        self._cmds = {c.value: c for c in commands}
         self._infos = commands
 
         def editor(cmd: str, kind: str) -> InlineEdit | None:
@@ -192,23 +192,23 @@ class StatusTab(QWidget):
             s.charge_limit,
             s.charge_limit is not None,
         )
-        amps = getattr(s, "charge_current_request_a", None)
+        amps = s.charge_current_request_a
         put("set_charge_amps", f"{amps} A", amps, amps is not None)
         if amps is not None and "set_charge_amps" in self._editors:
             lo, hi, step, unit = display_range(self._info("set_charge_amps"), u)
-            hi = getattr(s, "charge_current_request_max_a", None) or hi
+            hi = s.charge_current_request_max_a or hi
             self._editors["set_charge_amps"].configure(lo, hi, step, unit)
         if s.target_temp_c is not None:
             t = fmt.temp_to_display(s.target_temp_c, u)
             put("set_temp", f"Target {fmt.temp(s.target_temp_c, u)}", t)
-        mode = getattr(s, "scheduled_charging_mode", None)
+        mode = s.scheduled_charging_mode
         start = minutes_of(s.scheduled_charging_start)
         put(
             "set_scheduled_charging",
             f"Charge at {hhmm(start)}" if start is not None else "Scheduled charging off",
             start,
         )
-        dep = minutes_of(getattr(s, "scheduled_departure", None)) if mode != "Off" else None
+        dep = minutes_of(s.scheduled_departure) if mode != "Off" else None
         put(
             "set_scheduled_departure",
             f"Depart by {hhmm(dep)}" if dep is not None else "Departure off",
@@ -242,7 +242,7 @@ class StatusTab(QWidget):
         self._state = s
         u = self._units
         self.title.setText(s.car_name or s.vin or "Vehicle")
-        charging_name = getattr(s.charging, "name", str(s.charging))
+        charging_name = s.charging.name
         is_charging = charging_name == "CHARGING"
         cap = fmt.dist(s.rated_range_km, u)
         if is_charging:
@@ -255,7 +255,7 @@ class StatusTab(QWidget):
             fmt.dist(s.rated_range_km, u), " · ".join(x for x in (usable, ideal) if x)
         )
 
-        state_text = getattr(s.charging, "value", str(s.charging))
+        state_text = s.charging.value
         if s.plugged_in is False:
             value, detail = "Unplugged", ""
         elif is_charging:
@@ -298,7 +298,7 @@ class StatusTab(QWidget):
         self.security_card.set(lock, " · ".join(open_bits))
 
         self.odo_card.set(fmt.dist(s.odometer_km, u), "")
-        shift = getattr(s.shift, "value", "?")
+        shift = s.shift.value
         veh = f"Shift {shift}"
         if s.speed_kmh:
             veh += f" · {fmt.speed(s.speed_kmh, u)}"
@@ -312,7 +312,7 @@ class StatusTab(QWidget):
             return
         ts = s.ts if s.ts.tzinfo else s.ts.replace(tzinfo=UTC)
         old = (datetime.now(UTC) - ts).total_seconds() > STALE_SECONDS
-        src = getattr(s.source, "value", str(s.source)).upper()
+        src = s.source.value.upper()
         self.chip.set_chip(f"{src} · {fmt.age(ts)}", "warn" if old else "normal")
         self.chip.setToolTip(f"Read at {fmt.local_time(ts, with_date=True)}")
         self.chip.setAccessibleName(f"Data source {src}, {fmt.age(ts)}")

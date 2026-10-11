@@ -13,11 +13,13 @@ import errno
 import hashlib
 import os
 import re
+import secrets
 import stat
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import ec
+if TYPE_CHECKING:  # cryptography is imported lazily: VIN/file helpers must stay cheap
+    from cryptography.hazmat.primitives.asymmetric import ec
 
 VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 
@@ -105,6 +107,9 @@ def load_private_key(path: Path) -> ec.EllipticCurvePrivateKey:
         raise KeyFileError(f"cannot read {path}: {e.strerror}") from None
     finally:
         os.close(fd)
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
     try:
         key = serialization.load_pem_private_key(data, password=None)
     except (ValueError, TypeError):
@@ -118,11 +123,15 @@ def load_private_key(path: Path) -> ec.EllipticCurvePrivateKey:
 
 
 def generate_private_key() -> ec.EllipticCurvePrivateKey:
+    from cryptography.hazmat.primitives.asymmetric import ec
+
     return ec.generate_private_key(ec.SECP256R1())
 
 
 def private_key_pem(key: ec.EllipticCurvePrivateKey) -> bytes:
     """PEM bytes of a private key: only for writing to a 0600 file, never for display."""
+    from cryptography.hazmat.primitives import serialization
+
     return key.private_bytes(
         serialization.Encoding.PEM,
         serialization.PrivateFormat.PKCS8,
@@ -132,7 +141,9 @@ def private_key_pem(key: ec.EllipticCurvePrivateKey) -> bytes:
 
 def public_key_pem(key: ec.EllipticCurvePrivateKey | ec.EllipticCurvePublicKey) -> bytes:
     """SubjectPublicKeyInfo PEM of the public half (safe to show, upload, share)."""
-    pub = key.public_key() if isinstance(key, ec.EllipticCurvePrivateKey) else key
+    from cryptography.hazmat.primitives import serialization
+
+    pub = _public(key)
     return pub.public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
     )
@@ -140,12 +151,22 @@ def public_key_pem(key: ec.EllipticCurvePrivateKey | ec.EllipticCurvePublicKey) 
 
 def public_key_fingerprint(key: ec.EllipticCurvePrivateKey | ec.EllipticCurvePublicKey) -> str:
     """Short SHA-256 fingerprint of the uncompressed public point, for display."""
-    pub = key.public_key() if isinstance(key, ec.EllipticCurvePrivateKey) else key
+    from cryptography.hazmat.primitives import serialization
+
+    pub = _public(key)
     raw = pub.public_bytes(
         serialization.Encoding.X962, serialization.PublicFormat.UncompressedPoint
     )
     digest = hashlib.sha256(raw).hexdigest()
     return ":".join(digest[i : i + 4] for i in range(0, 32, 4))
+
+
+def _public(
+    key: ec.EllipticCurvePrivateKey | ec.EllipticCurvePublicKey,
+) -> ec.EllipticCurvePublicKey:
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    return key.public_key() if isinstance(key, ec.EllipticCurvePrivateKey) else key
 
 
 def ensure_private_dir(path: Path) -> None:
@@ -154,12 +175,18 @@ def ensure_private_dir(path: Path) -> None:
     os.chmod(path, 0o700)
 
 
-def write_secret_file(path: Path, data: bytes) -> None:
-    """Atomically write ``data`` to ``path`` with mode 0600 (dir made 0700)."""
-    ensure_private_dir(path.parent)
-    tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+def write_secret_file(path: Path, data: bytes, *, private_dir: bool = True) -> None:
+    """Atomically write ``data`` to ``path`` with mode 0600 (temp file, fsync, rename).
+
+    ``private_dir`` creates/tightens the parent to 0700; pass False for a directory the user
+    chose (e.g. a download folder), which must already exist and is left as it is.
+    """
+    if private_dir:
+        ensure_private_dir(path.parent)
+    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     try:
+        os.fchmod(fd, 0o600)  # exact mode whatever the umask
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
             fh.flush()

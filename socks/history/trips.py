@@ -68,8 +68,7 @@ def set_drive_purpose(
     if purpose is not None and purpose not in PURPOSES:
         raise ValueError(f"purpose must be one of {PURPOSES} or None, got {purpose!r}")
     with dbm.transaction(db):
-        cur = dbm.execute(
-            db,
+        cur = db.execute(
             "UPDATE drive SET purpose = ?, purpose_source = ?, note = COALESCE(?, note) "
             "WHERE id = ?",
             (purpose, "user" if purpose else None, _clean(note), drive_id),
@@ -77,9 +76,9 @@ def set_drive_purpose(
         if cur.rowcount == 0:
             raise LookupError(f"no drive with id {drive_id}")
         if purpose:  # remember it for the destination place
-            row = dbm.query_one(
-                db, "SELECT vin, end_lat, end_lon FROM drive WHERE id = ?", (drive_id,)
-            )
+            row = db.execute(
+                "SELECT vin, end_lat, end_lon FROM drive WHERE id = ?", (drive_id,)
+            ).fetchone()
             if row and row["end_lat"] is not None:
                 place = places.place_at(db, row["vin"], row["end_lat"], row["end_lon"])
                 if place:
@@ -94,8 +93,7 @@ def set_drive_labels(
 ) -> None:
     """Set free-text place labels; None leaves a label unchanged, '' clears it."""
     with dbm.transaction(db):
-        cur = dbm.execute(
-            db,
+        cur = db.execute(
             "UPDATE drive SET start_label = COALESCE(?, start_label), "
             "end_label = COALESCE(?, end_label), label_source = 'user' WHERE id = ?",
             (_clean(start_label), _clean(end_label), drive_id),
@@ -112,8 +110,7 @@ def drives(
     purpose: str | None = None,
 ) -> list[Drive]:
     """Drives starting in [since, until), oldest first; optional purpose filter."""
-    rows = dbm.query(
-        db,
+    rows = db.execute(
         "SELECT * FROM drive WHERE vin = ? AND start_ts >= ? AND start_ts < ? "
         "AND (? IS NULL OR purpose = ?) ORDER BY start_ts, id",
         (
@@ -123,7 +120,7 @@ def drives(
             purpose,
             purpose,
         ),
-    )
+    ).fetchall()
     return [
         Drive(
             id=r["id"],
@@ -148,7 +145,7 @@ def drives(
 
 
 def year_bounds(year: int, tz: tzinfo | None = None) -> tuple[datetime, datetime]:
-    zone = tz or datetime.now().astimezone().tzinfo or UTC
+    zone = dbm.local_zone(tz)
     return (
         datetime(year, 1, 1, tzinfo=zone).astimezone(UTC),
         datetime(year + 1, 1, 1, tzinfo=zone).astimezone(UTC),

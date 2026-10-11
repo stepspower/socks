@@ -8,6 +8,7 @@ the nearest value; the widget also exposes a text summary for screen readers.
 
 from __future__ import annotations
 
+import bisect
 import math
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
@@ -49,6 +50,28 @@ def _nice_max(v: float) -> float:
     return 10 * exp
 
 
+def _decimate(pts: list[QPointF]) -> list[QPointF]:
+    """Keep first/min/max/last per pixel column: the drawn line looks the same."""
+    out: list[QPointF] = []
+    col: list[QPointF] = []
+    for pt in pts:
+        if col and int(pt.x()) != int(col[0].x()):
+            out.extend(_column(col))
+            col = []
+        col.append(pt)
+    out.extend(_column(col))
+    return out
+
+
+def _column(col: list[QPointF]) -> list[QPointF]:
+    if len(col) <= 4:
+        return col
+    lo = min(col, key=QPointF.y)
+    hi = max(col, key=QPointF.y)
+    mid = [lo, hi] if col.index(lo) < col.index(hi) else [hi, lo]
+    return [col[0], *mid, col[-1]]
+
+
 class Chart(QWidget):
     #: (path, success) after a PNG/SVG export
     saved = Signal(str, bool)
@@ -60,6 +83,8 @@ class Chart(QWidget):
         self._xs: list[float] = []
         self._xr = (0.0, 1.0)
         self._ymax: float | None = None
+        self._top = 1.0
+        self._path_cache: tuple[tuple[float, ...], QPainterPath] | None = None
         self._yfmt: Callable[[float], str] = lambda v: f"{v:g}"
         self._xfmt: Callable[[X], str] = lambda x: x.strftime("%d %b")
         self._title = ""
@@ -88,6 +113,10 @@ class Chart(QWidget):
             lo, hi = self._xs[0], self._xs[-1] + (86400 if kind == "bars" else 0)
             self._xr = (lo, hi if hi > lo else lo + 1)
         self._ymax = y_max
+        self._top = (
+            y_max if y_max is not None else _nice_max(max((p[1] for p in self._pts), default=1.0))
+        )
+        self._path_cache = None
         if y_fmt is not None:
             self._yfmt = y_fmt
         self._title = title
@@ -107,7 +136,7 @@ class Chart(QWidget):
         w = self.width() if w is None else w
         h = self.height() if h is None else h
         fm = self.fontMetrics()
-        left = fm.horizontalAdvance(self._yfmt(self._top())) + 12
+        left = fm.horizontalAdvance(self._yfmt(self._top)) + 12
         top = fm.height() + 8 if self._title else 8
         return QRectF(
             left,
@@ -116,17 +145,9 @@ class Chart(QWidget):
             max(10, h - top - fm.height() - 12),
         )
 
-    def _top(self) -> float:
-        if self._ymax is not None:
-            return self._ymax
-        return _nice_max(max((p[1] for p in self._pts), default=1.0))
-
-    def _xrange(self) -> tuple[float, float]:
-        return self._xr
-
     def _map(self, r: QRectF, x: float, y: float, top: float | None = None) -> QPointF:
         lo, hi = self._xr
-        top = self._top() if top is None else top
+        top = self._top if top is None else top
         return QPointF(
             r.left() + (x - lo) / (hi - lo) * r.width(), r.bottom() - (y / top) * r.height()
         )
@@ -184,7 +205,7 @@ class Chart(QWidget):
 
         grid = QColor(pal.color(QPalette.ColorRole.Mid))
         grid.setAlphaF(0.5)
-        top = self._top()
+        top = self._top
         for i in range(5):
             v = top * i / 4
             y = r.bottom() - r.height() * i / 4
@@ -208,7 +229,7 @@ class Chart(QWidget):
 
         col = accent(pal)
         if self._kind == "bars":
-            lo, hi = self._xrange()
+            lo, hi = self._xr
             bw = max(1.0, r.width() * 86400 / (hi - lo) * 0.75)
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(col)
@@ -216,22 +237,32 @@ class Chart(QWidget):
                 pt = self._map(r, xn, y, top)
                 p.drawRect(QRectF(pt.x() + bw * 0.15, pt.y(), bw, r.bottom() - pt.y()))
         else:
-            path = QPainterPath()
-            for i, (xn, (_x, y)) in enumerate(zip(self._xs, self._pts, strict=True)):
-                pt = self._map(r, xn, y, top)
-                if i == 0:
-                    path.moveTo(pt)
-                else:
-                    path.lineTo(pt)
-            fill = QPainterPath(path)
-            fill.lineTo(self._map(r, _xnum(self._pts[-1][0]), 0))
-            fill.lineTo(self._map(r, _xnum(self._pts[0][0]), 0))
-            fill.closeSubpath()
+            path, fill = self._line_paths(r, top)
             area = QColor(col)
             area.setAlphaF(0.18)
             p.fillPath(fill, area)
             p.setPen(QPen(col, 2))
             p.drawPath(path)
+
+    def _line_paths(self, r: QRectF, top: float) -> tuple[QPainterPath, QPainterPath]:
+        """Line and area paths, rebuilt only when the data or the plot rect changes."""
+        key = (r.left(), r.top(), r.width(), r.height(), top)
+        if self._path_cache is None or self._path_cache[0] != key:
+            pts = [
+                self._map(r, xn, y, top) for xn, (_x, y) in zip(self._xs, self._pts, strict=True)
+            ]
+            if len(pts) > 2 * r.width():
+                pts = _decimate(pts)
+            path = QPainterPath(pts[0])
+            for pt in pts[1:]:
+                path.lineTo(pt)
+            self._path_cache = (key, path)
+        path = self._path_cache[1]
+        fill = QPainterPath(path)
+        fill.lineTo(self._map(r, self._xs[-1], 0, top))
+        fill.lineTo(self._map(r, self._xs[0], 0, top))
+        fill.closeSubpath()
+        return path, fill
 
     # ----------------------------------------------------------- context menu
 
@@ -255,13 +286,22 @@ class Chart(QWidget):
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
         if not self._pts:
             return
-        r = self._plot_rect()
-        pos = e.position()
-        i = min(range(len(self._xs)), key=lambda k: abs(self._map(r, self._xs[k], 0).x() - pos.x()))
-        best = self._pts[i]
+        best = self._pts[self.nearest_index(e.position().x())]
         label = (
             best[0].strftime("%Y-%m-%d %H:%M")
             if isinstance(best[0], datetime)
             else best[0].isoformat()
         )
         QToolTip.showText(e.globalPosition().toPoint(), f"{label}: {self._yfmt(best[1])}", self)
+
+    def nearest_index(self, px: float) -> int:
+        """Index of the point whose x is nearest to widget x ``px`` (binary search)."""
+        r = self._plot_rect()
+        lo, hi = self._xr
+        x = lo + (px - r.left()) / max(r.width(), 1e-9) * (hi - lo)
+        i = bisect.bisect_left(self._xs, x)
+        if i <= 0:
+            return 0
+        if i >= len(self._xs):
+            return len(self._xs) - 1
+        return i if self._xs[i] - x < x - self._xs[i - 1] else i - 1

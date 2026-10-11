@@ -31,7 +31,3 @@ def ok(pal: QPalette) -> QColor:
 
 def muted(pal: QPalette) -> QColor:
     return QColor(pal.color(QPalette.ColorRole.PlaceholderText))
-
-
-def is_dark(pal: QPalette) -> bool:
-    return pal.color(QPalette.ColorRole.Window).lightness() < 128

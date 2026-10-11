@@ -57,17 +57,16 @@ def run_export(
     year: int,
 ) -> int:
     """Blocking: open the DB, write the file (0600, atomic), return the row count."""
-    from socks.gui._deps import open_db
+    from socks.gui.history_io import with_db
     from socks.history import export
 
-    db = open_db(db_path)
-    try:
+    def go(db: Any) -> int:
         if item.kind == "mileage":
-            return int(export.export_mileage_register_csv(db, vin, year, path, units))
+            return export.export_mileage_register_csv(db, vin, year, path, units)
         fn = export.export_json if item.fmt == "json" else export.export_csv
-        return int(fn(db, vin, item.kind, path, since=since, until=until, units=units))
-    finally:
-        db.close()
+        return fn(db, vin, item.kind, path, since=since, until=until, units=units)
+
+    return with_db(db_path, go)
 
 
 def route_text(start: str | None, end: str | None) -> str:
@@ -81,7 +80,7 @@ def drive_rows(drives: list[Any]) -> list[dict[str, Any]]:
     rows = []
     for d in drives:
         start, end = d.start.astimezone(), d.end.astimezone()
-        km = float(getattr(d, "km", 0.0) or 0.0)
+        km = d.km
         hours = max(0.0, (end - start).total_seconds() / 3600)
         rows.append(
             {
@@ -93,9 +92,9 @@ def drive_rows(drives: list[Any]) -> list[dict[str, Any]]:
                 "avg_kmh": km / hours if hours >= 1 / 60 and km > 0 else None,
                 "start_soc": d.start_soc,
                 "end_soc": d.end_soc,
-                "id": getattr(d, "id", None),
-                "route": route_text(getattr(d, "start_label", None), getattr(d, "end_label", None)),
-                "purpose": getattr(d, "purpose", None),
+                "id": d.id,
+                "route": route_text(d.start_label, d.end_label),
+                "purpose": d.purpose,
             }
         )
     return rows

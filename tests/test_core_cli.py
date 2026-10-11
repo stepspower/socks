@@ -5,14 +5,11 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
 # Run from a source checkout without installing: make `socks` and `tests.fakes` importable.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from socks.core import keys
 from socks.core.cli import EXIT_FAIL, EXIT_OK, EXIT_REFUSED, format_status, main
 from socks.core.config import Settings

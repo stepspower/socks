@@ -9,7 +9,7 @@ Rendering is driven by the field names of the dataclasses returned by
 from __future__ import annotations
 
 import dataclasses
-from datetime import date, datetime
+from datetime import date
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
@@ -50,37 +50,10 @@ SKIP_COLS = {"id", "vin", "raw"}
 
 
 def fields_of(obj: Any) -> list[tuple[str, Any]]:
+    """(name, value) pairs of a stats dataclass; [] for None."""
     if obj is None:
         return []
-    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-        return [(f.name, getattr(obj, f.name)) for f in dataclasses.fields(obj)]
-    if hasattr(obj, "_asdict"):
-        return list(obj._asdict().items())
-    if isinstance(obj, dict):
-        return list(obj.items())
-    return [(k, v) for k, v in vars(obj).items() if not k.startswith("_")]
-
-
-def xy(obj: Any) -> tuple[date | datetime, float] | None:
-    """Extract (x, y) from a tuple or a DayKm-like dataclass."""
-    if isinstance(obj, tuple) and len(obj) == 2:
-        return obj[0], float(obj[1])
-    x = y = None
-    for name, v in fields_of(obj):
-        if x is None and isinstance(v, date | datetime):
-            x = v
-        elif y is None and isinstance(v, int | float) and not isinstance(v, bool) and "km" in name:
-            y = float(v)
-    if y is None:
-        y = next(
-            (
-                float(v)
-                for _n, v in fields_of(obj)
-                if isinstance(v, int | float) and not isinstance(v, bool)
-            ),
-            None,
-        )
-    return (x, y) if x is not None and y is not None else None
+    return [(f.name, getattr(obj, f.name)) for f in dataclasses.fields(obj)]
 
 
 def _readonly_table(name: str) -> QTableWidget:
@@ -300,9 +273,9 @@ class HistoryTab(QWidget):
             card.set(self._fmt(*hit), hint)
 
         imperial = fmt.imperial(self._units)
-        soc_pts = [p for p in (xy(o) for o in data.soc) if p]
+        soc_pts = [(t, float(v)) for t, v in data.soc]
         self.soc_chart.set_series("line", soc_pts, "State of charge", 100, lambda v: f"{v:.0f}%")
-        km_pts = [p for p in (xy(o) for o in data.daily) if p]
+        km_pts = [(d.date, d.km) for d in data.daily]
         if imperial:
             km_pts = [(x, y / fmt.KM_PER_MI) for x, y in km_pts]
         unit = "mi" if imperial else "km"
@@ -312,9 +285,9 @@ class HistoryTab(QWidget):
 
         self._fill_health(data.health)
         self._fill_sessions(data.sessions)
-        self._fill_drives(getattr(data, "drives", []))
-        self._fill_places(getattr(data, "places", []))
-        self._fill_totals(getattr(data, "mileage", None), getattr(data, "year", 0))
+        self._fill_drives(data.drives)
+        self._fill_places(data.places)
+        self._fill_totals(data.mileage, data.year)
 
         while self.nerd.rowCount():
             self.nerd.removeRow(0)
@@ -322,7 +295,7 @@ class HistoryTab(QWidget):
             (fmt.humanize(n), self._fmt(n, v)) for n, v in summary if n not in used and n != "since"
         ]
         seen = {label.lower() for label, _v in rows}
-        rows += [(k, v) for k, v in getattr(data, "nerd", {}).items() if k.lower() not in seen]
+        rows += [(k, v) for k, v in data.nerd.items() if k.lower() not in seen]
         for label, value in rows:
             lab = QLabel(value)
             lab.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -330,7 +303,7 @@ class HistoryTab(QWidget):
 
     def _fill_health(self, health: Any) -> None:
         items = fields_of(health)
-        if not items or not getattr(health, "samples", 1):
+        if not items or not health.samples:
             self.health.setText("Battery health: not enough data yet")
             return
         parts = []
@@ -435,7 +408,7 @@ class HistoryTab(QWidget):
         self.place_edited.emit(int(place_id), name_item.text(), kind.currentText())
 
     def _fill_totals(self, m: Any, year: int) -> None:
-        if m is None or not getattr(m, "drives", 0):
+        if m is None or not m.drives:
             self.totals.setText("")
             return
         u = self._units

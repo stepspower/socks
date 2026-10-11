@@ -11,6 +11,9 @@ the current state. Nothing here touches Bluetooth or the network.
 from __future__ import annotations
 
 import asyncio
+import math
+import random
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -313,3 +316,73 @@ class FakeBackend:
 
     async def close(self) -> None:
         self.closed = True
+
+
+SYNTH_HOME = (52.0, 5.0)
+SYNTH_WORK = (52.05, 5.08)
+
+
+def synthetic_states(vin: str = FAKE_VIN, days: int = 45) -> Iterator[VehicleState]:
+    """A plausible history ending now (oldest first), for seeding ``--fake`` history.
+
+    Pattern per day: two commute drives (plus a Saturday trip), a charge in the evening
+    when SoC < 50. One state every 10 minutes; GPS at home/work while parked.
+    """
+    r = random.Random(vin)  # noqa: S311 - simulation, not crypto
+    t = (datetime.now(UTC) - timedelta(days=days)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    end = datetime.now(UTC) - timedelta(minutes=30)
+    soc, odo, energy = 70.0, 48000.0, 0.0
+    charging = was_plugged = False
+    while t < end:
+        hour = t.hour + t.minute / 60
+        driving = (
+            7.5 <= hour < 8.2 or 17.3 <= hour < 18.1 or (t.weekday() == 5 and 10 <= hour < 11.5)
+        )
+        if driving:
+            km = r.uniform(2.5, 5)
+            odo += km
+            soc = max(5.0, soc - km * 0.155 / 0.75)
+            charging = False
+        elif 19 <= hour and soc < 50:
+            charging = True
+        if charging and not driving:
+            soc = min(80.0, soc + 11 / 6 / 0.75)
+            energy += 11 / 6
+            if soc >= 80:
+                charging = False
+        plugged = (hour >= 19 or hour < 7.4) and not driving
+        if plugged and not was_plugged:
+            energy = 0.0  # the car's counter restarts at each plug-in
+        was_plugged = plugged
+        at_work = t.weekday() < 5 and 8.2 <= hour < 17.3
+        where = (None, None) if driving else (SYNTH_WORK if at_work else SYNTH_HOME)
+        cs = ChargingState
+        yield make_state(
+            ts=t,
+            vin=vin,
+            soc=int(soc),
+            usable_soc=int(soc) - 1,
+            charging=cs.CHARGING if charging else (cs.STOPPED if plugged else cs.DISCONNECTED),
+            charger_power_kw=11.0 if charging else 0.0,
+            charger_voltage=230 if charging else 0,
+            charger_current_a=16 if charging else 0,
+            charge_energy_added_kwh=round(energy, 2),
+            minutes_to_limit=int((80 - soc) * 4) if charging else None,
+            rated_range_km=round(soc * 5.0, 1),
+            ideal_range_km=round(soc * 5.3, 1),
+            plugged_in=plugged,
+            charge_port_open=plugged,
+            odometer_km=round(odo, 1),
+            shift=ShiftState.D if driving else ShiftState.P,
+            speed_kmh=45.0 if driving else 0.0,
+            power_kw=15.0 if driving else 0.0,
+            inside_temp_c=18.0,
+            outside_temp_c=10.0 + 5 * math.sin(hour / 24 * 2 * math.pi),
+            locked=not driving,
+            latitude=where[0],
+            longitude=where[1],
+            gps_as_of=None if driving else t,
+        )
+        t += timedelta(minutes=10)

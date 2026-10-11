@@ -22,11 +22,11 @@ compliance.
 from __future__ import annotations
 
 import csv
+import io
 import json
 import os
 import sqlite3
-import tempfile
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from datetime import UTC, datetime, tzinfo
 from pathlib import Path
 from typing import Any
@@ -36,10 +36,6 @@ from . import trips, units
 
 KINDS = ("drives", "charges", "snapshots")
 _FORMULA_CHARS = ("=", "+", "-", "@", "\t", "\r")
-
-
-def _zone(tz: tzinfo | None) -> tzinfo:
-    return tz or datetime.now().astimezone().tzinfo or UTC
 
 
 def _local(ts: datetime | str | None, zone: tzinfo) -> str | None:
@@ -118,8 +114,7 @@ def _table(
                 r["start_soc"], r["end_soc"], _r(r["energy_added_kwh"], 2),
                 _r(r["max_power_kw"], 1), r["source"], bool(r["estimated"]),
             ]
-            for r in dbm.query(
-                db,
+            for r in db.execute(
                 "SELECT * FROM charge_session WHERE vin = ? AND start_ts >= ? "
                 "AND start_ts < ? ORDER BY start_ts, id",
                 (vin, lo, hi),
@@ -143,8 +138,7 @@ def _table(
                 _temp(r["inside_temp_c"], imp), _temp(r["outside_temp_c"], imp),
                 _bool(r["locked"]), _bool(r["plugged_in"]),
             ]
-            for r in dbm.query(
-                db,
+            for r in db.execute(
                 "SELECT * FROM snapshot WHERE vin = ? AND ts >= ? AND ts < ? ORDER BY ts",
                 (vin, lo, hi),
             )
@@ -153,29 +147,20 @@ def _table(
     raise ValueError(f"kind must be one of {KINDS}, got {kind!r}")
 
 
-def _atomic_write(path: str | os.PathLike[str], write: Callable[[Any], None]) -> None:
-    target = Path(path)
-    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
-    try:
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-            write(fh)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, target)
-    except BaseException:
-        Path(tmp).unlink(missing_ok=True)
-        raise
+def _write(path: str | os.PathLike[str], text: str) -> None:
+    """Atomic, mode 0600; the user's chosen directory is left as it is."""
+    from socks.core.keys import write_secret_file
+
+    write_secret_file(Path(path), text.encode("utf-8"), private_dir=False)
 
 
 def _write_csv(path: str | os.PathLike[str], cols: Sequence[str], rows: list[list[Any]]) -> None:
-    def write(fh: Any) -> None:
-        w = csv.writer(fh, lineterminator="\r\n")
-        w.writerow(cols)
-        for row in rows:
-            w.writerow(["" if v is None else v for v in row])
-
-    _atomic_write(path, write)
+    buf = io.StringIO(newline="")
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(cols)
+    for row in rows:
+        w.writerow(["" if v is None else v for v in row])
+    _write(path, buf.getvalue())
 
 
 def export_csv(
@@ -190,7 +175,7 @@ def export_csv(
     tz: tzinfo | None = None,
 ) -> int:
     """Write one table as CSV. Returns the number of data rows."""
-    cols, rows = _table(db, vin, kind, since, until, units, _zone(tz))
+    cols, rows = _table(db, vin, kind, since, until, units, dbm.local_zone(tz))
     _write_csv(path, cols, rows)
     return len(rows)
 
@@ -207,7 +192,7 @@ def export_json(
     tz: tzinfo | None = None,
 ) -> int:
     """Write one JSON document {vin, kind, exported_at, units, schema_version, rows}."""
-    zone = _zone(tz)
+    zone = dbm.local_zone(tz)
     cols, rows = _table(db, vin, kind, since, until, units, zone)
     doc = {
         "vin": vin,
@@ -217,7 +202,7 @@ def export_json(
         "schema_version": int(dbm.get_meta(db, "schema_version", "0") or 0),
         "rows": [dict(zip(cols, row, strict=True)) for row in rows],
     }
-    _atomic_write(path, lambda fh: json.dump(doc, fh, indent=2, ensure_ascii=False))
+    _write(path, json.dumps(doc, indent=2, ensure_ascii=False))
     return len(rows)
 
 
@@ -234,7 +219,7 @@ def export_mileage_register_csv(
     tz: tzinfo | None = None,
 ) -> int:
     """Write the yearly trip register (see module docstring). Returns the trip count."""
-    zone = _zone(tz)
+    zone = dbm.local_zone(tz)
     imp = _imp(units)
     d = "mi" if imp else "km"
     cols = [

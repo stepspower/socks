@@ -71,12 +71,39 @@ def test_migration_v2_to_v3(tmp_path):
     con.commit()
     con.close()
     c = dbm.open(p)
-    assert dbm.get_meta(c, "schema_version") == "3"
-    rows = dbm.query(c, "SELECT purpose, purpose_source, label_source FROM drive ORDER BY id")
+    assert dbm.get_meta(c, "schema_version") == str(dbm.SCHEMA_VERSION)
+    rows = c.execute(
+        "SELECT purpose, purpose_source, label_source FROM drive ORDER BY id"
+    ).fetchall()
     assert [tuple(r) for r in rows] == [("business", "user", "user"), (None, None, None)]
-    assert dbm.query_one(c, "SELECT lat, lon FROM snapshot")["lat"] is None
+    assert c.execute("SELECT lat, lon FROM snapshot").fetchone()["lat"] is None
     assert places.list_places(c, VIN) == []
     c.close()
+
+
+def test_migration_v3_to_v4_adds_open_end_index(tmp_path):
+    p = tmp_path / "v3.sqlite"
+    con = sqlite3.connect(p)
+    for stmt in (*dbm.SCHEMA_V1, *dbm.SCHEMA_V2, *dbm.SCHEMA_V3):
+        con.execute(stmt)
+    con.execute("INSERT INTO meta VALUES ('schema_version', '3')")
+    con.execute("INSERT INTO drive (vin, start_ts, end_ts) VALUES (?, ?, ?)", (VIN, "a", "b"))
+    con.commit()
+    con.close()
+    c = dbm.open(p)
+    assert dbm.get_meta(c, "schema_version") == "4"
+    plan = " ".join(
+        r[3]
+        for r in c.execute(
+            "EXPLAIN QUERY PLAN SELECT id, end_ts FROM drive WHERE vin = ? AND end_lat IS NULL "
+            "AND end_ts >= ? AND id IS NOT ?",
+            (VIN, "a", None),
+        )
+    )
+    assert "ix_drive_open_end" in plan
+    assert c.execute("SELECT COUNT(*) FROM drive").fetchone()[0] == 1  # data kept
+    c.close()
+    assert dbm.get_meta(dbm.open(p), "schema_version") == "4"  # reopening is a no-op
 
 
 def test_snapshot_position_dedupe(rec):
@@ -151,9 +178,9 @@ def test_labels_commute_rule_and_user_purpose(rec):
     assert (ds[0].start_label, ds[0].end_label) == ("Thuis", "Kantoor")
     assert ds[0].purpose == "private"
     assert all(d.purpose == "commute" for d in ds[1:6])
-    row = dbm.query_one(rec.conn, "SELECT purpose_source FROM drive WHERE id = ?", (ds[0].id,))
+    row = rec.conn.execute("SELECT purpose_source FROM drive WHERE id = ?", (ds[0].id,)).fetchone()
     assert row[0] == "user"
-    row = dbm.query_one(rec.conn, "SELECT purpose_source FROM drive WHERE id = ?", (ds[1].id,))
+    row = rec.conn.execute("SELECT purpose_source FROM drive WHERE id = ?", (ds[1].id,)).fetchone()
     assert row[0] == "rule"
     assert ds[6].purpose is None  # work -> unknown client: no rule
     assert ds[6].end_label is None

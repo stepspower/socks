@@ -49,7 +49,7 @@ def is_on(field: str, value: Any) -> bool | None:
     if field == "charging":
         if value is None:
             return None
-        return getattr(value, "name", str(value)) in CHARGING_ACTIVE
+        return value.name in CHARGING_ACTIVE
     return None if value is None else bool(value)
 
 
@@ -69,31 +69,31 @@ def toggle_command(field: str, value: Any) -> str:
 
 def spec(info: Any) -> tuple[float, float, float, str]:
     """(min, max, step, unit) from CommandInfo, falling back to ARG_DEFAULTS."""
-    lo, hi, step, unit = ARG_DEFAULTS.get(getattr(info, "arg", None) or "", (0, 100, 1, ""))
+    lo, hi, step, unit = ARG_DEFAULTS.get(info.arg or "", (0, 100, 1, ""))
     return (
-        getattr(info, "min", None) if getattr(info, "min", None) is not None else lo,
-        getattr(info, "max", None) if getattr(info, "max", None) is not None else hi,
-        getattr(info, "step", None) if getattr(info, "step", None) is not None else step,
-        getattr(info, "unit", None) or unit,
+        info.min if info.min is not None else lo,
+        info.max if info.max is not None else hi,
+        info.step if info.step is not None else step,
+        info.unit or unit,
     )
 
 
 def display_range(info: Any, units: str) -> tuple[float, float, float, str]:
     """Editor range in display units (°F for temperature in imperial)."""
     lo, hi, step, unit = spec(info)
-    if getattr(info, "arg", None) == "temp_c" and fmt.imperial(units):
+    if info.arg == "temp_c" and fmt.imperial(units):
         return fmt.temp_to_display(lo, units), fmt.temp_to_display(hi, units), 1.0, "°F"
     return lo, hi, step, unit
 
 
 def arg_for(info: Any, display_value: Any, units: str) -> float | int | None:
     """Editor value (display units / minutes / None) → the command argument."""
-    kind = getattr(info, "arg", None)
+    kind = info.arg
     lo, hi, step, _unit = spec(info)
     if display_value is None:
-        if getattr(info, "arg_optional", False):
+        if info.arg_optional:
             return None
-        raise ValueError(f"{getattr(info, 'label', kind)} needs a value")
+        raise ValueError(f"{info.label} needs a value")
     if kind == "temp_c":
         c = fmt.temp_from_display(float(display_value), units)
         c = round(c / step) * step if step else c

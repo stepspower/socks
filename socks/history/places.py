@@ -59,7 +59,8 @@ def _place(r: sqlite3.Row) -> Place:
 
 def list_places(db: sqlite3.Connection, vin: str) -> list[Place]:
     return [
-        _place(r) for r in dbm.query(db, "SELECT * FROM place WHERE vin = ? ORDER BY id", (vin,))
+        _place(r)
+        for r in db.execute("SELECT * FROM place WHERE vin = ? ORDER BY id", (vin,)).fetchall()
     ]
 
 
@@ -94,8 +95,7 @@ def add_place(
     with dbm.transaction(db):
         if kind in ("home", "work"):
             _demote(db, vin, kind)
-        cur = dbm.execute(
-            db,
+        cur = db.execute(
             "INSERT INTO place (vin, name, lat, lon, radius_m, kind, created_ts) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
             (vin, name.strip()[:200], lat, lon, radius_m, kind, dbm.iso(datetime.now(UTC))),
@@ -104,20 +104,19 @@ def add_place(
 
 
 def _demote(db: sqlite3.Connection, vin: str, kind: str) -> None:
-    dbm.execute(db, "UPDATE place SET kind = 'other' WHERE vin = ? AND kind = ?", (vin, kind))
+    db.execute("UPDATE place SET kind = 'other' WHERE vin = ? AND kind = ?", (vin, kind))
 
 
 def name_place(db: sqlite3.Connection, place_id: int, name: str, kind: str | None = None) -> None:
     if kind is not None and kind not in dbm.PLACE_KINDS:
         raise ValueError(f"kind must be one of {dbm.PLACE_KINDS}")
     with dbm.transaction(db):
-        row = dbm.query_one(db, "SELECT vin FROM place WHERE id = ?", (place_id,))
+        row = db.execute("SELECT vin FROM place WHERE id = ?", (place_id,)).fetchone()
         if row is None:
             raise LookupError(f"no place with id {place_id}")
         if kind in ("home", "work"):
             _demote(db, row["vin"], kind)
-        dbm.execute(
-            db,
+        db.execute(
             "UPDATE place SET name = ?, kind = COALESCE(?, kind) WHERE id = ?",
             (name.strip()[:200], kind, place_id),
         )
@@ -127,7 +126,7 @@ def set_place_purpose(db: sqlite3.Connection, place_id: int, purpose: str | None
     """Remember the purpose for trips ending here (None forgets it)."""
     if purpose is not None and purpose not in dbm.PURPOSES:
         raise ValueError(f"purpose must be one of {dbm.PURPOSES} or None")
-    cur = dbm.execute(db, "UPDATE place SET default_purpose = ? WHERE id = ?", (purpose, place_id))
+    cur = db.execute("UPDATE place SET default_purpose = ? WHERE id = ?", (purpose, place_id))
     if cur.rowcount == 0:
         raise LookupError(f"no place with id {place_id}")
 
@@ -139,35 +138,31 @@ def position_at_or_before(
     db: sqlite3.Connection, vin: str, ts: datetime, window_s: float
 ) -> tuple[float, float] | None:
     lo = dbm.iso(datetime.fromtimestamp(ts.timestamp() - window_s, UTC))
-    row = dbm.query_one(
-        db,
+    row = db.execute(
         "SELECT lat, lon FROM snapshot WHERE vin = ? AND ts <= ? AND ts >= ? "
         "AND lat IS NOT NULL ORDER BY ts DESC LIMIT 1",
         (vin, dbm.iso(ts), lo),
-    )
+    ).fetchone()
     return (row["lat"], row["lon"]) if row else None
 
 
 def fill_drive_ends(db: sqlite3.Connection, vin: str, skip_id: int | None, now: datetime) -> None:
     """Give closed drives their end position: first GPS snapshot at/after the drive end."""
     horizon = dbm.iso(datetime.fromtimestamp(now.timestamp() - 7 * 86400, UTC))
-    for d in dbm.query(
-        db,
+    for d in db.execute(
         "SELECT id, end_ts FROM drive WHERE vin = ? AND end_lat IS NULL AND end_ts >= ? "
         "AND id IS NOT ?",
         (vin, horizon, skip_id),
-    ):
+    ).fetchall():
         end = dbm.parse_ts(d["end_ts"])
         hi = dbm.iso(datetime.fromtimestamp(end.timestamp() + END_WINDOW_S, UTC))
-        pos = dbm.query_one(
-            db,
+        pos = db.execute(
             "SELECT lat, lon FROM snapshot WHERE vin = ? AND ts >= ? AND ts <= ? "
             "AND lat IS NOT NULL ORDER BY ts LIMIT 1",
             (vin, d["end_ts"], hi),
-        )
+        ).fetchone()
         if pos:
-            dbm.execute(
-                db,
+            db.execute(
                 "UPDATE drive SET end_lat = ?, end_lon = ? WHERE id = ?",
                 (pos["lat"], pos["lon"], d["id"]),
             )
@@ -184,12 +179,11 @@ def learn_places(
     with dbm.transaction(db):
         existing = list_places(db, vin)
         points: list[tuple[float, float, bool]] = []  # lat, lon, is_arrival
-        for r in dbm.query(
-            db,
+        for r in db.execute(
             "SELECT start_lat, start_lon, end_lat, end_lon FROM drive WHERE vin = ? "
             "ORDER BY start_ts",
             (vin,),
-        ):
+        ).fetchall():
             if r["start_lat"] is not None:
                 points.append((r["start_lat"], r["start_lon"], False))
             if r["end_lat"] is not None:
@@ -212,11 +206,10 @@ def learn_places(
             c[2] += 1
             c[3] += arrival
         for pid, n in visits.items():
-            dbm.execute(db, "UPDATE place SET visits = ? WHERE id = ?", (n, pid))
+            db.execute("UPDATE place SET visits = ? WHERE id = ?", (n, pid))
         for c in clusters:
             if c[3] >= MIN_VISITS:
-                dbm.execute(
-                    db,
+                db.execute(
                     "INSERT INTO place (vin, name, lat, lon, kind, visits, created_ts) "
                     "VALUES (?, '', ?, ?, 'other', ?, ?)",
                     (vin, c[0] / c[2], c[1] / c[2], int(c[3]), dbm.iso(now)),
@@ -229,13 +222,11 @@ def _detect_home(db: sqlite3.Connection, vin: str, tz: tzinfo | None) -> None:
     places = list_places(db, vin)
     if not places or any(p.kind == "home" for p in places):
         return  # nothing to choose from, or home already decided (auto or by the user)
-    zone = tz or datetime.now().astimezone().tzinfo or UTC
+    zone = dbm.local_zone(tz)
     nights: dict[object, Place | None] = {}
-    for r in dbm.query(
-        db,
-        "SELECT ts, lat, lon FROM snapshot WHERE vin = ? AND lat IS NOT NULL ORDER BY ts",
-        (vin,),
-    ):
+    for r in db.execute(
+        "SELECT ts, lat, lon FROM snapshot WHERE vin = ? AND lat IS NOT NULL ORDER BY ts", (vin,)
+    ).fetchall():
         local = dbm.parse_ts(r["ts"]).astimezone(zone)
         if local.hour in HOME_NIGHT_HOURS and local.date() not in nights:
             nights[local.date()] = match(places, r["lat"], r["lon"])
@@ -249,7 +240,7 @@ def _detect_home(db: sqlite3.Connection, vin: str, tz: tzinfo | None) -> None:
         return
     best = max(counts, key=lambda k: counts[k])
     if counts[best] / len(nights) >= HOME_CONFIDENCE:
-        dbm.execute(db, "UPDATE place SET kind = 'home' WHERE id = ? AND kind = 'other'", (best,))
+        db.execute("UPDATE place SET kind = 'home' WHERE id = ? AND kind = 'other'", (best,))
 
 
 # -- geocode cache --------------------------------------------------------------------------
@@ -260,8 +251,7 @@ def _round(v: float) -> float:
 
 
 def store_geocode(db: sqlite3.Connection, lat: float, lon: float, label: str) -> None:
-    dbm.execute(
-        db,
+    db.execute(
         "INSERT INTO geocode (lat_r, lon_r, label, ts) VALUES (?, ?, ?, ?) "
         "ON CONFLICT(lat_r, lon_r) DO UPDATE SET label = excluded.label, ts = excluded.ts",
         (_round(lat), _round(lon), label.strip()[:300], dbm.iso(datetime.now(UTC))),
@@ -277,12 +267,11 @@ def cached_geocode(db: sqlite3.Connection, lat: float, lon: float) -> str | None
 
 
 def _endpoints(db: sqlite3.Connection, vin: str):
-    for r in dbm.query(
-        db,
+    for r in db.execute(
         "SELECT start_lat, start_lon, end_lat, end_lon FROM drive WHERE vin = ? "
         "ORDER BY start_ts DESC",
         (vin,),
-    ):
+    ).fetchall():
         yield r["end_lat"], r["end_lon"]
         yield r["start_lat"], r["start_lon"]
 
@@ -318,7 +307,7 @@ def relabel_drives(db: sqlite3.Connection, vin: str) -> int:
     places = list_places(db, vin)
     changed = 0
     with dbm.transaction(db):
-        for r in dbm.query(db, "SELECT * FROM drive WHERE vin = ?", (vin,)):
+        for r in db.execute("SELECT * FROM drive WHERE vin = ?", (vin,)).fetchall():
             sp = match(places, r["start_lat"], r["start_lon"])
             ep = match(places, r["end_lat"], r["end_lon"])
             touched = False
@@ -333,8 +322,7 @@ def relabel_drives(db: sqlite3.Connection, vin: str) -> int:
                         new = cached_geocode(db, lat, lon)
                     labels.append(new if new is not None else cur)
                 if (labels[0], labels[1]) != (r["start_label"], r["end_label"]):
-                    dbm.execute(
-                        db,
+                    db.execute(
                         "UPDATE drive SET start_label = ?, end_label = ?, label_source = 'auto' "
                         "WHERE id = ?",
                         (labels[0], labels[1], r["id"]),
@@ -347,8 +335,7 @@ def relabel_drives(db: sqlite3.Connection, vin: str) -> int:
                 elif ep and ep.default_purpose:
                     new_purpose = ep.default_purpose
                 if new_purpose != r["purpose"]:
-                    dbm.execute(
-                        db,
+                    db.execute(
                         "UPDATE drive SET purpose = ?, purpose_source = ? WHERE id = ?",
                         (new_purpose, "rule" if new_purpose else None, r["id"]),
                     )

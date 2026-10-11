@@ -4,14 +4,10 @@
 
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, replace
 from datetime import timedelta
-from pathlib import Path
 
 # Run from a source checkout without installing: make `socks` and `tests.fakes` importable.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from socks.core.backend import ASLEEP, CommandError, NotAvailable
 from socks.core.model import ShiftState, Source
 from socks.core.tripwatch import Action, TripWatcher, estimate_cost, is_asleep_error

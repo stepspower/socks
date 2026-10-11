@@ -13,8 +13,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-KM_PER_MILE = 1.609344
-
 
 class ChargingState(Enum):
     DISCONNECTED = "Disconnected"

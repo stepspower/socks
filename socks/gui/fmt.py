@@ -8,7 +8,8 @@ from datetime import UTC, date, datetime, timedelta
 from enum import Enum
 from typing import Any
 
-KM_PER_MI = 1.609344
+from socks.history.units import KM_PER_MI, c_to_f, f_to_c
+
 DASH = "–"
 
 
@@ -33,15 +34,15 @@ def speed(kmh: float | None, units: str) -> str:
 def temp(c: float | None, units: str) -> str:
     if c is None:
         return DASH
-    return f"{c * 9 / 5 + 32:.1f} °F" if imperial(units) else f"{c:.1f} °C"
+    return f"{c_to_f(c):.1f} °F" if imperial(units) else f"{c:.1f} °C"
 
 
 def temp_to_display(c: float, units: str) -> float:
-    return c * 9 / 5 + 32 if imperial(units) else c
+    return c_to_f(c) if imperial(units) else c
 
 
 def temp_from_display(v: float, units: str) -> float:
-    return (v - 32) * 5 / 9 if imperial(units) else v
+    return f_to_c(v) if imperial(units) else v
 
 
 def power(kw: float | None) -> str:

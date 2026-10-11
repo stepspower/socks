@@ -20,7 +20,6 @@ import csv
 import logging
 import os
 import re
-import secrets
 import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
@@ -29,6 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
+from socks.core.keys import write_secret_file
 from socks.fleet import oauth
 from socks.fleet.oauth import Endpoints, FleetSettings, OAuthError, _with_session
 
@@ -250,21 +250,6 @@ def _ensure_dir(path: Path) -> None:
         raise ChargingError(f"{path} is not a directory")
 
 
-def _write_private(path: Path, data: bytes) -> None:
-    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(fd, "wb") as fh:
-            fh.write(data)
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
-    os.chmod(path, 0o600)
-
-
 async def _fetch_invoice(
     s: aiohttp.ClientSession, server: str, token: str, content_id: str
 ) -> bytes:
@@ -320,7 +305,7 @@ async def download_invoices(
             token = await oauth.access_token(settings, endpoints=endpoints, path=token_path)
             stats.invoices += 1
             data = await _fetch_invoice(s, server, token, cid)
-            _write_private(path, data)
+            write_secret_file(path, data, private_dir=False)
             written.append(path)
         return written
 
@@ -368,5 +353,5 @@ def write_summary_csv(sessions: Sequence[ChargingSession], path: Path) -> Path:
         )
     path = Path(path).expanduser()
     _ensure_dir(path.parent)
-    _write_private(path, buf.getvalue().encode("utf-8"))
+    write_secret_file(path, buf.getvalue().encode("utf-8"), private_dir=False)
     return path

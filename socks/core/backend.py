@@ -29,7 +29,8 @@ from typing import Any, Protocol
 
 from socks.core.commands import COMMANDS, Command, validate_arg
 from socks.core.keys import KeyFileError, is_valid_vin, load_private_key
-from socks.core.model import KM_PER_MILE, ChargingState, ShiftState, Source, VehicleState
+from socks.core.model import ChargingState, ShiftState, Source, VehicleState
+from socks.history.units import KM_PER_MI
 
 log = logging.getLogger(__name__)
 
@@ -134,7 +135,7 @@ def _bool(value: Any) -> bool | None:
 
 def _miles(value: Any, ndigits: int = 1) -> float | None:
     n = _num(value)
-    return None if n is None else round(n * KM_PER_MILE, ndigits)
+    return None if n is None else round(n * KM_PER_MI, ndigits)
 
 
 def _variant(value: Any) -> str | None:
@@ -385,9 +386,9 @@ def parse_ble_payload(vin: str, payload: dict[str, Any], ts: datetime) -> Vehicl
         source=Source.BLE,
         vin=vin,
         **_charge_fields(charge),
-        odometer_km=None if odo is None else round(odo / 100.0 * KM_PER_MILE, 2),
+        odometer_km=None if odo is None else round(odo / 100.0 * KM_PER_MI, 2),
         shift=_shift(_get(drive, "shift_state")),
-        speed_kmh=None if speed is None else round(speed * KM_PER_MILE, 1),
+        speed_kmh=None if speed is None else round(speed * KM_PER_MI, 1),
         power_kw=_num(_get(drive, "power")),
         inside_temp_c=_num(_get(climate, "inside_temp_celsius")),
         outside_temp_c=_num(_get(climate, "outside_temp_celsius")),
@@ -999,9 +1000,8 @@ class Router(Backend):
 
     async def close(self) -> None:
         for backend in (self.ble, self.cloud):
-            closer = getattr(backend, "close", None)
-            if closer is not None:
-                await closer()
+            if backend is not None:
+                await backend.close()
 
 
 # ======================================================================= factories
@@ -1021,7 +1021,12 @@ def build_router(settings: Any, token_provider: TokenProvider | None = None) -> 
 
 
 def fake_backend(**kwargs: Any) -> Backend:
-    """``tests/fakes.py``'s FakeBackend for ``--fake`` runs.
+    """``tests/fakes.py``'s FakeBackend for ``--fake`` runs."""
+    return fakes_module().FakeBackend(**kwargs)
+
+
+def fakes_module() -> Any:
+    """``tests/fakes.py`` of the source checkout (``--fake`` only).
 
     Loaded only from the source checkout that contains the running ``socks`` package
     (``socks.__file__``'s parent.parent, which must hold pyproject.toml), never through
@@ -1039,15 +1044,15 @@ def fake_backend(**kwargs: Any) -> Backend:
             "--fake is only available when running from a SOCKS source checkout "
             f"(no tests/fakes.py next to {Path(socks.__file__).resolve().parent})"
         )
-    loaded = sys.modules.get("tests.fakes")
-    loaded_file = getattr(loaded, "__file__", None)
-    if loaded is not None and loaded_file and Path(loaded_file).resolve() == path:
-        module = loaded  # same file already imported (e.g. by the test-suite)
-    else:
-        spec = importlib.util.spec_from_file_location("socks_checkout_fakes", path)
-        if spec is None or spec.loader is None:
-            raise RuntimeError(f"cannot load {path}")
-        module = importlib.util.module_from_spec(spec)
-        sys.modules["socks_checkout_fakes"] = module
-        spec.loader.exec_module(module)
-    return module.FakeBackend(**kwargs)
+    for name in ("tests.fakes", "socks_checkout_fakes"):
+        loaded = sys.modules.get(name)
+        loaded_file = getattr(loaded, "__file__", None)
+        if loaded is not None and loaded_file and Path(loaded_file).resolve() == path:
+            return loaded  # same file already imported (e.g. by the test-suite)
+    spec = importlib.util.spec_from_file_location("socks_checkout_fakes", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["socks_checkout_fakes"] = module
+    spec.loader.exec_module(module)
+    return module

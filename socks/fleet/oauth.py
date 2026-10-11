@@ -189,27 +189,12 @@ def token_path() -> Path:
     return config_dir() / TOKEN_FILE_NAME
 
 
-def _ensure_private_dir(path: Path) -> None:
-    path.mkdir(mode=0o700, parents=True, exist_ok=True)
-    os.chmod(path, 0o700)
-
-
 def save_tokens(tokens: Tokens, path: Path | None = None) -> Path:
     """Atomically write tokens with mode 0600 into a 0700 directory."""
+    from socks.core.keys import write_secret_file
+
     path = path or token_path()
-    _ensure_private_dir(path.parent)
-    tmp = path.with_name(f".{path.name}.{secrets.token_hex(6)}.tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(tokens.to_json())
-            fh.flush()
-            os.fsync(fh.fileno())
-        os.replace(tmp, path)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
-    os.chmod(path, 0o600)
+    write_secret_file(path, tokens.to_json().encode("utf-8"))
     return path
 
 
@@ -639,7 +624,18 @@ async def access_token(
         return tokens.access_token
 
 
-async def status(settings: FleetSettings | None = None, *, path: Path | None = None) -> TokenStatus:
+def token_provider(settings: Any) -> Callable[[], Any] | None:
+    """Access-token callable for ``core.backend.build_router``; None when the cloud is off."""
+    if not settings.cloud_enabled:
+        return None
+
+    async def provider() -> str:
+        return await access_token(settings)
+
+    return provider
+
+
+async def status(*, path: Path | None = None) -> TokenStatus:
     """Local token status. No network."""
     path = path or token_path()
     try:
