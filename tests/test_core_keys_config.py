@@ -41,7 +41,7 @@ def test_valid_vins(vin: str) -> None:
 
 @pytest.mark.parametrize(
     "vin", ["", "5YJ3E7EB0KF00000", "5YJ3E7EB0KF0000011", "5YJ3E7EB0KF00000I", "5YJ3E7EBOKF000001",
-            "QRW3E7EJXTC899247", "LRW3E7EJ-TC899247"],
+            "QYJ3E7EB0KF000001", "5YJ3E7EB-KF000001"],
 )  # fmt: skip
 def test_invalid_vins(vin: str) -> None:
     with pytest.raises(ValueError):
