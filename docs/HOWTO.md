@@ -3,6 +3,20 @@
 For people comfortable with a terminal but new to Bluetooth keys. Allow 15 minutes. You need
 to be within a few metres of the car for steps 5 and 6.
 
+## Requirements
+
+- **Computer:** Linux with BlueZ 5.x and a Bluetooth LE adapter (most laptops have one). The
+  laptop must be within about 10 m of the car.
+- **Permissions:** usually no group membership is needed (Ubuntu and Fedora allow desktop users
+  by default). Only if BlueZ refuses with a permission error, check your distro's polkit rules
+  or add yourself to the `bluetooth` group. The Flatpak needs access to BlueZ on the system bus
+  (`--system-talk-name=org.bluez`).
+- **Car:** Bluetooth phone-key support: Model 3 and Y (all years), Model S and X (2021 and later).
+- **Software:** Python 3.13 or the Flatpak. Nothing else at runtime.
+- **Cloud (optional):** a Tesla account with MFA, a developer application, a domain you control
+  serving the public key over valid TLS, and a payment card at Tesla (the billing limit is 0
+  otherwise). Prices: data $0.002, command $0.001, wake $0.02, with a $10 per month discount.
+
 ## 1. Install the system pieces
 
 SOCKS needs BlueZ (the Linux Bluetooth stack), Python 3.13 and uv (a Python tool installer).
@@ -48,16 +62,19 @@ Never share or upload the private key.
 
 ## 5. Pair a new key with the car
 
-Stand next to the car with an existing key card (or phone key) in hand, then run:
+Stand next to the car with an existing key card in hand, then run:
 
 ```bash
-socks-cli key pair
+socks-cli key pair [--role driver|owner] [--vin VIN]
 ```
 
-The car shows a prompt on the touchscreen asking you to authenticate the new key. Tap your key
-card on the centre console (the spot just behind the cupholders, below the screen), then confirm
-on the screen if asked. The terminal reports success. If nothing happens within a minute,
-re-run the command; check Bluetooth is on and the car is awake.
+(`--vin` is only needed if you have not saved your VIN yet; the default role is the one the
+command documents in `socks-cli key pair -h`.) It prints "Tap your key card on the centre console
+to confirm (waiting up to 60 s)". The car shows a prompt on the touchscreen: tap your key card
+on the centre console (just behind the cupholders, below the screen). The command returns
+success once the car confirms. If it times out, check the car's Locks screen: the key may have
+been added anyway, or the prompt may have been dismissed. Then re-run, making sure Bluetooth is
+on and the car is awake.
 
 ## 6. First read
 

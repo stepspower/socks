@@ -38,6 +38,18 @@ use `--fake` (a simulated car and synthetic data).
 
 ![Settings tab](docs/screenshots/settings.png)
 
+## Requirements
+
+- Linux with BlueZ 5.x and a Bluetooth LE adapter; keep the laptop within about 10 m of the car.
+  Your user usually does not need to be in the `bluetooth` group (Ubuntu and Fedora allow
+  desktop users by default); add it only if BlueZ polkit rules on your distro require it.
+- A Tesla with Bluetooth phone-key support: Model 3 and Y (all years), Model S and X (2021 and later).
+- Python 3.13, or the Flatpak (which needs access to BlueZ on the system bus,
+  `--system-talk-name=org.bluez`). Nothing else at runtime.
+- Cloud (optional): a Tesla account with MFA, a Tesla developer application, a domain you control
+  serving the public key over valid TLS, and a payment card at Tesla (the billing limit is 0
+  otherwise). Prices: data $0.002, command $0.001, wake $0.02, with a $10 per month discount.
+
 ## Install
 
 Needs Python 3.13 and BlueZ. Step-by-step with distro package names: [docs/HOWTO.md](docs/HOWTO.md).
@@ -65,10 +77,11 @@ Flatpak (Flathub): coming.
    ```
 2. **Pair** a new key with the car (stand next to it, key card ready):
    ```bash
-   socks-cli key pair
+   socks-cli key pair [--role driver|owner] [--vin VIN]
    ```
-   Tap your key card on the centre console when the car asks. Skip this if you imported an
-   already-paired key.
+   It prints "Tap your key card on the centre console to confirm (waiting up to 60 s)". Tap the
+   card; the command succeeds when the car confirms. On timeout, check the car's Locks screen.
+   Skip this if you imported an already-paired key.
 3. **Run** `socks`, enter your VIN on the Settings tab, and press Refresh.
 
 Try it without a car: `socks --fake` or `socks-cli --fake status`.

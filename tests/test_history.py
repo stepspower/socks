@@ -297,3 +297,162 @@ def test_recorder_learns_pack(tmp_path):
     r = Recorder(p, pack_kwh=60.0)
     assert (r.pack_kwh, r.pack_source) == (60.0, "configured")
     r.close()
+
+
+# --- trips / export -------------------------------------------------------------------
+
+import csv  # noqa: E402
+import json  # noqa: E402
+import sqlite3  # noqa: E402
+
+from socks.history import export, trips  # noqa: E402
+
+
+def make_drives(rec):
+    """Three drives in 2026 (Mon 2 Mar, Tue 3 Mar) and one in 2025."""
+    feed_drive(rec, T0 + timedelta(hours=1), 1000.0, 20.0)
+    feed_drive(rec, T0 + timedelta(hours=6), 1020.0, 15.0)
+    feed_drive(rec, T0 + timedelta(days=1, hours=1), 1035.0, 10.0)
+    ids = [d.id for d in trips.drives(rec.conn, VIN)]
+    assert len(ids) == 3
+    return ids
+
+
+def test_migration_from_v1_preserves_rows(tmp_path):
+    p = tmp_path / "old.sqlite"
+    con = sqlite3.connect(p)
+    for stmt in dbm.SCHEMA_V1:
+        con.execute(stmt)
+    con.execute("INSERT INTO meta VALUES ('schema_version', '1')")
+    con.execute(
+        "INSERT INTO drive (vin, start_ts, end_ts, start_odo_km, end_odo_km, start_soc, "
+        "end_soc) VALUES (?, '2026-03-02T09:00:00Z', '2026-03-02T09:30:00Z', 1000, 1020, 80, 75)",
+        (VIN,),
+    )
+    con.execute(
+        "INSERT INTO snapshot (vin, ts, source, soc) VALUES (?, '2026-03-02T09:00:00Z', 'ble', 80)",
+        (VIN,),
+    )
+    con.commit()
+    con.close()
+    c = dbm.open(p)
+    assert dbm.get_meta(c, "schema_version") == "2"
+    (d,) = trips.drives(c, VIN)
+    assert (d.start_odo_km, d.end_odo_km, d.purpose, d.start_label) == (1000, 1020, None, None)
+    assert dbm.scalar(c, "SELECT COUNT(*) FROM snapshot") == 1
+    trips.set_drive_purpose(c, d.id, "business")  # new columns are usable
+    c.close()
+    c = dbm.open(p)  # reopening a v2 DB is a no-op
+    assert trips.drives(c, VIN)[0].purpose == "business"
+    c.close()
+
+
+def test_purpose_labels_and_validation(rec):
+    ids = make_drives(rec)
+    trips.set_drive_purpose(rec.conn, ids[0], "business", note="client visit")
+    trips.set_drive_labels(rec.conn, ids[0], start_label="Home", end_label="Amsterdam")
+    trips.set_drive_purpose(rec.conn, ids[0], "commute")  # note kept
+    d = trips.drives(rec.conn, VIN, purpose="commute")[0]
+    assert (d.purpose, d.note, d.start_label, d.end_label) == (
+        "commute", "client visit", "Home", "Amsterdam",
+    )  # fmt: skip
+    assert (d.start_lat, d.end_lon) == (None, None)
+    trips.set_drive_labels(rec.conn, ids[0], end_label="")  # clear
+    assert trips.drives(rec.conn, VIN)[0].end_label == ""
+    trips.set_drive_purpose(rec.conn, ids[0], None)
+    assert trips.drives(rec.conn, VIN)[0].purpose is None
+    with pytest.raises(ValueError):
+        trips.set_drive_purpose(rec.conn, ids[0], "fun")
+    with pytest.raises(LookupError):
+        trips.set_drive_purpose(rec.conn, 9999, "private")
+    with pytest.raises(sqlite3.IntegrityError):  # DB-level CHECK as well
+        rec.conn.execute("UPDATE drive SET purpose = 'x' WHERE id = ?", (ids[0],))
+
+
+def test_mileage_summary_math(rec):
+    ids = make_drives(rec)
+    trips.set_drive_purpose(rec.conn, ids[0], "business")  # 20
+    trips.set_drive_purpose(rec.conn, ids[1], "private")  # 15
+    m = trips.mileage_summary(rec.conn, VIN, 2026, tz=UTC)  # 10 km unclassified
+    assert (m.total_km, m.business_km, m.private_km, m.commute_km, m.unclassified_km, m.drives) == (
+        pytest.approx(45.0), pytest.approx(20.0), pytest.approx(15.0), 0.0,
+        pytest.approx(10.0), 3,
+    )  # fmt: skip
+    assert trips.mileage_summary(rec.conn, VIN, 2025, tz=UTC) == trips.MileageSummary()
+
+
+def test_export_roundtrip_and_mode(rec, tmp_path):
+    ids = make_drives(rec)
+    trips.set_drive_purpose(rec.conn, ids[0], "business", note='=cmd, "quoted"\nline2')
+    trips.set_drive_labels(rec.conn, ids[0], "Thuis", "Kantoor, Utrecht")
+    feed_charge(rec, T0 + timedelta(days=2))
+    out = tmp_path / "drives.csv"
+    assert export.export_csv(rec.conn, VIN, "drives", out, tz=UTC) == 3
+    assert out.stat().st_mode & 0o777 == 0o600
+    with open(out, encoding="utf-8", newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    assert len(rows) == 3
+    assert rows[0]["km"] == "20.0" and rows[0]["start_odometer_km"] == "1000.0"
+    assert rows[0]["start"] == "2026-03-02T08:55:00+00:00"
+    assert rows[0]["end_label"] == "Kantoor, Utrecht"
+    assert rows[0]["note"] == '\'=cmd, "quoted"\nline2'  # formula-guarded, quoting intact
+    assert rows[2]["purpose"] == ""
+    assert b"\r\n" in out.read_bytes()
+
+    imp = tmp_path / "imp.csv"
+    export.export_csv(rec.conn, VIN, "drives", imp, units="imperial", tz=UTC)
+    with open(imp, encoding="utf-8", newline="") as fh:
+        assert next(csv.DictReader(fh))["mi"] == "12.4"
+
+    ch = tmp_path / "charges.csv"
+    assert export.export_csv(rec.conn, VIN, "charges", ch, tz=UTC) == 1
+    with open(ch, encoding="utf-8", newline="") as fh:
+        (r,) = list(csv.DictReader(fh))
+    assert r["energy_kwh"] == "37.50" or r["energy_kwh"] == "37.5"
+    assert r["estimated"] == "False"
+
+    sn = tmp_path / "snap.csv"
+    n = dbm.scalar(rec.conn, "SELECT COUNT(*) FROM snapshot")
+    assert export.export_csv(rec.conn, VIN, "snapshots", sn, tz=UTC) == n
+    # since/until window: only the Mar 2 drives
+    w = tmp_path / "w.csv"
+    assert (
+        export.export_csv(
+            rec.conn, VIN, "drives", w, since=T0, until=T0 + timedelta(days=1), tz=UTC
+        )
+        == 2
+    )
+    with pytest.raises(ValueError):
+        export.export_csv(rec.conn, VIN, "bogus", tmp_path / "x.csv")
+    assert not list(tmp_path.glob(".*.tmp"))
+
+
+def test_export_json(rec, tmp_path):
+    make_drives(rec)
+    out = tmp_path / "d.json"
+    assert export.export_json(rec.conn, VIN, "drives", out, tz=UTC) == 3
+    assert out.stat().st_mode & 0o777 == 0o600
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    assert doc["vin"] == VIN and doc["units"] == "metric" and doc["schema_version"] == 2
+    assert doc["exported_at"] and len(doc["rows"]) == 3
+    assert doc["rows"][0]["km"] == 20.0
+
+
+def test_mileage_register_csv(rec, tmp_path):
+    ids = make_drives(rec)
+    trips.set_drive_purpose(rec.conn, ids[0], "business")
+    trips.set_drive_labels(rec.conn, ids[0], "Thuis", "Klant BV")
+    out = tmp_path / "ritten.csv"
+    assert export.export_mileage_register_csv(rec.conn, VIN, 2026, out, "metric", tz=UTC) == 3
+    assert out.stat().st_mode & 0o777 == 0o600
+    with open(out, encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        assert reader.fieldnames == [
+            "date", "start_time", "end_time", "start_odometer_km", "end_odometer_km", "km",
+            "purpose", "start_label", "end_label", "note",
+        ]  # fmt: skip
+        rows = list(reader)
+    assert rows[0]["date"] == "2026-03-02" and rows[0]["start_time"] == "08:55"
+    assert rows[0]["purpose"] == "business" and rows[0]["end_label"] == "Klant BV"
+    assert sum(float(r["km"]) for r in rows) == pytest.approx(45.0)
+    assert export.export_mileage_register_csv(rec.conn, VIN, 2025, tmp_path / "e.csv", tz=UTC) == 0

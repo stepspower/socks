@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 DEFAULT_PACK_KWH = 80.0  # Model 3 Long Range (NCA) usable pack; used until learned
 
 
@@ -25,7 +25,7 @@ class DbError(Exception):
     pass
 
 
-_SCHEMA_V1 = (
+SCHEMA_V1 = (
     """
     CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
@@ -86,6 +86,21 @@ _SCHEMA_V1 = (
 )
 
 
+# v2: trip classification for the mileage register. Location labels are free text typed
+# by the user; the lat/lon columns are reserved for a future opt-in and are never filled.
+SCHEMA_V2 = (
+    "ALTER TABLE drive ADD COLUMN purpose TEXT "
+    "CHECK (purpose IS NULL OR purpose IN ('business', 'private', 'commute'))",
+    "ALTER TABLE drive ADD COLUMN note TEXT",
+    "ALTER TABLE drive ADD COLUMN start_label TEXT",
+    "ALTER TABLE drive ADD COLUMN end_label TEXT",
+    "ALTER TABLE drive ADD COLUMN start_lat REAL",
+    "ALTER TABLE drive ADD COLUMN start_lon REAL",
+    "ALTER TABLE drive ADD COLUMN end_lat REAL",
+    "ALTER TABLE drive ADD COLUMN end_lon REAL",
+)
+
+
 def iso(dt: datetime) -> str:
     """UTC text form used for every stored timestamp (naive input is taken as UTC)."""
     if dt.tzinfo is None:
@@ -141,11 +156,15 @@ def _migrate(conn: sqlite3.Connection) -> None:
         current = int(row["value"]) if row else 0
     if current > SCHEMA_VERSION:
         raise DbError(f"history DB schema {current} is newer than supported {SCHEMA_VERSION}")
-    if current < 1:
-        with transaction(conn):
-            for stmt in _SCHEMA_V1:
-                conn.execute(stmt)
-            set_meta(conn, "schema_version", str(SCHEMA_VERSION))
+    steps = ((1, SCHEMA_V1), (2, SCHEMA_V2))
+    if current >= SCHEMA_VERSION:
+        return
+    with transaction(conn):
+        for version, stmts in steps:
+            if current < version:
+                for stmt in stmts:
+                    conn.execute(stmt)
+        set_meta(conn, "schema_version", str(SCHEMA_VERSION))
 
 
 @contextmanager
