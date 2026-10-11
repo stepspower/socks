@@ -2,6 +2,8 @@
 
 **SOCKS for your Tesla.** **SOCKS** = **S**tate **O**f **C**harge, **K**eys & **S**tats. *SoC* is what battery engineers call the state of charge, the one number every EV app revolves around, so the name is the battery term plus the two other things the app does, in the spirit of Tesla naming things Plaid and Ludicrous. Hence the sock with a lightning bolt.
 
+No relation to the SOCKS proxy protocol, which is older and far more useful for tunnelling than for charging.
+
 **A lean, local-first Tesla companion for Linux: Bluetooth control, charge status, and a private history of what you drove and charged.**
 
 ![SOCKS status tab](docs/screenshots/status.png)
