@@ -11,3 +11,4 @@ Owner decisions 2026-10-11. Nothing here is committed work.
 - Desktop notifications (charge complete, left unlocked, window open).
 - Charging-cost tracking with dynamic tariffs; battery-health report export.
 - Home Assistant / MQTT bridge; TeslaMate import; multi-car.
+- **Self-hosted Flatpak repository** on stepspower.net for automatic updates (a static OSTree repo exported from CI), since Flathub is not an option (AI-assistance policy).

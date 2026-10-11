@@ -1,14 +1,13 @@
 # SOCKS announcement drafts
 
-Each section below is ready to paste. Replace nothing except where marked `[ ]`.
+Every post carries a one-line AI-assistance disclosure (keep it). Each section below is ready to paste. Replace nothing except where marked `[ ]`.
 Repo: https://github.com/stepspower/socks
 
 ## Do not post before
 
-- [ ] v0.1.0 is tagged and the release is published on GitHub.
-- [ ] Flathub, COPR (Fedora), AUR (Arch) and Debian package links are live and the install lines in the posts work on a clean machine. The README still says "Flatpak (Flathub): coming"; update it first.
+- [ ] v0.1.0 is tagged and the release assets (flatpak, deb, rpm, wheel/sdist) are live on GitHub, and the install lines in the posts work on a clean machine.
 - [ ] `docs/screenshots/*.png` are current (they use `--fake`; the posts say so).
-- [ ] The security contact mailbox exists and receives mail. `docs/SECURITY.md` currently lists security@stepspower.net; confirm that is the address you mean.
+- [x] The security contact mailbox (security@stepspower.net) exists and receives mail.
 - [ ] Audit findings M1 (OAuth redirect host vs bind) and M2 (polling wakes the car, no interval floor) from `docs/AUDIT-2026-10-11.md` are fixed. The audit verdict was "fix first", and the posts say findings were addressed.
 - [ ] Decide whether "independent" is accurate for the audit. The posts say "security audit" and link the report, without the word.
 - [ ] Be online for the first few hours to answer comments.
@@ -37,6 +36,8 @@ Looking for testers, especially on Model S/X and older Model 3/Y.
 
 https://github.com/stepspower/socks
 
+Built with AI assistance (Claude), under my direction and review; testing on a real car and the security review were done by people.
+
 Tesla is a trademark of Tesla, Inc.; not affiliated.
 
 ---
@@ -60,6 +61,8 @@ Install: Flatpak (needs `--system-talk-name=org.bluez`), plus Arch, Fedora and D
 Limits: you need a Bluetooth LE adapter and to be within about 10 m of the car. GPL-3.0-or-later. Testers on other distros welcome.
 
 https://github.com/stepspower/socks
+
+Built with AI assistance (Claude), under my direction and review; testing on a real car and the security review were done by people.
 
 Tesla is a trademark of Tesla, Inc.; not affiliated.
 
@@ -90,6 +93,8 @@ Testers welcome (Model 3/Y, S/X from 2021).
 
 https://github.com/stepspower/socks
 
+Built with AI assistance (Claude), under my direction and review; testing on a real car and the security review were done by people.
+
 Tesla is a trademark of Tesla, Inc.; not affiliated.
 
 ---
@@ -114,10 +119,12 @@ Python 3.13, PySide6-Essentials, GPL-3.0-or-later, no telemetry. It had a securi
 
 https://github.com/stepspower/socks
 
+Built with AI assistance (Claude), under my direction and review; testing on a real car and the security review were done by people.
+
 ---
 
 ## 5. Mastodon / X
 
-SOCKS (State Of Charge, Keys & Stats): open-source Linux desktop app for Tesla. Bluetooth key, no cloud account needed, local history, no telemetry. GPL-3.0+. Testers welcome. https://github.com/stepspower/socks #Linux #Tesla #OpenSource
+SOCKS (State Of Charge, Keys & Stats): open-source Linux desktop app for Tesla. Bluetooth key, no cloud account needed, local history, no telemetry. GPL-3.0+. Built with AI assistance (Claude). Testers welcome. https://github.com/stepspower/socks #Linux #Tesla #OpenSource
 
 (Tesla trademark line does not fit in 280 characters; put it in a reply or the profile bio: "Tesla is a trademark of Tesla, Inc.; not affiliated.")

@@ -30,7 +30,12 @@ Check each artifact on a clean VM before announcing.
 `uv build` output is in the release artifacts; publish with `uv publish` (or a trusted
 publisher) as `socks-tesla`.
 
-## 4. Flathub
+## 4. Flathub (not used: policy)
+
+Flathub excludes AI-assisted manifests and submissions, and this project is built with AI
+assistance, so SOCKS is **not** submitted there; the Flatpak ships as `socks.flatpak` on GitHub
+releases. A self-hosted OSTree repository on stepspower.net is on `docs/ROADMAP.md`. The steps
+below are kept only in case the policy or the situation changes.
 
 1. Put the commit of the tag in `packaging/flatpak/net.stepspower.Socks.yml`
    (`commit: <sha>` under the git source, next to `tag: v0.1.0`) and set the real release
@@ -47,7 +52,7 @@ publisher) as `socks-tesla`.
    and `flatpak run net.stepspower.Socks --fake`.
 5. After merge, updates are PRs to the `flathub/net.stepspower.Socks` repository.
 
-## 5. COPR (Fedora)
+## 5. COPR (Fedora) (optional, not used for 0.1.0)
 
 ```bash
 sudo dnf install copr-cli rpm-build
@@ -61,7 +66,7 @@ copr-cli build socks ~/rpmbuild/SRPMS/socks-tesla-0.1.0-1.*.src.rpm
 install time. The API token comes from https://copr.fedorainfracloud.org/api/ into
 `~/.config/copr`. Users then run `dnf copr enable stepspower/socks`.
 
-## 6. AUR (Arch)
+## 6. AUR (Arch) (optional, not used for 0.1.0)
 
 The dependency chain is `python-tesla-protocol` -> `python-tesla-fleet-api` -> `socks-tesla`;
 the first two are not in the official repos or AUR, so publish all three, in that order.

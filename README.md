@@ -81,21 +81,25 @@ The screenshots use `--fake` (a simulated car and synthetic data).
 Pick one. Needs a working BlueZ for Bluetooth. Step-by-step with distro package names:
 [docs/HOWTO.md](docs/HOWTO.md). Deb, rpm and wheel files are also on the releases page.
 
-**Flatpak** (any distro, recommended). Flathub: submitted, not yet listed. For now download
-`socks.flatpak` from the [releases page](https://github.com/stepspower/socks/releases):
+**Flatpak** (any distro, recommended). Download `socks.flatpak` from the
+[GitHub releases page](https://github.com/stepspower/socks/releases):
 
 ```bash
 flatpak install --user socks.flatpak
 ```
+
+It needs the `org.kde.Platform` 6.11 runtime, which flatpak installs automatically when the
+Flathub remote is configured (`flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo`).
+*Why not on Flathub?* Flathub's policy excludes AI-assisted manifests and submissions, and this
+project is built with AI assistance (see [Built with AI assistance](#built-with-ai-assistance)).
 
 **Per distro** (packages are attached to each GitHub release; they bundle the Python
 dependencies that distros lack, and use your distro's PySide6):
 
 | Distro | Command |
 |---|---|
-| Arch / Manjaro (AUR) | `yay -S socks-tesla` |
-| Fedora 42+ | enable the COPR (`sudo dnf copr enable stepspower/socks`), then `sudo dnf install socks-tesla`; or `sudo dnf install ./socks-tesla-*.rpm` from the release |
-| Debian 13 / Ubuntu 25.04+ | `sudo apt install ./socks-tesla_*.deb` from the release |
+| Debian 13 / Ubuntu 25.04+ | `sudo apt install ./socks-tesla_*.deb` |
+| Fedora 42+ | `sudo dnf install ./socks-tesla-*.rpm` |
 
 Ubuntu 24.04 and Linux Mint 22 ship Python 3.12 and an older PySide6, so the .deb does not
 install there: use the Flatpak (or uv/pipx below, which fetches Python 3.13 itself).
@@ -159,6 +163,13 @@ polling is off by default, so most people pay nothing.
 | Car not found / timeouts | The car is asleep or out of range (about 5 to 10 m). Stand next to it, wake it with a door or the Tesla app, retry. |
 | Fleet login: "Only local hosts" | Tesla's portal accepts plain `http://` redirect URIs only for `localhost` with a port. Register exactly the three `http://localhost:5368x/callback` URIs from the setup guide. |
 | Wrong or no data | Check the VIN (17 characters) on the Settings tab; run `socks --debug` for a log. |
+
+## Built with AI assistance
+
+The code, packaging and documentation of SOCKS were produced by AI coding agents (Claude) under
+the owner's direction and review. Design decisions, live testing on a real car, and handling of
+the security review's findings were done by people. The project is GPL-licensed and
+contributions are welcome; report issues the normal way.
 
 ## Contributing
 
