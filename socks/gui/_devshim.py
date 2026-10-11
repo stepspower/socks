@@ -434,6 +434,11 @@ def battery_health(db: object, vin: str) -> BatteryHealth:
 # ------------------------------------------------------- synthetic sequences
 
 
+# Synthetic coordinates (open fields, not anyone's address); never shown in screenshots.
+SYNTH_HOME = (52.0, 5.0)
+SYNTH_WORK = (52.05, 5.08)
+
+
 def synthetic_states(vin: str, days: int, cls: Any, enums: Any) -> Iterator[Any]:
     """Yield a plausible history of VehicleState objects (oldest first).
 
@@ -471,6 +476,11 @@ def synthetic_states(vin: str, days: int, cls: Any, enums: Any) -> Iterator[Any]
         if plugged and not was_plugged:
             energy = 0.0  # the car's counter restarts at each plug-in
         was_plugged = plugged
+        weekday_at_work = t.weekday() < 5 and 8.2 <= hour < 17.3
+        where = None if driving else (SYNTH_WORK if weekday_at_work else SYNTH_HOME)
+        extra = {}
+        if where is not None and "latitude" in getattr(cls, "__dataclass_fields__", {}):
+            extra = {"latitude": where[0], "longitude": where[1]}
         yield cls(
             ts=t,
             source=src.BLE,
@@ -498,5 +508,6 @@ def synthetic_states(vin: str, days: int, cls: Any, enums: Any) -> Iterator[Any]
             climate_on=False,
             target_temp_c=20.5,
             locked=not driving,
+            **extra,
         )
         t += step

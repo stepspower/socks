@@ -164,6 +164,9 @@ class HistoryData:
     health: Any = None
     nerd: dict[str, str] = field(default_factory=dict)
     drives: list[Any] = field(default_factory=list)
+    places: list[Any] = field(default_factory=list)
+    mileage: Any = None
+    year: int = 0
 
 
 def open_db(path: Path) -> Any:
@@ -189,6 +192,20 @@ def _drives(db: Any, vin: str, since: datetime | None) -> list[Any]:
     return list(trips.drives(db, vin, since))[::-1]  # newest first
 
 
+def _places(db: Any, vin: str) -> list[Any]:
+    mod = _try("socks.history.places")
+    if db is None or mod is None or not hasattr(mod, "list_places"):
+        return []
+    return list(mod.list_places(db, vin))
+
+
+def _mileage(db: Any, vin: str, year: int) -> Any:
+    trips = _try("socks.history.trips")
+    if db is None or trips is None or not hasattr(trips, "mileage_summary"):
+        return None
+    return trips.mileage_summary(db, vin, year)
+
+
 def load_history(
     path: Path | None, vin: str, since: datetime | None, days: int, tariff: float, units: str
 ) -> HistoryData:
@@ -206,6 +223,9 @@ def load_history(
             health=st.battery_health(db, vin),
             nerd=dict(_call(nerd_fn, db, vin, units_=units)) if nerd_fn else {},
             drives=_drives(db, vin, since),
+            places=_places(db, vin),
+            mileage=_mileage(db, vin, datetime.now().year),
+            year=datetime.now().year,
         )
     finally:
         close = getattr(db, "close", None)
@@ -226,3 +246,11 @@ def seed_fake_history(path: Path, vin: str, days: int = 45) -> None:
             rec.record(s)
     finally:
         rec.close()
+    places = _try("socks.history.places")
+    if places is not None and hasattr(places, "learn_places"):
+        db = open_db(path)
+        try:
+            places.learn_places(db, vin)
+            places.relabel_drives(db, vin)
+        finally:
+            db.close()

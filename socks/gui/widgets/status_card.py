@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QRectF, QSize, Qt
 from PySide6.QtGui import QFont, QPainter, QPaintEvent, QPalette
-from PySide6.QtWidgets import QFrame, QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from socks.gui.widgets.colors import accent, muted, warn
 
@@ -43,6 +43,18 @@ class StatusCard(QFrame):
         for w in (self._title, self._value, self._detail):
             lay.addWidget(w)
         self.setAccessibleName(title)
+
+    def add_row(self, *widgets: QWidget) -> QWidget:
+        """Append a row of (interactive) widgets under the value; returns its container."""
+        row = QWidget()
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 2, 0, 0)
+        lay.setSpacing(12)
+        for w in widgets:
+            lay.addWidget(w)
+        lay.addStretch(1)
+        self.layout().addWidget(row)
+        return row
 
     def set_title(self, title: str) -> None:
         self._title.setText(title)

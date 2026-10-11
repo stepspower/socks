@@ -13,6 +13,7 @@ from datetime import date, datetime
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QComboBox,
@@ -83,7 +84,10 @@ def xy(obj: Any) -> tuple[date | datetime, float] | None:
 
 
 def _readonly_table(name: str) -> QTableWidget:
-    t = QTableWidget(0, 0)
+    return _setup_readonly(QTableWidget(0, 0), name)
+
+
+def _setup_readonly(t: QTableWidget, name: str) -> QTableWidget:
     t.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
     t.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
     t.verticalHeader().setVisible(False)
@@ -93,13 +97,73 @@ def _readonly_table(name: str) -> QTableWidget:
     return t
 
 
-DRIVE_COLS = ("Date", "Start", "End", "Distance", "Duration", "Avg speed", "Start SoC", "End SoC")
+DRIVE_COLS = (
+    "Date", "Start", "End", "Distance", "Duration", "Avg speed", "Start SoC", "End SoC",
+    "From → To", "Purpose",
+)  # fmt: skip
+PURPOSE_COL = DRIVE_COLS.index("Purpose")
+PLACE_KINDS = ("home", "work", "other")
+
+
+class DrivesTable(QTableWidget):
+    """Read-only drives; the Purpose cell is the one manual control.
+
+    Click it to cycle — → business → private → commute; or press B/P/C/Del on a row.
+    """
+
+    purpose_requested = Signal(int, object)  # drive id, purpose or None
+
+    def __init__(self) -> None:
+        super().__init__(0, 0)
+        self.cellClicked.connect(self._clicked)
+
+    def _drive(self, row: int) -> tuple[int | None, str | None]:
+        item = self.item(row, PURPOSE_COL)
+        if item is None:
+            return None, None
+        return item.data(Qt.ItemDataRole.UserRole), item.data(Qt.ItemDataRole.UserRole + 1)
+
+    def _clicked(self, row: int, col: int) -> None:
+        from socks.gui.location import next_purpose
+
+        if col == PURPOSE_COL:
+            drive_id, cur = self._drive(row)
+            if drive_id is not None:
+                self.purpose_requested.emit(drive_id, next_purpose(cur))
+
+    def keyPressEvent(self, e: QKeyEvent) -> None:
+        from socks.gui.location import purpose_for_key
+
+        is_del = e.key() in (Qt.Key.Key_Delete, Qt.Key.Key_Backspace)
+        handled, purpose = purpose_for_key(e.text(), is_del)
+        row = self.currentRow()
+        if handled and row >= 0:
+            drive_id, _cur = self._drive(row)
+            if drive_id is not None:
+                self.purpose_requested.emit(drive_id, purpose)
+                return
+        super().keyPressEvent(e)
+
+    def set_purpose(self, drive_id: int, purpose: str | None) -> None:
+        for r in range(self.rowCount()):
+            if self._drive(r)[0] == drive_id:
+                _fill_purpose(self.item(r, PURPOSE_COL), purpose)
+
+
+def _fill_purpose(item: QTableWidgetItem, purpose: str | None) -> None:
+    item.setText(purpose.capitalize() if purpose else "—")
+    item.setData(Qt.ItemDataRole.UserRole + 1, purpose)
+    item.setToolTip("Click to change, or press B / P / C / Del")
 
 
 class HistoryTab(QWidget):
     reload_requested = Signal()
     #: an ExportItem chosen from the Export… menu
     export_requested = Signal(object)
+    purpose_requested = Signal(int, object)
+    #: place id, name, kind
+    place_edited = Signal(int, str, str)
+    rebuild_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -144,10 +208,28 @@ class HistoryTab(QWidget):
         self.health.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
         self.table = _readonly_table("Charge sessions")
-        self.drives_table = _readonly_table("Drives")
+        self.drives_table = DrivesTable()
+        _setup_readonly(self.drives_table, "Drives")
+        self.drives_table.purpose_requested.connect(self.purpose_requested)
+        self.places_table = QTableWidget(0, 3)
+        self.places_table.setAccessibleName("Places")
+        self.places_table.verticalHeader().setVisible(False)
+        self.places_table.setTabKeyNavigation(False)
+        self.places_table.itemChanged.connect(self._place_item_changed)
+        self.rebuild_btn = QPushButton("Re&build labels")
+        self.rebuild_btn.setToolTip("Learn places from drive endpoints and relabel drives")
+        self.rebuild_btn.clicked.connect(self.rebuild_requested)
+        places_page = QWidget()
+        pl = QVBoxLayout(places_page)
+        pl.addWidget(self.places_table)
+        pl.addWidget(self.rebuild_btn, 0, Qt.AlignmentFlag.AlignLeft)
+        self.totals = QLabel("")
+        self.totals.setWordWrap(True)
+        self.totals.setTextFormat(Qt.TextFormat.PlainText)
         sess_box = QTabWidget()
         sess_box.addTab(self.drives_table, "Drives")
         sess_box.addTab(self.table, "Charges")
+        sess_box.addTab(places_page, "Places")
 
         self.nerd = QFormLayout()
         nerd_box = QGroupBox("Nerd stats")
@@ -162,6 +244,7 @@ class HistoryTab(QWidget):
         il.addLayout(cards)
         il.addLayout(charts, 1)
         il.addWidget(self.health)
+        il.addWidget(self.totals)
         il.addLayout(lower, 1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -230,6 +313,8 @@ class HistoryTab(QWidget):
         self._fill_health(data.health)
         self._fill_sessions(data.sessions)
         self._fill_drives(getattr(data, "drives", []))
+        self._fill_places(getattr(data, "places", []))
+        self._fill_totals(getattr(data, "mileage", None), getattr(data, "year", 0))
 
         while self.nerd.rowCount():
             self.nerd.removeRow(0)
@@ -296,16 +381,69 @@ class HistoryTab(QWidget):
                 fmt.minutes(d["minutes"]),
                 fmt.speed(d["avg_kmh"], u),
                 *soc,
+                d["route"],
             ]
             for c, text in enumerate(cells):
                 item = QTableWidgetItem(text)
-                if c >= 3:
+                if 3 <= c < 8:
                     item.setTextAlignment(
                         Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
                     )
                 t.setItem(r, c, item)
+            pitem = QTableWidgetItem()
+            pitem.setData(Qt.ItemDataRole.UserRole, d["id"])
+            _fill_purpose(pitem, d["purpose"])
+            t.setItem(r, PURPOSE_COL, pitem)
         t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         t.horizontalHeader().setStretchLastSection(True)
+
+    def _fill_places(self, places: list[Any]) -> None:
+        t = self.places_table
+        t.blockSignals(True)
+        t.clear()
+        t.setHorizontalHeaderLabels(["Name", "Kind", "Visits"])
+        t.setRowCount(len(places))
+        for r, p in enumerate(places):
+            name = QTableWidgetItem(p.name or "")
+            name.setData(Qt.ItemDataRole.UserRole, p.id)
+            name.setToolTip("Double-click or F2 to rename")
+            t.setItem(r, 0, name)
+            kind = QComboBox()
+            kind.addItems(PLACE_KINDS)
+            kind.setCurrentText(p.kind if p.kind in PLACE_KINDS else "other")
+            kind.setAccessibleName(f"Kind of {p.display_name}")
+            kind.currentTextChanged.connect(lambda _k, row=r: self._emit_place(row))
+            t.setCellWidget(r, 1, kind)
+            visits = QTableWidgetItem(str(p.visits))
+            visits.setFlags(visits.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            visits.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            t.setItem(r, 2, visits)
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        t.horizontalHeader().setStretchLastSection(True)
+        t.blockSignals(False)
+
+    def _place_item_changed(self, item: QTableWidgetItem) -> None:
+        if item.column() == 0:
+            self._emit_place(item.row())
+
+    def _emit_place(self, row: int) -> None:
+        name_item = self.places_table.item(row, 0)
+        kind = self.places_table.cellWidget(row, 1)
+        if name_item is None or kind is None:
+            return
+        place_id = name_item.data(Qt.ItemDataRole.UserRole)
+        self.place_edited.emit(int(place_id), name_item.text(), kind.currentText())
+
+    def _fill_totals(self, m: Any, year: int) -> None:
+        if m is None or not getattr(m, "drives", 0):
+            self.totals.setText("")
+            return
+        u = self._units
+        self.totals.setText(
+            f"{year}: {fmt.dist(m.total_km, u)} in {m.drives} drives — "
+            f"business {fmt.dist(m.business_km, u)} · private {fmt.dist(m.private_km, u)} · "
+            f"commute {fmt.dist(m.commute_km, u)} · unclassified {fmt.dist(m.unclassified_km, u)}"
+        )
 
     def _fill_sessions(self, sessions: list[Any]) -> None:
         rows = [[(n, v) for n, v in fields_of(s) if n not in SKIP_COLS] for s in sessions]

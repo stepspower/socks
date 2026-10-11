@@ -13,6 +13,7 @@ from typing import Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDoubleSpinBox,
     QGridLayout,
     QGroupBox,
@@ -20,6 +21,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QSlider,
+    QSpinBox,
+    QTimeEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -34,6 +37,9 @@ GROUPS: dict[str, tuple[str, ...]] = {
         "charge_start",
         "charge_stop",
         "set_charge_limit",
+        "set_charge_amps",
+        "set_scheduled_charging",
+        "set_scheduled_departure",
         "charge_port_open",
         "charge_port_close",
     ),
@@ -50,6 +56,8 @@ class ControlsTab(QWidget):
         self._units = "metric"
         self._temp_ready = False
         self._buttons: dict[Any, QPushButton] = {}
+        self._arg_widgets: dict[Any, Any] = {}
+        self._arg_off: dict[Any, QCheckBox] = {}
         self.result = QLabel(
             "Every command asks for confirmation before anything is sent to the car."
         )
@@ -111,6 +119,17 @@ class ControlsTab(QWidget):
                     row.addWidget(self.limit_label)
                     bl.addLayout(row)
                     bl.addWidget(btn)
+                elif info.arg in ("amps", "minutes_after_midnight"):
+                    ed = self._arg_editor(cmd, info)
+                    row = QHBoxLayout()
+                    row.addWidget(ed)
+                    if info.arg == "minutes_after_midnight":
+                        off = QCheckBox("Off")
+                        off.toggled.connect(lambda on, e=ed: e.setEnabled(not on))
+                        self._arg_off[cmd] = off
+                        row.addWidget(off)
+                    row.addWidget(btn, 1)
+                    bl.addLayout(row)
                 else:
                     bl.addWidget(btn)
             bl.addStretch(1)
@@ -127,7 +146,30 @@ class ControlsTab(QWidget):
             arg = round(fmt.temp_from_display(self.temp.value(), self._units), 1)
         elif info.arg == "percent":
             arg = int(self.limit.value())
+        elif info.arg == "amps":
+            arg = int(self._arg_widgets[cmd].value())
+        elif info.arg == "minutes_after_midnight":
+            off = self._arg_off.get(cmd)
+            t = self._arg_widgets[cmd].time()
+            arg = None if off is not None and off.isChecked() else t.hour() * 60 + t.minute()
         self.command_requested.emit(cmd, arg)
+
+    def _arg_editor(self, cmd: Any, info: Any) -> Any:
+        from socks.gui.inline_logic import spec
+
+        if info.arg == "amps":
+            lo, hi, step, unit = spec(info)
+            w = QSpinBox()
+            w.setRange(int(lo), int(hi))
+            w.setSingleStep(int(step) or 1)
+            w.setValue(int(hi) if hi < 16 else 16)
+            w.setSuffix(f" {unit}")
+        else:
+            w = QTimeEdit()
+            w.setDisplayFormat("HH:mm")
+        w.setAccessibleName(f"{info.label} value")
+        self._arg_widgets[cmd] = w
+        return w
 
     def describe_arg(self, cmd: Any, arg: float | int | None) -> str:
         info = self._commands[cmd]
@@ -135,6 +177,12 @@ class ControlsTab(QWidget):
             return f"Target: {fmt.temp(float(arg), self._units)}"
         if info.arg == "percent" and arg is not None:
             return f"Charge limit: {arg} %"
+        if info.arg == "amps" and arg is not None:
+            return f"Charging current: {arg} A"
+        if info.arg == "minutes_after_midnight":
+            from socks.gui.inline_logic import hhmm
+
+            return f"Time: {hhmm(arg)}" if arg is not None else "Turn the schedule off"
         return ""
 
     def set_units(self, units: str) -> None:

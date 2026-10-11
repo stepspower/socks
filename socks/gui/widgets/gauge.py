@@ -4,8 +4,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPalette, QPen
+import math
+
+from PySide6.QtCore import QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPaintEvent, QPalette, QPen
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from socks.gui.widgets.colors import accent, warn
@@ -15,6 +17,9 @@ SPAN_DEG = 270.0
 
 
 class Gauge(QWidget):
+    #: the charge-limit tick was clicked
+    limit_clicked = Signal()
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._value: int | None = None
@@ -24,6 +29,7 @@ class Gauge(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMinimumSize(160, 160)
         self.setAccessibleName("State of charge")
+        self.setMouseTracking(True)
 
     def sizeHint(self) -> QSize:
         return QSize(260, 260)
@@ -35,6 +41,32 @@ class Gauge(QWidget):
             desc += f", limit {limit} percent"
         self.setAccessibleDescription(f"{desc}. {caption}")
         self.update()
+
+    def tick_hit(self, x: float, y: float) -> bool:
+        """True if (x, y) is on the ring within ~12° of the charge-limit tick."""
+        if self._limit is None:
+            return False
+        side = min(self.width(), self.height()) - 8
+        r = side / 2
+        dx, dy = x - self.width() / 2, self.height() / 2 - y
+        dist = math.hypot(dx, dy)
+        if not (0.6 * r <= dist <= 1.15 * r):
+            return False
+        ang = math.degrees(math.atan2(dy, dx))
+        tick = START_DEG - SPAN_DEG * max(0, min(100, self._limit)) / 100
+        diff = (ang - tick + 180) % 360 - 180
+        return abs(diff) <= 12
+
+    def mouseMoveEvent(self, e: QMouseEvent) -> None:
+        hit = self.tick_hit(e.position().x(), e.position().y())
+        self.setCursor(Qt.CursorShape.PointingHandCursor if hit else Qt.CursorShape.ArrowCursor)
+        self.setToolTip("Click to change the charge limit" if hit else "")
+        super().mouseMoveEvent(e)
+
+    def mouseReleaseEvent(self, e: QMouseEvent) -> None:
+        if self.tick_hit(e.position().x(), e.position().y()):
+            self.limit_clicked.emit()
+        super().mouseReleaseEvent(e)
 
     def paintEvent(self, _e: QPaintEvent) -> None:
         pal = self.palette()

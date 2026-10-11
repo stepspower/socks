@@ -25,6 +25,7 @@ from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QLabel,
     QMainWindow,
     QMenu,
     QSplitter,
@@ -43,6 +44,15 @@ from socks.gui._deps import (
     seed_fake_history,
 )
 from socks.gui.async_bridge import AsyncBridge, describe
+from socks.gui.location import (
+    GeocodeGate,
+    TripWatch,
+    geocode_once,
+    place_label,
+    rebuild_labels,
+    rename_place,
+    set_purpose,
+)
 from socks.gui.tabs.controls import ControlsTab
 from socks.gui.tabs.history import HistoryTab
 from socks.gui.tabs.settings import SettingsTab, min_poll_seconds
@@ -127,6 +137,8 @@ class MainWindow(QMainWindow):
 
         self._actions()
         self.status_tab.refresh_requested.connect(lambda: self.refresh())
+        self.status_tab.set_commands(commands)
+        self.status_tab.command_requested.connect(self._on_command)
         self.controls_tab.command_requested.connect(self._on_command)
         self.history_tab.reload_requested.connect(self.reload_history)
         self.history_tab.export_requested.connect(self._export_history)
@@ -145,6 +157,17 @@ class MainWindow(QMainWindow):
         self.poll_timer = QTimer(self)
         self.poll_timer.timeout.connect(self._poll)
         self._apply_poll()
+
+        self._geocode_gate = GeocodeGate()
+        self.trip_watch = TripWatch(ctx.settings, self)
+        self.trip_watch.poll_requested.connect(self._trip_poll)
+        self.trip_watch.changed.connect(self._trip_changed)
+        self.trip_chip = QLabel("")
+        self.trip_chip.hide()
+        self.statusBar().addPermanentWidget(self.trip_chip)
+        self.history_tab.purpose_requested.connect(self._set_purpose)
+        self.history_tab.place_edited.connect(self._rename_place)
+        self.history_tab.rebuild_requested.connect(self._rebuild_labels)
 
         self.tray: QSystemTrayIcon | None = None
         self._setup_tray()
@@ -218,8 +241,10 @@ class MainWindow(QMainWindow):
                 raise RuntimeError("no backend available (core.backend missing)")
             if ble_only and not self.ctx.fake and getattr(backend, "ble", None) is not None:
                 backend = backend.ble
-            state = await self.bridge.io(read_state(backend, wake=wake))
+            loc = self._location_enabled()
+            state = await self.bridge.io(read_state(backend, wake=wake, include_location=loc))
         except Exception as exc:  # noqa: BLE001 - shown inline, never a modal
+            self.trip_watch.on_error(exc)
             msg = describe(exc)
             if poll and is_asleep(exc):
                 self._poll_note = f"car asleep — poll at {datetime.now():%H:%M} skipped"
@@ -232,8 +257,10 @@ class MainWindow(QMainWindow):
         finally:
             self.status_tab.set_busy(False)
         self._poll_note = ""
+        self.trip_watch.on_state(state)
         self._show_state(state)
         await self._record(state)
+        await self._update_location(state)
 
     def _show_state(self, s: Any) -> None:
         self._last = s
@@ -326,6 +353,10 @@ class MainWindow(QMainWindow):
                 self._recorder = await self.bridge.run_sync(d.recorder_mod.Recorder, path)
             await self.bridge.run_sync(self._recorder.record, state)
             self._history_dirty = True
+            if self._geocode_gate.due(self.ctx.settings, self.ctx.fake):
+                n = await self.bridge.io(geocode_once(self.ctx.settings, path, self._vin))
+                if n:
+                    log.info("resolved %d addresses via OpenStreetMap", n)
             if self.tabs.currentWidget() is self.history_tab:
                 self.reload_history()
         except Exception as exc:  # noqa: BLE001
@@ -479,6 +510,111 @@ class MainWindow(QMainWindow):
         self.settings_tab.show_result(f"Saved at {datetime.now().strftime('%H:%M:%S')}.", True)
         log.info("settings saved")
 
+    # ------------------------------------------------------------ location
+
+    def _location_enabled(self) -> bool:
+        return bool(getattr(self.ctx.settings, "location_enabled", True))
+
+    async def _update_location(self, s: Any) -> None:
+        lat, lon = getattr(s, "latitude", None), getattr(s, "longitude", None)
+        if not self._location_enabled() or lat is None or lon is None:
+            self.status_tab.set_location(None)
+            return
+        name = None
+        try:
+            path = await self._ensure_history()
+            name = await self.bridge.run_sync(place_label, path, self._vin, lat, lon)
+        except Exception as exc:  # noqa: BLE001 - a missing label is not an error
+            log.debug("place lookup failed: %s", describe(exc))
+        if name:
+            self.status_tab.set_location(name)
+        elif self.ctx.extras.get("redact_location"):
+            self.status_tab.set_location("(coordinates hidden)")
+        else:
+            self.status_tab.set_location(f"{lat:.5f}, {lon:.5f}")
+
+    def _trip_poll(self) -> None:
+        if self.bridge.busy(self.trip_chip):
+            return
+        self.bridge.spawn(self.trip_chip, self._trip_read(), "trip watch read")
+
+    async def _trip_read(self) -> None:
+        backend = self._get_backend()
+        cloud = self._fake_cloud() if self.ctx.fake else getattr(backend, "cloud", None)
+        if cloud is None:
+            log.warning("trip watch: no cloud backend (enable the cloud and log in)")
+            self.trip_watch.stop()
+            return
+        try:
+            state = await self.bridge.io(read_state(cloud, wake=False, include_location=True))
+        except Exception as exc:  # noqa: BLE001
+            log.info("trip watch read failed: %s", describe(exc))
+            self.trip_watch.on_error(exc)
+            return
+        self.trip_watch.on_state(state)
+        self._show_state(state)
+        await self._record(state)
+        await self._update_location(state)
+
+    def _fake_cloud(self) -> Any:
+        if getattr(self, "_fake_cloud_backend", None) is None:
+            b = self.ctx.deps.backend_mod
+            src = self.ctx.deps.model.Source.CLOUD
+            factory = getattr(b, "fake_backend", None) if b is not None else None
+            self._fake_cloud_backend = (
+                factory(start=None, delay=0.3, source=src) if factory else None
+            )
+        return self._fake_cloud_backend
+
+    def _trip_changed(self, polling: bool, reads: int, usd: float) -> None:
+        self.trip_chip.setVisible(polling or reads > 0)
+        state = "polling" if polling else "stopped"
+        self.trip_chip.setText(f"trip watch: {state} ({reads} reads, ≈ ${usd:.3f})")
+
+    def _set_purpose(self, drive_id: int, purpose: Any) -> None:
+        async def go() -> None:
+            try:
+                path = await self._ensure_history()
+                await self.bridge.run_sync(set_purpose, path, drive_id, purpose)
+            except Exception as exc:  # noqa: BLE001
+                self.history_tab.note.setText(f"Could not set purpose: {describe(exc)}")
+                return
+            self.history_tab.drives_table.set_purpose(drive_id, purpose)
+            self._history_dirty = True
+            self.reload_history()  # refresh the yearly totals
+
+        self.bridge.spawn(self.history_tab.drives_table, go(), "set purpose")
+
+    def _rename_place(self, place_id: int, name: str, kind: str) -> None:
+        async def go() -> None:
+            try:
+                path = await self._ensure_history()
+                await self.bridge.run_sync(rename_place, path, place_id, name, kind)
+            except Exception as exc:  # noqa: BLE001
+                self.history_tab.note.setText(f"Could not rename place: {describe(exc)}")
+                return
+            self.history_tab.note.setText("Place saved. Use Rebuild labels to relabel drives.")
+
+        self.bridge.spawn(self.history_tab.places_table, go(), "rename place")
+
+    def _rebuild_labels(self) -> None:
+        async def go() -> None:
+            self.history_tab.rebuild_btn.setEnabled(False)
+            try:
+                path = await self._ensure_history()
+                n_places, n_drives = await self.bridge.run_sync(rebuild_labels, path, self._vin)
+            except Exception as exc:  # noqa: BLE001
+                self.history_tab.note.setText(f"Rebuild failed: {describe(exc)}")
+                return
+            finally:
+                self.history_tab.rebuild_btn.setEnabled(True)
+            self.history_tab.note.setText(f"{n_places} places, {n_drives} drives relabelled.")
+            self._history_dirty = True
+            self.reload_history()
+
+        if self._vin:
+            self.bridge.spawn(self.history_tab.rebuild_btn, go(), "rebuild labels")
+
     # -------------------------------------------------------------- wizard
 
     def open_wizard(self) -> None:
@@ -549,6 +685,7 @@ class MainWindow(QMainWindow):
         self._quitting = True
         self.poll_timer.stop()
         self.age_timer.stop()
+        self.trip_watch.stop()
         rec, backend = self._recorder, self._backend
         self._recorder = self._backend = None
         self.bridge.shutdown(finalizers=[f for f in (_closer(backend), _sync_closer(rec)) if f])
@@ -560,7 +697,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, QApplication.quit)
 
 
-def read_state(backend: Any, *, wake: bool) -> Any:
+def read_state(backend: Any, *, wake: bool, include_location: bool | None = None) -> Any:
     """``backend.read_state(wake=...)`` when supported, else the plain call.
 
     Without the kwarg a poll could wake the car, so that fallback is logged once.
@@ -570,7 +707,10 @@ def read_state(backend: Any, *, wake: bool) -> Any:
         params = inspect.signature(fn).parameters
     except (TypeError, ValueError):
         params = {}
-    if "wake" in params or any(p.kind is p.VAR_KEYWORD for p in params.values()):
+    varkw = any(p.kind is p.VAR_KEYWORD for p in params.values())
+    if "wake" in params or varkw:
+        if include_location is not None and ("include_location" in params or varkw):
+            return fn(wake=wake, include_location=include_location)
         return fn(wake=wake)
     if not wake and not getattr(read_state, "_warned", False):
         read_state._warned = True  # type: ignore[attr-defined]

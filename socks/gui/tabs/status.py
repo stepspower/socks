@@ -12,7 +12,17 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from socks.gui import fmt
+from socks.gui.inline_logic import (
+    TOGGLES,
+    arg_for,
+    display_range,
+    hhmm,
+    minutes_of,
+    toggle_command,
+    toggle_text,
+)
 from socks.gui.widgets.gauge import Gauge
+from socks.gui.widgets.inline import InlineEdit, ToggleChip
 from socks.gui.widgets.status_card import Chip, StatusCard
 
 STALE_SECONDS = 15 * 60
@@ -24,6 +34,8 @@ def _names(items: tuple[str, ...]) -> str:
 
 class StatusTab(QWidget):
     refresh_requested = Signal()
+    #: (Command, argument in command units or None) — the window runs the confirm gate
+    command_requested = Signal(object, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -75,9 +87,146 @@ class StatusTab(QWidget):
         body.addWidget(self.gauge, 1, Qt.AlignmentFlag.AlignTop)
         body.addLayout(grid, 2)
 
+        self._cmds: dict[str, Any] = {}
+        self._editors: dict[str, InlineEdit] = {}
+        self._chips: dict[str, ToggleChip] = {}
+        self.gauge.limit_clicked.connect(lambda: self._start_editor("set_charge_limit"))
+
+        self.location = QLabel("")
+        self.location.setTextFormat(Qt.TextFormat.PlainText)  # place names are user text
+        self.location.setAccessibleName("Location")
+        self.location.hide()
+        grid.addWidget(self.location, 3, 0, 1, 2)
+        grid.setRowStretch(3, 0)
+        grid.setRowStretch(4, 1)
+
         lay = QVBoxLayout(self)
         lay.addLayout(head)
         lay.addLayout(body, 1)
+
+    # ---------------------------------------------------- click-to-change
+
+    def set_commands(self, commands: dict[Any, Any]) -> None:
+        """Create inline editors/chips for the commands core offers (others stay hidden)."""
+        self._cmds = {getattr(c, "value", str(c)): c for c in commands}
+        self._infos = commands
+
+        def editor(cmd: str, kind: str) -> InlineEdit | None:
+            if cmd not in self._cmds:
+                return None
+            ed = InlineEdit(kind)
+            ed.committed.connect(lambda v, c=cmd: self._commit(c, v))
+            self._editors[cmd] = ed
+            return ed
+
+        def chip(field: str) -> ToggleChip | None:
+            t = TOGGLES[field]
+            if t.on_cmd not in self._cmds or t.off_cmd not in self._cmds:
+                return None
+            ch = ToggleChip()
+            ch.activated.connect(lambda f=field: self._toggle(f))
+            self._chips[field] = ch
+            return ch
+
+        def row(card: StatusCard, *ws: QWidget | None) -> None:
+            ws2 = [w for w in ws if w is not None]
+            if ws2:
+                card.add_row(*ws2)
+
+        row(
+            self.charge_card,
+            editor("set_charge_limit", "slider"),
+            editor("set_charge_amps", "spin"),
+        )
+        row(self.charge_card, chip("charging"), chip("charge_port_open"))
+        row(
+            self.charge_card,
+            editor("set_scheduled_charging", "time"),
+            editor("set_scheduled_departure", "time"),
+        )
+        row(self.climate_card, editor("set_temp", "spin"), chip("climate_on"))
+        row(self.security_card, chip("locked"), chip("sentry_on"))
+        self._configure_editors()
+
+    def _info(self, cmd_value: str) -> Any:
+        return self._infos[self._cmds[cmd_value]]
+
+    def _configure_editors(self) -> None:
+        for cmd, ed in self._editors.items():
+            if ed.kind != "time":
+                lo, hi, step, unit = display_range(self._info(cmd), self._units)
+                ed.configure(lo, hi, step, "" if ed.kind == "slider" else unit)
+
+    def _start_editor(self, cmd: str) -> None:
+        ed = self._editors.get(cmd)
+        if ed is not None and self._state is not None:
+            ed.start()
+
+    def _commit(self, cmd: str, value: Any) -> None:
+        try:
+            arg = arg_for(self._info(cmd), value, self._units)
+        except ValueError:
+            return
+        self.command_requested.emit(self._cmds[cmd], arg)
+
+    def _toggle(self, field: str) -> None:
+        if self._state is None:
+            return
+        cmd = toggle_command(field, getattr(self._state, field, None))
+        self.command_requested.emit(self._cmds[cmd], None)
+
+    def _update_controls(self, s: Any) -> None:
+        u = self._units
+
+        def put(cmd: str, text: str, current: Any, show: bool = True) -> None:
+            ed = self._editors.get(cmd)
+            if ed is None:
+                return
+            ed.setVisible(show)
+            if not ed.editing():
+                ed.set_value(text, current)
+
+        put(
+            "set_charge_limit",
+            f"Limit {s.charge_limit} %",
+            s.charge_limit,
+            s.charge_limit is not None,
+        )
+        amps = getattr(s, "charge_current_request_a", None)
+        put("set_charge_amps", f"{amps} A", amps, amps is not None)
+        if amps is not None and "set_charge_amps" in self._editors:
+            lo, hi, step, unit = display_range(self._info("set_charge_amps"), u)
+            hi = getattr(s, "charge_current_request_max_a", None) or hi
+            self._editors["set_charge_amps"].configure(lo, hi, step, unit)
+        if s.target_temp_c is not None:
+            t = fmt.temp_to_display(s.target_temp_c, u)
+            put("set_temp", f"Target {fmt.temp(s.target_temp_c, u)}", t)
+        mode = getattr(s, "scheduled_charging_mode", None)
+        start = minutes_of(s.scheduled_charging_start)
+        put(
+            "set_scheduled_charging",
+            f"Charge at {hhmm(start)}" if start is not None else "Scheduled charging off",
+            start,
+        )
+        dep = minutes_of(getattr(s, "scheduled_departure", None)) if mode != "Off" else None
+        put(
+            "set_scheduled_departure",
+            f"Depart by {hhmm(dep)}" if dep is not None else "Departure off",
+            dep,
+        )
+        for field, ch in self._chips.items():
+            value = getattr(s, field, None)
+            target = toggle_command(field, value)
+            action = self._infos[self._cmds[target]].label.lower()
+            ch.set_state(toggle_text(field, value), action)
+            ch.setVisible(field != "charge_port_open" or value is not None)
+            if field == "charging":
+                ch.setVisible(bool(s.plugged_in))
+
+    def set_location(self, text: str | None) -> None:
+        """Place name or coordinates; None hides the line (location off or unknown)."""
+        self.location.setVisible(bool(text))
+        self.location.setText(f"Location: {text}" if text else "")
 
     def set_busy(self, busy: bool) -> None:
         self.refresh_btn.setEnabled(not busy)
@@ -85,6 +234,7 @@ class StatusTab(QWidget):
 
     def set_units(self, units: str) -> None:
         self._units = units
+        self._configure_editors()
         if self._state is not None:
             self.update_state(self._state)
 
@@ -125,12 +275,14 @@ class StatusTab(QWidget):
                 detail += f" · scheduled {fmt.local_time(s.scheduled_charging_start)}"
         self.charge_card.set(value, detail)
 
-        climate = "climate on" if s.climate_on else "climate off"
-        if s.climate_on and s.target_temp_c is not None:
-            climate += f" → {fmt.temp(s.target_temp_c, u)}"
+        climate = (
+            ""
+            if "climate_on" in self._chips
+            else (" · climate on" if s.climate_on else " · climate off")
+        )
         self.climate_card.set(
             f"{fmt.temp(s.inside_temp_c, u)} inside",
-            f"{fmt.temp(s.outside_temp_c, u)} outside · {climate}",
+            f"{fmt.temp(s.outside_temp_c, u)} outside{climate}",
         )
 
         lock = {True: "Locked", False: "UNLOCKED", None: "Lock state unknown"}[s.locked]
@@ -141,7 +293,7 @@ class StatusTab(QWidget):
             open_bits.append(f"windows: {_names(s.windows_open)}")
         if not open_bits:
             open_bits.append("all doors and windows closed")
-        if s.sentry_on is not None:
+        if s.sentry_on is not None and "sentry_on" not in self._chips:
             open_bits.append("sentry on" if s.sentry_on else "sentry off")
         self.security_card.set(lock, " · ".join(open_bits))
 
@@ -151,6 +303,7 @@ class StatusTab(QWidget):
         if s.speed_kmh:
             veh += f" · {fmt.speed(s.speed_kmh, u)}"
         self.vehicle_card.set(veh, f"firmware {s.firmware}" if s.firmware else "")
+        self._update_controls(s)
         self.update_age()
 
     def update_age(self) -> None:

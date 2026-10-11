@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSizePolicy,
+    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
@@ -136,6 +137,21 @@ class SettingsTab(QWidget):
         tariff_row.addWidget(self.currency)
         tariff_row.addStretch(1)
 
+        self.location = QCheckBox("Read and show the car's &location (stays on this computer)")
+        self.trip_watch = QCheckBox("Follow trips via cloud while the car is away")
+        self.trip_interval = QSpinBox()
+        self.trip_interval.setRange(300, 3600)
+        self.trip_interval.setSingleStep(60)
+        self.trip_interval.setSuffix(" s")
+        self.trip_interval.setAccessibleName("Trip watch interval")
+        self.trip_note = QLabel("")
+        self.trip_note.setWordWrap(True)
+        self.trip_note.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.trip_interval.valueChanged.connect(self._trip_note_update)
+        self.trip_watch.toggled.connect(lambda _on: self._trip_note_update())
+        self.geocode = QCheckBox(
+            "Resolve addresses with OpenStreetMap (sends coordinates to openstreetmap.org)"
+        )
         self.close_to_tray = QCheckBox("Closing the window keeps SOCKS running in the system tray")
 
         self.setup_btn = QPushButton("Set &up…")
@@ -164,6 +180,14 @@ class SettingsTab(QWidget):
         form.addRow("", self.poll_note)
         form.addRow("", self.poll_bg)
         form.addRow(QLabel("Tari&ff:", buddy=self.tariff), tariff_row)
+        form.addRow("", self.location)
+        trip_row = QHBoxLayout()
+        trip_row.addWidget(self.trip_watch)
+        trip_row.addWidget(self.trip_interval)
+        trip_row.addStretch(1)
+        form.addRow("", trip_row)
+        form.addRow("", self.trip_note)
+        form.addRow("", self.geocode)
         form.addRow("", self.close_to_tray)
 
         bottom = QHBoxLayout()
@@ -192,6 +216,18 @@ class SettingsTab(QWidget):
         self.tariff.setValue(float(getattr(s, "tariff_eur_per_kwh", 0.0) or 0.0))
         self.currency.setText(getattr(s, "currency", "EUR") or "EUR")
         self.close_to_tray.setChecked(close_to_tray)
+        self.location.setChecked(bool(getattr(s, "location_enabled", True)))
+        self.trip_watch.setChecked(bool(getattr(s, "trip_watch_enabled", False)))
+        self.trip_interval.setValue(int(getattr(s, "trip_watch_interval_seconds", 600) or 600))
+        self.geocode.setChecked(bool(getattr(s, "geocode_enabled", False)))
+        for box, attr in (
+            (self.location, "location_enabled"),
+            (self.trip_watch, "trip_watch_enabled"),
+            (self.geocode, "geocode_enabled"),
+        ):
+            if not hasattr(s, attr):
+                box.setEnabled(False)
+                box.setToolTip("Not available in this version of SOCKS core")
         self.poll_bg.setChecked(poll_in_background)
         self._cloud_toggled(self.cloud.isChecked())
         self._key_status(self.key_path.text())
@@ -226,6 +262,14 @@ class SettingsTab(QWidget):
         self.poll.setValue(s.poll_seconds)
         s.tariff_eur_per_kwh = float(self.tariff.value())
         s.currency = (self.currency.text().strip() or "EUR").upper()
+        for attr, value in (
+            ("location_enabled", self.location.isChecked()),
+            ("trip_watch_enabled", self.trip_watch.isChecked() and self.cloud.isChecked()),
+            ("trip_watch_interval_seconds", max(300, int(self.trip_interval.value()))),
+            ("geocode_enabled", self.geocode.isChecked()),
+        ):
+            if hasattr(s, attr):
+                setattr(s, attr, value)
         self.save_requested.emit()
 
     def show_result(self, text: str, success: bool) -> None:
@@ -277,7 +321,23 @@ class SettingsTab(QWidget):
             text += "."
         self.poll_note.setText(text)
 
+    def _trip_note_update(self, *_a: object) -> None:
+        v = max(300, self.trip_interval.value())
+        per_hour = 3600 / v * CLOUD_READ_USD
+        text = (
+            "Starts when the car leaves Bluetooth range moving; stops when it is parked. "
+            f"Each poll is a paid cloud read ($0.002): about ${per_hour:.3f} per hour of driving."
+        )
+        if not self.cloud.isChecked():
+            text = "Requires cloud access. " + text
+        self.trip_note.setText(text)
+
     def _cloud_toggled(self, on: bool) -> None:
+        self.trip_watch.setEnabled(
+            on and self._settings is not None and hasattr(self._settings, "trip_watch_enabled")
+        )
+        self.trip_interval.setEnabled(on)
+        self._trip_note_update()
         self._update_poll_minimum()
         self.region.setEnabled(on)
         self.client_id.setEnabled(on)

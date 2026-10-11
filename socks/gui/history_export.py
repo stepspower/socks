@@ -70,6 +70,12 @@ def run_export(
         db.close()
 
 
+def route_text(start: str | None, end: str | None) -> str:
+    if not start and not end:
+        return ""
+    return f"{start or '?'} → {end or '?'}"
+
+
 def drive_rows(drives: list[Any]) -> list[dict[str, Any]]:
     """Read-only Drives table rows: date, times, km, duration, avg speed, SoC."""
     rows = []
@@ -87,6 +93,9 @@ def drive_rows(drives: list[Any]) -> list[dict[str, Any]]:
                 "avg_kmh": km / hours if hours >= 1 / 60 and km > 0 else None,
                 "start_soc": d.start_soc,
                 "end_soc": d.end_soc,
+                "id": getattr(d, "id", None),
+                "route": route_text(getattr(d, "start_label", None), getattr(d, "end_label", None)),
+                "purpose": getattr(d, "purpose", None),
             }
         )
     return rows

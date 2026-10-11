@@ -150,6 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg_dir = _config_dir(d)
     prefs = QSettings(str(cfg_dir / "gui.ini"), QSettings.Format.IniFormat)
     extras["config_dir"] = cfg_dir
+    extras["redact_location"] = bool(args.screenshot)  # never put coordinates in images
     extras["tray_icon"] = tray_icon
     ctx = AppContext(d, settings, args.fake, args.debug, icon, handler, prefs, extras)
     win = MainWindow(ctx)
