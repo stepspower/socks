@@ -1,0 +1,102 @@
+name: Monthly maintenance
+
+on:
+  schedule:
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  newest-deps:
+    runs-on: ubuntu-24.04
+    outputs:
+      ruff: ${{ steps.ruff.outcome }}
+      pytest: ${{ steps.pytest.outcome }}
+      audit: ${{ steps.audit.outcome }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - name: Qt runtime libraries (offscreen tests)
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libdbus-1-3 libfontconfig1 libgl1
+      - name: Resolve the newest dependencies (temporary lock, never committed)
+        run: |
+          uv python install 3.13
+          uv lock --upgrade --python 3.13
+          uv sync --frozen --extra dev --python 3.13
+      - name: ruff
+        id: ruff
+        continue-on-error: true
+        run: .venv/bin/ruff check --config ruff.toml .
+      - name: pytest
+        id: pytest
+        continue-on-error: true
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: .venv/bin/pytest -q
+      - name: pip-audit
+        id: audit
+        continue-on-error: true
+        run: .venv/bin/pip-audit
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: resolved-lock
+          path: uv.lock
+
+  runtime-check:
+    runs-on: ubuntu-24.04
+    outputs:
+      result: ${{ steps.check.outputs.result }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Compare the manifest runtime with Flathub
+        id: check
+        run: |
+          current=$(sed -n "s/^runtime-version: '\(.*\)'/\1/p" packaging/flatpak/net.stepspower.Socks.yml)
+          branches=$(curl -fsS https://flathub.org/api/v2/summary/org.kde.Platform \
+            | python3 -c "import sys,json; print(' '.join(sorted(json.load(sys.stdin)['branches'], key=lambda v: tuple(int(x) for x in v.split('.')))))")
+          newest=$(echo "$branches" | tr ' ' '\n' | tail -1)
+          pyside=$(curl -fsS https://api.github.com/repos/flathub/io.qt.PySide.BaseApp/branches \
+            | python3 -c "import sys,json; print(' '.join(b['name'] for b in json.load(sys.stdin) if b['name'].startswith('branch/')))")
+          if [ "$current" = "$newest" ]; then
+            echo "result=OK: manifest uses KDE runtime $current, the newest on Flathub (PySide BaseApp: $pyside)" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=ACTION: manifest uses KDE runtime $current, Flathub has $newest (PySide BaseApp: $pyside). Bump runtime-version and base-version only if the BaseApp has the same branch." >> "$GITHUB_OUTPUT"
+          fi
+
+  issue:
+    needs: [newest-deps, runtime-check]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Open or update this month's issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUFF: ${{ needs.newest-deps.outputs.ruff }}
+          PYTEST: ${{ needs.newest-deps.outputs.pytest }}
+          AUDIT: ${{ needs.newest-deps.outputs.audit }}
+          RUNTIME: ${{ needs.runtime-check.outputs.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="Monthly maintenance $(date -u +%Y-%m)"
+          {
+            echo "Automated results ([run]($RUN_URL); the resolved lock is attached to that run):"
+            echo
+            echo "- Newest dependencies: ruff \`${RUFF:-skipped}\`, pytest \`${PYTEST:-skipped}\`, pip-audit \`${AUDIT:-skipped}\`"
+            echo "- Flatpak runtime: ${RUNTIME:-check did not run}"
+            echo
+            sed -n '/<!-- checklist:start -->/,/<!-- checklist:end -->/p' docs/MAINTENANCE.md | grep -v '<!--'
+          } > "$RUNNER_TEMP/body.md"
+          number=$(gh issue list --state open --search "\"$title\" in:title" --json number,title \
+            --jq "map(select(.title == \"$title\"))[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/body.md" --label maintenance \
+              || gh issue create --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi
