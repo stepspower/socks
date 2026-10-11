@@ -120,12 +120,13 @@ def test_pick_language() -> None:
     assert pick_language("xx", "nl_NL") == "en"
 
 
-def test_install_with_empty_catalogue(qapp: object) -> None:
+def test_install_dutch_catalogue(qapp: object) -> None:
     from socks.gui import i18n
 
     assert i18n.qm_path("nl").is_file()
     assert i18n.install(qapp, "nl") == "nl"
     from PySide6.QtCore import QCoreApplication
 
-    assert QCoreApplication.translate("MainWindow", "Refresh") == "Refresh"  # empty .ts
+    assert QCoreApplication.translate("MainWindow", "Refresh") == "Vernieuwen"
     assert i18n.install(qapp, "en") == "en"
+    assert QCoreApplication.translate("MainWindow", "Refresh") == "Refresh"
