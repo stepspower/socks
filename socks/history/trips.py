@@ -38,6 +38,8 @@ class Drive:
     start_lon: float | None = None
     end_lat: float | None = None
     end_lon: float | None = None
+    energy_kwh: float | None = None
+    energy_source: str | None = None
 
     @property
     def km(self) -> float:
@@ -139,6 +141,8 @@ def drives(
             start_lon=r["start_lon"],
             end_lat=r["end_lat"],
             end_lon=r["end_lon"],
+            energy_kwh=r["energy_kwh"],
+            energy_source=r["energy_source"],
         )
         for r in rows
     ]

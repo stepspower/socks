@@ -79,6 +79,16 @@ class _Drive:
     km: float
     start_soc: int | None
     end_soc: int | None
+    measured_kwh: float | None = None  # from power integration, when the track covered the drive
+
+
+@dataclass(frozen=True)
+class ParkedStats:
+    hours_parked: float = 0.0
+    soc_lost_pct: float = 0.0
+    kwh_lost: float = 0.0
+    drain_pct_per_day: float = 0.0
+    hours_asleep_estimate: float = 0.0
 
 
 def _now(now: datetime | None) -> datetime:
@@ -87,7 +97,8 @@ def _now(now: datetime | None) -> datetime:
 
 def _drives(db: sqlite3.Connection, vin: str, since: datetime | None = None) -> list[_Drive]:
     rows = db.execute(
-        "SELECT start_ts, end_ts, start_odo_km, end_odo_km, start_soc, end_soc FROM drive "
+        "SELECT start_ts, end_ts, start_odo_km, end_odo_km, start_soc, end_soc, energy_kwh, "
+        "energy_source FROM drive "
         "WHERE vin = ? AND start_ts >= ? AND start_odo_km IS NOT NULL "
         "AND end_odo_km IS NOT NULL ORDER BY start_ts",
         (vin, dbm.iso(since) if since else ""),
@@ -102,6 +113,7 @@ def _drives(db: sqlite3.Connection, vin: str, since: datetime | None = None) -> 
                 km,
                 r["start_soc"],
                 r["end_soc"],
+                r["energy_kwh"] if r["energy_source"] == "measured" else None,
             )
         )
     return out
@@ -118,6 +130,10 @@ def _per_day(drives: list[_Drive], tz: tzinfo) -> dict[date, float]:
 def _wh_per_km(drives: list[_Drive], pack_kwh: float) -> float:
     km = wh = 0.0
     for d in drives:
+        if d.km >= 0.5 and d.measured_kwh is not None and d.measured_kwh > 0:
+            km += d.km  # measured by power integration: preferred over the SoC estimate
+            wh += d.measured_kwh * 1000.0
+            continue
         if d.km < 0.5 or d.start_soc is None or d.end_soc is None or d.end_soc >= d.start_soc:
             continue  # too short, unknown, or regen/charging dominated
         km += d.km
@@ -323,6 +339,17 @@ def nerd_stats(
     out["Phone charges"] = f"{round(total_kwh / PHONE_CHARGE_KWH):,}"
     out["Charge sessions"] = str(n_sessions)
     out["Longest drive"] = units.fmt_distance(max((d.km for d in drives), default=0.0), units_)
+    parked = parked_stats(db, vin)
+    out["Vampire drain"] = (
+        f"{parked.drain_pct_per_day:.1f} %/day" if parked.hours_parked else units.DASH
+    )
+    asleep_s, observed_s, longest_s = _sleep_timeline(db, vin, None)
+    out["Longest sleep"] = (
+        units.fmt_duration(timedelta(seconds=longest_s)) if longest_s else units.DASH
+    )
+    out["Share of time asleep"] = (
+        units.fmt_percent(asleep_s / observed_s * 100.0) if observed_s and asleep_s else units.DASH
+    )
     return out
 
 
@@ -355,3 +382,113 @@ def estimate_pack_kwh(
     if not vals:
         return None
     return PackEstimate(median(vals), len(vals), pstdev(vals), stamps[0], stamps[-1])
+
+
+def drive_profile(
+    db: sqlite3.Connection, drive_id: int
+) -> list[tuple[datetime, float | None, float | None, int | None]]:
+    """(ts, speed_kmh, power_kw, soc) of a drive's high-rate track, for charts."""
+    return [
+        (dbm.parse_ts(ts), speed, power, soc)
+        for ts, speed, power, soc in dbm.tuples(db).execute(
+            "SELECT ts, speed_kmh, power_kw, soc FROM track_point WHERE drive_id = ? ORDER BY ts",
+            (drive_id,),
+        )
+    ]
+
+
+ODO_SAME_KM = 0.05
+SLEEP_GAP_CAP_S = 3600.0  # a logged "asleep" read vouches for at most an hour
+
+
+def parked_stats(
+    db: sqlite3.Connection,
+    vin: str,
+    since: datetime | None = None,
+    *,
+    pack_kwh: float = dbm.DEFAULT_PACK_KWH,
+) -> ParkedStats:
+    """Vampire drain from consecutive snapshots in P, not charging, odometer unchanged.
+
+    Pairs that overlap a charge session or where SoC rose are skipped. The asleep estimate
+    comes from the availability log (see ``_sleep_timeline``).
+    """
+    lo = dbm.iso(since) if since else ""
+    sessions = [
+        (s, e)
+        for s, e in dbm.tuples(db).execute(
+            "SELECT CAST(strftime('%s', start_ts) AS INTEGER), "
+            "CAST(strftime('%s', COALESCE(end_ts, start_ts)) AS INTEGER) "
+            "FROM charge_session WHERE vin = ?",
+            (vin,),
+        )
+    ]
+    parked_s = lost = 0.0
+    prev = None
+    for row in dbm.tuples(db).execute(
+        "SELECT CAST(strftime('%s', ts) AS INTEGER), soc, shift, charging, odometer_km "
+        "FROM snapshot WHERE vin = ? AND ts >= ? ORDER BY ts",
+        (vin, lo),
+    ):
+        t, soc, shift, charging, odo = row
+        if prev is not None:
+            pt, psoc, pshift, pcharging, podo = prev
+            if (
+                shift == pshift == "P"
+                and charging != "Charging"
+                and pcharging != "Charging"
+                and soc is not None
+                and psoc is not None
+                and soc <= psoc
+                and odo is not None
+                and podo is not None
+                and abs(odo - podo) < ODO_SAME_KM
+                and not any(s < t and e > pt for s, e in sessions)
+            ):
+                parked_s += t - pt
+                lost += psoc - soc
+        prev = row
+    hours = parked_s / 3600.0
+    asleep_s, _observed, _longest = _sleep_timeline(db, vin, since)
+    return ParkedStats(
+        hours_parked=hours,
+        soc_lost_pct=lost,
+        kwh_lost=lost / 100.0 * pack_kwh,
+        drain_pct_per_day=lost / hours * 24.0 if hours else 0.0,
+        hours_asleep_estimate=asleep_s / 3600.0,
+    )
+
+
+def _sleep_timeline(
+    db: sqlite3.Connection, vin: str, since: datetime | None
+) -> tuple[float, float, float]:
+    """(asleep seconds, observed seconds, longest asleep run in seconds).
+
+    Snapshots and availability rows are merged into one event stream. The interval after an
+    'asleep' event counts as asleep until the next event, at most SLEEP_GAP_CAP_S; every
+    interval (capped the same way) counts as observed. An asleep run ends at the next
+    non-asleep event or at a gap longer than the cap.
+    """
+    lo = dbm.iso(since) if since else ""
+    events = (
+        dbm.tuples(db)
+        .execute(
+            "SELECT CAST(strftime('%s', ts) AS INTEGER), 0 FROM snapshot WHERE vin = ? AND ts >= ? "
+            "UNION ALL SELECT CAST(strftime('%s', ts) AS INTEGER), "
+            "CASE asleep WHEN 1 THEN 1 ELSE 2 END FROM availability "
+            "WHERE vin = ? AND ts >= ? ORDER BY 1",
+            (vin, lo, vin, lo),
+        )
+        .fetchall()
+    )
+    asleep = observed = longest = run = 0.0
+    for (t0, k0), (t1, k1) in zip(events, events[1:], strict=False):
+        gap = t1 - t0
+        dt = min(gap, SLEEP_GAP_CAP_S)
+        observed += dt
+        if k0 == 1:
+            asleep += dt
+            run += dt
+        if k0 != 1 or k1 != 1 or gap > SLEEP_GAP_CAP_S:
+            longest, run = max(longest, run), 0.0
+    return asleep, observed, max(longest, run)

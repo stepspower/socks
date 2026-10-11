@@ -17,7 +17,7 @@ from datetime import UTC, datetime, tzinfo
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 PURPOSES = ("business", "private", "commute")
 PLACE_KINDS = ("home", "work", "other")
 DEFAULT_PACK_KWH = 80.0  # Model 3 Long Range (NCA) usable pack; used until learned
@@ -149,6 +149,36 @@ SCHEMA_V4 = (
 )
 
 
+# v5: high-rate drive tracks, measured drive energy, availability (asleep/unreachable) log.
+# The (drive_id, ts) primary key is the drive_id,ts index.
+SCHEMA_V5 = (
+    """
+    CREATE TABLE track_point (
+        drive_id INTEGER NOT NULL,
+        ts TEXT NOT NULL,
+        lat REAL,
+        lon REAL,
+        speed_kmh REAL,
+        power_kw REAL,
+        soc INTEGER,
+        odometer_km REAL,
+        PRIMARY KEY (drive_id, ts)
+    ) WITHOUT ROWID
+    """,
+    "ALTER TABLE drive ADD COLUMN energy_kwh REAL",
+    "ALTER TABLE drive ADD COLUMN energy_source TEXT "
+    "CHECK (energy_source IS NULL OR energy_source IN ('measured', 'estimated'))",
+    """
+    CREATE TABLE availability (
+        vin TEXT NOT NULL,
+        ts TEXT NOT NULL,
+        asleep INTEGER NOT NULL,
+        PRIMARY KEY (vin, ts)
+    ) WITHOUT ROWID
+    """,
+)
+
+
 def iso(dt: datetime) -> str:
     """UTC text form used for every stored timestamp (naive input is taken as UTC)."""
     if dt.tzinfo is None:
@@ -210,7 +240,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
         current = int(row["value"]) if row else 0
     if current > SCHEMA_VERSION:
         raise DbError(f"history DB schema {current} is newer than supported {SCHEMA_VERSION}")
-    steps = ((1, SCHEMA_V1), (2, SCHEMA_V2), (3, SCHEMA_V3), (4, SCHEMA_V4))
+    steps = ((1, SCHEMA_V1), (2, SCHEMA_V2), (3, SCHEMA_V3), (4, SCHEMA_V4), (5, SCHEMA_V5))
     if current >= SCHEMA_VERSION:
         return
     with transaction(conn):

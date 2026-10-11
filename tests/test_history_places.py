@@ -91,7 +91,7 @@ def test_migration_v3_to_v4_adds_open_end_index(tmp_path):
     con.commit()
     con.close()
     c = dbm.open(p)
-    assert dbm.get_meta(c, "schema_version") == "4"
+    assert dbm.get_meta(c, "schema_version") == str(dbm.SCHEMA_VERSION)
     plan = " ".join(
         r[3]
         for r in c.execute(
@@ -103,7 +103,9 @@ def test_migration_v3_to_v4_adds_open_end_index(tmp_path):
     assert "ix_drive_open_end" in plan
     assert c.execute("SELECT COUNT(*) FROM drive").fetchone()[0] == 1  # data kept
     c.close()
-    assert dbm.get_meta(dbm.open(p), "schema_version") == "4"  # reopening is a no-op
+    assert dbm.get_meta(dbm.open(p), "schema_version") == str(
+        dbm.SCHEMA_VERSION
+    )  # reopening is a no-op
 
 
 def test_snapshot_position_dedupe(rec):

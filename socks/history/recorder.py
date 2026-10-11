@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import db as dbm
-from . import places, stats
+from . import places, stats, tracks
 
 if TYPE_CHECKING:
     from socks.core.model import VehicleState
@@ -40,6 +40,7 @@ MIN_LEARNED_SAMPLES = 3
 MOVE_THRESHOLD_M = 25.0
 DRIVE_START_WINDOW_S = 600.0
 RETRO_START_WINDOW_S = 24 * 3600.0
+TRACK_MAX_DT = timedelta(seconds=tracks.TRACK_MAX_DT_S)
 
 _TRACKED = (
     "soc",
@@ -109,6 +110,7 @@ class Recorder:
         self.conn: sqlite3.Connection = dbm.open(db_path)
         self._seen_vins: set[str] = set()
         self._seen: dict[str, _Seen | None] = {}
+        self._last_state: dict[str, VehicleState] = {}
 
     def close(self) -> None:
         self.conn.close()
@@ -138,11 +140,21 @@ class Recorder:
             self._drive(state, ts, seen)
             if _pos(state)[0] is not None:
                 places.fill_drive_ends(self.conn, vin, self._open_id("drive", vin), ts)
+        self._last_state[vin] = state
         self._seen[vin] = _Seen(
             ts,
             state.odometer_km if state.odometer_km is not None else (seen.odo if seen else None),
             state.soc if state.soc is not None else (seen.soc if seen else None),
         )
+
+    def record_unavailable(self, vin: str, ts: datetime, asleep: bool) -> None:
+        """Log a failed read: the car is asleep (True) or otherwise unreachable (False)."""
+        ts = (ts if ts.tzinfo else ts.replace(tzinfo=dbm.UTC)).astimezone(dbm.UTC)
+        with dbm.transaction(self.conn):
+            self.conn.execute(
+                "INSERT OR IGNORE INTO availability (vin, ts, asleep) VALUES (?, ?, ?)",
+                (vin, dbm.iso(ts), int(asleep)),
+            )
 
     # -- seen / snapshot --------------------------------------------------------------
 
@@ -280,7 +292,7 @@ class Recorder:
         vin = s.vin
         open_id = self._open_id("drive", vin)
         if open_id is not None and seen is not None and ts - seen.ts > DRIVE_GAP:
-            self._set_open("drive", vin, None)
+            self._close_drive(open_id, vin)
             open_id = None
         last_odo = seen.odo if seen else None
         odo = s.odometer_km
@@ -302,7 +314,9 @@ class Recorder:
                 "start_soc, end_soc, start_lat, start_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (vin, start[0], dbm.iso(ts), start[1], odo, start[2], s.soc, lat0, lon0),
             )
-            self._set_open("drive", vin, int(cur.lastrowid or 0))
+            open_id = int(cur.lastrowid or 0)
+            self._set_open("drive", vin, open_id)
+            self._track(s, ts, seen, open_id, moving)
             return
         if active:
             self.conn.execute(
@@ -310,5 +324,32 @@ class Recorder:
                 "end_soc = COALESCE(?, end_soc) WHERE id = ?",
                 (dbm.iso(ts), odo, s.soc, open_id),
             )
+            self._track(s, ts, seen, open_id, moving)
         elif s.shift.value == "P":
-            self._set_open("drive", vin, None)  # parked, nothing moved: row ends at last activity
+            self._close_drive(open_id, vin)  # parked, nothing moved: row ends at last activity
+
+    def _close_drive(self, drive_id: int, vin: str) -> None:
+        self._set_open("drive", vin, None)
+        tracks.finalize_drive(self.conn, drive_id, self.pack_kwh)
+
+    def _track(
+        self, s: VehicleState, ts: datetime, seen: _Seen | None, drive_id: int, moving: bool
+    ) -> None:
+        """Store a track point when reads arrive <= 60 s apart while in gear."""
+        if not moving or seen is None or ts - seen.ts > TRACK_MAX_DT:
+            return
+        have = self.conn.execute(
+            "SELECT 1 FROM track_point WHERE drive_id = ? LIMIT 1", (drive_id,)
+        ).fetchone()
+        prev = self._last_state.get(s.vin)
+        if not have and prev is not None and prev.shift.value in ("R", "N", "D"):
+            self._insert_point(prev, drive_id)  # the read that opened the high-rate pair
+        self._insert_point(s, drive_id)
+
+    def _insert_point(self, s: VehicleState, drive_id: int) -> None:
+        ts = s.ts if s.ts.tzinfo else s.ts.replace(tzinfo=dbm.UTC)
+        self.conn.execute(
+            "INSERT OR IGNORE INTO track_point (drive_id, ts, lat, lon, speed_kmh, power_kw, "
+            "soc, odometer_km) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (drive_id, dbm.iso(ts), *_pos(s), s.speed_kmh, s.power_kw, s.soc, s.odometer_km),
+        )

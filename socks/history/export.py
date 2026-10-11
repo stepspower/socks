@@ -236,3 +236,49 @@ def export_mileage_register_csv(
         ])  # fmt: skip
     _write_csv(path, cols, rows)
     return len(rows)
+
+
+GPX_NS = "http://www.topografix.com/GPX/1/1"
+SOCKS_GPX_NS = "https://github.com/stepspower/socks/gpx/1"
+
+
+def export_gpx(db: sqlite3.Connection, drive_id: int, path: str | os.PathLike[str]) -> int:
+    """Write a drive's high-rate track as GPX 1.1; speed/power/soc go in extensions.
+
+    Returns the number of trkpt elements. Raises LookupError for an unknown drive and
+    ValueError if the drive has no track points with coordinates.
+    """
+    from xml.etree import ElementTree as ET  # noqa: S405  (only builds XML, never parses input)
+
+    drive = db.execute("SELECT vin, start_ts FROM drive WHERE id = ?", (drive_id,)).fetchone()
+    if drive is None:
+        raise LookupError(f"no drive with id {drive_id}")
+    pts = db.execute(
+        "SELECT ts, lat, lon, speed_kmh, power_kw, soc FROM track_point "
+        "WHERE drive_id = ? AND lat IS NOT NULL AND lon IS NOT NULL ORDER BY ts",
+        (drive_id,),
+    ).fetchall()
+    if not pts:
+        raise ValueError(f"drive {drive_id} has no track points with coordinates")
+    ET.register_namespace("", GPX_NS)
+    ET.register_namespace("socks", SOCKS_GPX_NS)
+    root = ET.Element(f"{{{GPX_NS}}}gpx", {"version": "1.1", "creator": "SOCKS"})
+    trk = ET.SubElement(root, f"{{{GPX_NS}}}trk")
+    ET.SubElement(trk, f"{{{GPX_NS}}}name").text = f"Drive {drive_id} {drive['start_ts']}"
+    seg = ET.SubElement(trk, f"{{{GPX_NS}}}trkseg")
+    for p in pts:
+        pt = ET.SubElement(
+            seg, f"{{{GPX_NS}}}trkpt", {"lat": f"{p['lat']:.6f}", "lon": f"{p['lon']:.6f}"}
+        )
+        ET.SubElement(pt, f"{{{GPX_NS}}}time").text = p["ts"]
+        ext = ET.SubElement(pt, f"{{{GPX_NS}}}extensions")
+        for name, val, fmt in (
+            ("speed_kmh", p["speed_kmh"], "{:.1f}"),
+            ("power_kw", p["power_kw"], "{:.2f}"),
+            ("soc", p["soc"], "{:d}"),
+        ):
+            if val is not None:
+                ET.SubElement(ext, f"{{{SOCKS_GPX_NS}}}{name}").text = fmt.format(val)
+    body = ET.tostring(root, encoding="unicode")
+    _write(path, '<?xml version="1.0" encoding="UTF-8"?>\n' + body + "\n")
+    return len(pts)
