@@ -45,7 +45,7 @@ from socks.core.config import Settings
 from socks.core.model import KM_PER_MILE, ChargingState, ShiftState, Source
 from tests.fakes import FakeBackend
 
-VIN = "LRW3E7EJXTC899247"
+VIN = "5YJ3E7EB0KF000001"
 TS = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)
 
 # Shape printed by Tesla's `tesla-control state charge` / `state drive` (protobuf JSON).

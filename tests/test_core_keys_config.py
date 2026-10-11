@@ -34,13 +34,13 @@ def _mode(p: Path) -> int:
 # ---------------------------------------------------------------- VIN
 
 
-@pytest.mark.parametrize("vin", ["LRW3E7EJXTC899247", " 5yj3e7eb0kf000001 \n"])
+@pytest.mark.parametrize("vin", ["5YJ3E7EB0KF000001", " 5yj3e7eb0kf000001 \n"])
 def test_valid_vins(vin: str) -> None:
     assert keys.validate_vin(vin) == vin.strip().upper()
 
 
 @pytest.mark.parametrize(
-    "vin", ["", "LRW3E7EJXTC89924", "LRW3E7EJXTC8992477", "LRW3E7EJXTC89924I", "LRW3E7EJOTC899247",
+    "vin", ["", "5YJ3E7EB0KF00000", "5YJ3E7EB0KF0000011", "5YJ3E7EB0KF00000I", "5YJ3E7EBOKF000001",
             "QRW3E7EJXTC899247", "LRW3E7EJ-TC899247"],
 )  # fmt: skip
 def test_invalid_vins(vin: str) -> None:
@@ -51,8 +51,8 @@ def test_invalid_vins(vin: str) -> None:
 
 def test_read_vin_file(tmp_path: Path) -> None:
     f = tmp_path / "vin"
-    f.write_text("LRW3E7EJXTC899247\n")
-    assert keys.read_vin_file(f) == "LRW3E7EJXTC899247"
+    f.write_text("5YJ3E7EB0KF000001\n")
+    assert keys.read_vin_file(f) == "5YJ3E7EB0KF000001"
     f.write_text("garbage")
     assert keys.read_vin_file(f) is None
     assert keys.read_vin_file(tmp_path / "missing") is None
@@ -149,7 +149,7 @@ def test_paths_follow_xdg(tmp_path: Path) -> None:
 
 def test_settings_roundtrip(tmp_path: Path) -> None:
     s = Settings(
-        vin="LRW3E7EJXTC899247",
+        vin="5YJ3E7EB0KF000001",
         units="imperial",
         prefer="cloud",
         cloud_enabled=True,
@@ -173,12 +173,12 @@ def test_settings_missing_file_gives_defaults() -> None:
 def test_settings_bad_values_fall_back(tmp_path: Path) -> None:
     f = tmp_path / "s.toml"
     f.write_text(
-        'vin = "LRW3E7EJXTC899247"\nunits = "furlongs"\npoll_seconds = -5\n'
+        'vin = "5YJ3E7EB0KF000001"\nunits = "furlongs"\npoll_seconds = -5\n'
         'cloud_enabled = "yes"\ntariff_eur_per_kwh = 0.3\nregion = "eu"\nunknown = 1\n'
         'key_path = "~/k.pem"\n'
     )
     s = Settings.load(f)
-    assert s.vin == "LRW3E7EJXTC899247"
+    assert s.vin == "5YJ3E7EB0KF000001"
     assert s.units == "metric"
     assert s.poll_seconds == 0
     assert s.cloud_enabled is False
@@ -221,7 +221,7 @@ def test_poll_floor_clamped_on_load_and_save(tmp_path: Path) -> None:
 
 def test_settings_invalid_vin_ignored(tmp_path: Path) -> None:
     f = tmp_path / "s.toml"
-    f.write_text('vin = "LRW3E7EJOTC899247"\n')
+    f.write_text('vin = "5YJ3E7EBOKF000001"\n')
     assert Settings.load(f).vin == ""
-    f.write_text('vin = "lrw3e7ejxtc899247"\n')
-    assert Settings.load(f).vin == "LRW3E7EJXTC899247"
+    f.write_text('vin = "5yj3e7eb0kf000001"\n')
+    assert Settings.load(f).vin == "5YJ3E7EB0KF000001"

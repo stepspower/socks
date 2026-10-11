@@ -61,13 +61,13 @@ def test_key_generate_import_public(tmp_path: Path, capsys: pytest.CaptureFixtur
     tesla = tmp_path / "config" / "tesla"
     src = tesla / "private_key.pem"
     keys.write_private_key(keys.generate_private_key(), src)
-    (tesla / "vin").write_text("LRW3E7EJXTC899247\n")
+    (tesla / "vin").write_text("5YJ3E7EB0KF000001\n")
     assert main(["key", "import"]) == EXIT_OK  # defaults to $XDG_CONFIG_HOME/tesla
     out = capsys.readouterr().out
-    assert "fingerprint" in out and "LRW3E7EJXTC899247" in out
+    assert "fingerprint" in out and "5YJ3E7EB0KF000001" in out
     assert "PRIVATE" not in out
     s = Settings.load()
-    assert s.vin == "LRW3E7EJXTC899247" and s.key_path == Settings.paths().key_file
+    assert s.vin == "5YJ3E7EB0KF000001" and s.key_path == Settings.paths().key_file
     assert main(["key", "public"]) == EXIT_OK
     out = capsys.readouterr().out
     assert "BEGIN PUBLIC KEY" in out and "PRIVATE" not in out
