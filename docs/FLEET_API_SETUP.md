@@ -14,11 +14,12 @@ developer.tesla.com on 2026-10-11; portal labels change, so follow the meaning i
    "Personal Linux desktop companion for my own car"; purpose: personal use, own vehicle.
 4. **Client details** - OAuth grant type *Authorization Code and Machine-to-Machine*:
    - Allowed Origin URL: `https://auth.stepspower.net`
-   - Allowed Redirect URIs: `http://localhost/callback` **and** `http://localhost:53682/callback`
+   - Allowed Redirect URIs: `http://127.0.0.1/callback` **and** `http://127.0.0.1:53682/callback`
+     (use `127.0.0.1`, not `localhost`)
    - Allowed Returned URL: `https://auth.stepspower.net`
 5. **Scopes**: openid, offline_access, Vehicle Information (`vehicle_device_data`), Vehicle
-   Location (`vehicle_location`), Vehicle Commands (`vehicle_cmds`), Vehicle Charging
-   Management (`vehicle_charging_cmds`). Nothing else.
+   Commands (`vehicle_cmds`), Vehicle Charging Management (`vehicle_charging_cmds`). Vehicle
+   Location only if you will log in with `--with-location` (SOCKS does not need it).
 6. **Billing**: add a payment method. Every account starts with a billing limit of 0 and an app
    with no payment method is disabled. Tesla gives a **$10 monthly discount** for individual
    developers. Prices: vehicle data $0.002/request, commands $0.001, wake $0.02, streaming

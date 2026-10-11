@@ -8,6 +8,7 @@ file, it only shows whether the path exists.
 
 from __future__ import annotations
 
+import dataclasses
 import re
 from pathlib import Path
 from typing import Any
@@ -25,12 +26,12 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSizePolicy,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from socks.gui.widgets.colors import ok, warn
+from socks.gui.widgets.poll_spinbox import PollSpinBox
 
 VIN_RE = re.compile(r"^[A-HJ-NPR-Z0-9]{17}$")
 DEFAULT_KEY = Path.home() / ".config/tesla/private_key.pem"
@@ -38,6 +39,23 @@ PRICE_NOTE = (
     "The Tesla Fleet API is billed per request: data read $0.002, command $0.001, "
     "wake $0.02. SOCKS uses Bluetooth first; keep polling off unless you need it."
 )
+
+
+CLOUD_READ_USD = 0.002
+FALLBACK_MIN_POLL = (60, 600)  # (BLE only, cloud enabled) until core provides min_poll_seconds
+
+
+def min_poll_seconds(settings: Any, cloud_enabled: bool) -> int:
+    """Minimum non-zero poll interval; prefers core's ``Settings.min_poll_seconds()``."""
+    fn = getattr(settings, "min_poll_seconds", None)
+    if callable(fn) and dataclasses.is_dataclass(settings):
+        try:
+            return int(
+                dataclasses.replace(settings, cloud_enabled=cloud_enabled).min_poll_seconds()
+            )
+        except (TypeError, ValueError):
+            pass
+    return FALLBACK_MIN_POLL[1] if cloud_enabled else FALLBACK_MIN_POLL[0]
 
 
 class SettingsTab(QWidget):
@@ -90,14 +108,17 @@ class SettingsTab(QWidget):
         self.client_id.setPlaceholderText("from developer.tesla.com")
         self.cloud.toggled.connect(self._cloud_toggled)
 
-        self.poll = QSpinBox()
-        self.poll.setRange(0, 3600)
-        self.poll.setSingleStep(30)
-        self.poll.setSuffix(" s")
-        self.poll.setSpecialValueText("Off")
+        self.poll = PollSpinBox()
+        self.poll.setAccessibleName("Poll interval")
         self.poll.setToolTip(
-            "Read the car periodically while the window is open (records history)."
+            "Read the car periodically while the window is open (records history). "
+            "Polling never wakes a sleeping car."
         )
+        self.poll.valueChanged.connect(self._poll_note_update)
+        self.poll_note = QLabel("")
+        self.poll_note.setWordWrap(True)
+        self.poll_note.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        self.poll_bg = QCheckBox("Keep polling in background (while hidden in the tray)")
 
         self.tariff = QDoubleSpinBox()
         self.tariff.setRange(0, 10)
@@ -136,6 +157,8 @@ class SettingsTab(QWidget):
         form.addRow("&Region:", self.region)
         form.addRow("Client &ID:", self.client_id)
         form.addRow("&Poll interval:", self.poll)
+        form.addRow("", self.poll_note)
+        form.addRow("", self.poll_bg)
         form.addRow(QLabel("Tari&ff:", buddy=self.tariff), tariff_row)
         form.addRow("", self.close_to_tray)
 
@@ -150,7 +173,7 @@ class SettingsTab(QWidget):
 
     # ----------------------------------------------------------- load/save
 
-    def load(self, s: Any, close_to_tray: bool) -> None:
+    def load(self, s: Any, close_to_tray: bool, poll_in_background: bool = False) -> None:
         self._settings = s
         self.vin.setText(getattr(s, "vin", "") or "")
         kp = getattr(s, "key_path", None)
@@ -164,6 +187,7 @@ class SettingsTab(QWidget):
         self.tariff.setValue(float(getattr(s, "tariff_eur_per_kwh", 0.0) or 0.0))
         self.currency.setText(getattr(s, "currency", "EUR") or "EUR")
         self.close_to_tray.setChecked(close_to_tray)
+        self.poll_bg.setChecked(poll_in_background)
         self._cloud_toggled(self.cloud.isChecked())
         self._key_status(self.key_path.text())
 
@@ -192,7 +216,9 @@ class SettingsTab(QWidget):
         s.cloud_enabled = self.cloud.isChecked()
         s.region = self.region.currentData()
         s.client_id = self.client_id.text().strip()
-        s.poll_seconds = int(self.poll.value())
+        self._update_poll_minimum()
+        s.poll_seconds = self.poll.allowed(int(self.poll.value()))
+        self.poll.setValue(s.poll_seconds)
         s.tariff_eur_per_kwh = float(self.tariff.value())
         s.currency = (self.currency.text().strip() or "EUR").upper()
         self.save_requested.emit()
@@ -231,7 +257,23 @@ class SettingsTab(QWidget):
         self.key_state.setPalette(pal)
         self.key_state.setText(msg)
 
+    def _update_poll_minimum(self) -> None:
+        self.poll.set_minimum_on(min_poll_seconds(self._settings, self.cloud.isChecked()))
+        self._poll_note_update()
+
+    def _poll_note_update(self, *_a: object) -> None:
+        lo = self.poll.minimum_on()
+        text = f"0 = off; otherwise at least {lo} s. Polling never wakes a sleeping car."
+        v = self.poll.value()
+        if self.cloud.isChecked():
+            text += " With the cloud enabled, a poll that falls back to the cloud is a paid read"
+            if v:
+                text += f" (up to {86_400 / v * CLOUD_READ_USD:.2f} $ a day at this interval)"
+            text += "."
+        self.poll_note.setText(text)
+
     def _cloud_toggled(self, on: bool) -> None:
+        self._update_poll_minimum()
         self.region.setEnabled(on)
         self.client_id.setEnabled(on)
         self.prefer.setEnabled(on)

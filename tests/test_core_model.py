@@ -53,7 +53,8 @@ def test_raw_not_compared() -> None:
 def test_commands_metadata_complete() -> None:
     assert set(COMMANDS) == set(Command)
     dangerous = {c for c, i in COMMANDS.items() if i.dangerous}
-    assert dangerous == {Command.UNLOCK, Command.FRUNK, Command.TRUNK}
+    assert dangerous == {Command.UNLOCK, Command.FRUNK, Command.TRUNK, Command.SENTRY_OFF}
+    assert not COMMANDS[Command.CHARGE_PORT_OPEN].dangerous
     assert COMMANDS[Command.SET_TEMP].arg == "temp_c"
     assert COMMANDS[Command.SET_CHARGE_LIMIT].arg == "percent"
     assert not COMMANDS[Command.LOCK].needs_wake
@@ -73,6 +74,8 @@ def test_parse_and_validate() -> None:
         (Command.SET_CHARGE_LIMIT, 80.5),
         (Command.SET_CHARGE_LIMIT, None),
         (Command.SET_TEMP, 40),
+        (Command.SET_TEMP, float("nan")),
+        (Command.SET_CHARGE_LIMIT, float("inf")),
         (Command.LOCK, 1),
     ]:
         with pytest.raises(ValueError):

@@ -16,10 +16,9 @@ finish-args:
   - --socket=fallback-x11
   - --device=dri
   - --share=network
-  # Bluetooth LE to the car through BlueZ (bleak talks to org.bluez on the system bus)
-  - --allow=bluetooth
+  # Bluetooth LE to the car through BlueZ: bleak uses D-Bus only (no AF_BLUETOOTH sockets), so
+  # --allow=bluetooth is intentionally omitted (audit L7). Re-add only if a live test needs it.
   - --system-talk-name=org.bluez
-  - --talk-name=org.freedesktop.Notifications
   # Tray icon (StatusNotifierItem). Open question: drop if the tray is removed from the GUI.
   - --talk-name=org.kde.StatusNotifierWatcher
   # No filesystem access: keys/tokens/DB live in the sandboxed XDG dirs. Importing an existing
@@ -38,10 +37,8 @@ modules:
       - install -Dm644 packaging/net.stepspower.Socks.metainfo.xml -t /app/share/metainfo/
       - install -Dm644 data/icons/socks.svg /app/share/icons/hicolor/scalable/apps/net.stepspower.Socks.svg
     sources:
-      - type: dir
-        path: ../..
-        skip:
-          - .venv
-          - .git
-          - .flatpak-builder
-          - build
+      # Release builds come from the tag, never from the working tree (audit L7).
+      - type: git
+        url: https://github.com/stepspower/socks
+        tag: v0.1.0
+        # commit: <40-char sha of v0.1.0>   # integrator fills this in at release time

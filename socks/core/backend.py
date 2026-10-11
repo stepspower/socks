@@ -59,12 +59,18 @@ class NotAvailable(CommandError):
     """The backend cannot reach the car at all (not configured, out of range, offline...)."""
 
 
+ASLEEP = "Asleep"  # CommandError.kind for "car is asleep and the read was not allowed to wake it"
+
+
 class Backend(Protocol):
     name: Source
 
     async def available(self) -> bool: ...
 
-    async def read_state(self) -> VehicleState: ...
+    async def read_state(self, wake: bool = False) -> VehicleState:
+        """Read the car. ``wake=False`` (polls, background reads) must never wake a sleeping
+        car; ``wake=True`` (user pressed Refresh) may wake it where that is free (BLE)."""
+        ...
 
     async def send(self, cmd: Command, arg: float | int | None = None) -> None: ...
 
@@ -507,29 +513,47 @@ class BleBackend:
             raise NotAvailable(f"Bluetooth: cannot connect ({_describe(e)})") from None
         return vehicle
 
-    async def read_state(self) -> VehicleState:
+    async def read_state(self, wake: bool = False) -> VehicleState:
+        """Read over BLE. Without ``wake`` a sleeping car is left asleep: NotAvailable with
+        ``kind == ASLEEP`` (the VCSEC status read used to find out does not wake it).
+
+        tesla-fleet-api only has a per-vehicle ``wake_if_asleep`` attribute (read at send
+        time), so it is set for the duration of this read, under the backend lock.
+        """
         async with self._lock:
             vehicle = await self._connected()
-            payload: dict[str, Any] = {}
-            with _guard("Bluetooth read"):
-                async with asyncio.timeout(self.command_timeout):
-                    status = await vehicle.vehicle_state()
-                payload["vehicle_status"] = _to_dict(status, all_fields=True)
-                if payload["vehicle_status"].get("vehicleSleepStatus") == (
-                    "VEHICLE_SLEEP_STATUS_ASLEEP"
-                ):
-                    async with asyncio.timeout(self.wake_timeout + 5):
-                        await vehicle.wake_up(wait=True, timeout=self.wake_timeout)
-                async with asyncio.timeout(self.command_timeout):
-                    payload["charge_state"] = _to_dict(await vehicle.charge_state())
-            for name in ("drive_state", "climate_state", "closures_state"):
-                try:
-                    with _guard(f"Bluetooth {name}"):
-                        async with asyncio.timeout(self.command_timeout):
-                            payload[name] = _to_dict(await getattr(vehicle, name)())
-                except CommandError as e:
-                    log.debug("optional BLE read failed: %s", e)
-            return parse_ble_payload(self.vin, payload, self._clock())
+            vehicle.wake_if_asleep = wake
+            try:
+                return await self._read(vehicle, wake)
+            finally:
+                vehicle.wake_if_asleep = True  # commands may wake (the user asked for them)
+
+    async def _read(self, vehicle: Any, wake: bool) -> VehicleState:
+        payload: dict[str, Any] = {}
+        with _guard("Bluetooth read"):
+            async with asyncio.timeout(self.command_timeout):
+                status = await vehicle.vehicle_state()
+            payload["vehicle_status"] = _to_dict(status, all_fields=True)
+            if payload["vehicle_status"].get("vehicleSleepStatus") == (
+                "VEHICLE_SLEEP_STATUS_ASLEEP"
+            ):
+                if not wake:
+                    raise NotAvailable(
+                        "Bluetooth: car is asleep (not woken for a background read)",
+                        kind=ASLEEP,
+                    )
+                async with asyncio.timeout(self.wake_timeout + 5):
+                    await vehicle.wake_up(wait=True, timeout=self.wake_timeout)
+            async with asyncio.timeout(self.command_timeout):
+                payload["charge_state"] = _to_dict(await vehicle.charge_state())
+        for name in ("drive_state", "climate_state", "closures_state"):
+            try:
+                with _guard(f"Bluetooth {name}"):
+                    async with asyncio.timeout(self.command_timeout):
+                        payload[name] = _to_dict(await getattr(vehicle, name)())
+            except CommandError as e:
+                log.debug("optional BLE read failed: %s", e)
+        return parse_ble_payload(self.vin, payload, self._clock())
 
     async def send(self, cmd: Command, arg: float | int | None = None) -> None:
         try:
@@ -674,7 +698,9 @@ class CloudBackend:
                 raise NotAvailable(f"cloud: {e}") from None
         return self._vehicle
 
-    async def read_state(self) -> VehicleState:
+    async def read_state(self, wake: bool = False) -> VehicleState:
+        """Cloud reads never wake the car (a wake costs money), whatever ``wake`` says."""
+        del wake
         vehicle = self._get_vehicle()
         with _guard("cloud read"):
             async with asyncio.timeout(self.command_timeout):
@@ -776,9 +802,12 @@ class Router(Backend):
                 return True
         return False
 
-    async def read_state(self) -> VehicleState:
+    async def read_state(self, wake: bool = False) -> VehicleState:
+        """Read via the first working backend. A car reported asleep is final (no paid cloud
+        fallback that could not read a sleeping car anyway)."""
+
         async def op(b: Backend) -> VehicleState:
-            return await b.read_state()
+            return await b.read_state(wake=wake)
 
         return await self._run(op, failover_on_maybe=True)
 
@@ -803,8 +832,11 @@ class Router(Backend):
             try:
                 result = await op(backend)
             except CommandError as e:
-                self._failed_at[backend.name] = self._monotonic()
                 self.last_error = str(e)
+                if e.kind == ASLEEP:
+                    self.last_source = backend.name  # reachable, just asleep
+                    raise
+                self._failed_at[backend.name] = self._monotonic()
                 if e.maybe_executed and not failover_on_maybe:
                     raise
                 reasons.append(
@@ -845,19 +877,33 @@ def build_router(settings: Any, token_provider: TokenProvider | None = None) -> 
 
 
 def fake_backend(**kwargs: Any) -> Backend:
-    """``tests.fakes.FakeBackend`` for ``--fake`` runs (source checkout only)."""
-    try:
-        from tests.fakes import FakeBackend  # type: ignore[import-not-found]
-    except ImportError:
-        import importlib.util
-        import sys
+    """``tests/fakes.py``'s FakeBackend for ``--fake`` runs.
 
-        path = Path(__file__).resolve().parents[2] / "tests" / "fakes.py"
-        spec = importlib.util.spec_from_file_location("socks_test_fakes", path)
-        if spec is None or spec.loader is None or not path.is_file():
-            raise RuntimeError("--fake needs a source checkout (tests/fakes.py)") from None
+    Loaded only from the source checkout that contains the running ``socks`` package
+    (``socks.__file__``'s parent.parent, which must hold pyproject.toml), never through
+    ``sys.path``/the current directory (audit L2).
+    """
+    import importlib.util
+    import sys
+
+    import socks
+
+    root = Path(socks.__file__).resolve().parent.parent
+    path = root / "tests" / "fakes.py"
+    if not (root / "pyproject.toml").is_file() or not path.is_file():
+        raise RuntimeError(
+            "--fake is only available when running from a SOCKS source checkout "
+            f"(no tests/fakes.py next to {Path(socks.__file__).resolve().parent})"
+        )
+    loaded = sys.modules.get("tests.fakes")
+    loaded_file = getattr(loaded, "__file__", None)
+    if loaded is not None and loaded_file and Path(loaded_file).resolve() == path:
+        module = loaded  # same file already imported (e.g. by the test-suite)
+    else:
+        spec = importlib.util.spec_from_file_location("socks_checkout_fakes", path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"cannot load {path}")
         module = importlib.util.module_from_spec(spec)
-        sys.modules["socks_test_fakes"] = module
+        sys.modules["socks_checkout_fakes"] = module
         spec.loader.exec_module(module)
-        FakeBackend = module.FakeBackend  # noqa: N806
-    return FakeBackend(**kwargs)
+    return module.FakeBackend(**kwargs)

@@ -37,6 +37,8 @@ class ConfirmDialog(QDialog):
         self.setWindowTitle(f"Confirm: {label}")
         self.setModal(True)
         self._challenge = challenge_for(label) if dangerous else ""
+        if dangerous and len(self._challenge) < 3:  # an empty challenge would accept ""
+            raise ValueError(f"no typed challenge for dangerous command {label!r}")
         lay = QVBoxLayout(self)
         head = QLabel(f"<b>{label}</b>")
         head.setTextFormat(Qt.TextFormat.RichText)

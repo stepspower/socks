@@ -9,6 +9,7 @@ only. Files are written atomically (temp file created 0600, then renamed) in a 0
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import os
 import re
@@ -73,25 +74,37 @@ def read_vin_file(path: Path) -> str | None:
 def load_private_key(path: Path) -> ec.EllipticCurvePrivateKey:
     """Load an unencrypted EC P-256 private key from a PEM file.
 
-    Refuses files readable by group/others (like ssh does), symlink tricks aside.
+    Refuses symlinks, non-regular files, files not owned by the user and files readable by
+    group/others (like ssh does). Mode check and read use the same open fd (no TOCTOU gap).
     """
+    flags = os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
     try:
-        st = path.stat()
+        fd = os.open(path, flags)
     except FileNotFoundError:
         raise KeyFileError(f"no private key at {path}") from None
     except OSError as e:
-        raise KeyFileError(f"cannot access {path}: {e.strerror}") from None
-    if not stat.S_ISREG(st.st_mode):
-        raise KeyFileError(f"{path} is not a regular file")
-    if st.st_mode & 0o077:
-        raise KeyFileError(
-            f"{path} is accessible by other users (mode {stat.S_IMODE(st.st_mode):04o}); "
-            f"run: chmod 600 {path}"
-        )
+        if e.errno == errno.ELOOP:
+            raise KeyFileError(f"{path} is a symlink; point key_path at the real file") from None
+        raise KeyFileError(f"cannot open {path}: {e.strerror}") from None
     try:
-        data = path.read_bytes()
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode):
+            raise KeyFileError(f"{path} is not a regular file")
+        if st.st_uid != os.getuid():
+            raise KeyFileError(f"{path} is not owned by the current user")
+        if st.st_mode & 0o077:
+            raise KeyFileError(
+                f"{path} is accessible by other users (mode {stat.S_IMODE(st.st_mode):04o}); "
+                f"run: chmod 600 {path}"
+            )
+        if st.st_size > 64 * 1024:
+            raise KeyFileError(f"{path} is too large to be a key file")
+        with os.fdopen(fd, "rb", closefd=False) as fh:
+            data = fh.read(64 * 1024 + 1)
     except OSError as e:
         raise KeyFileError(f"cannot read {path}: {e.strerror}") from None
+    finally:
+        os.close(fd)
     try:
         key = serialization.load_pem_private_key(data, password=None)
     except (ValueError, TypeError):

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from enum import Enum
 
@@ -42,6 +43,7 @@ def _ci(cmd: Command, label: str, *, dangerous: bool = False, wake: bool = True,
     return CommandInfo(cmd, label, dangerous, wake, arg)
 
 
+# Dangerous: unlock, frunk, trunk, sentry_off (owner decision, audit L3).
 # Lock/unlock/frunk/trunk/wake go to the vehicle-security computer (no wake needed).
 COMMANDS: dict[Command, CommandInfo] = {
     c.command: c
@@ -61,7 +63,7 @@ COMMANDS: dict[Command, CommandInfo] = {
         _ci(Command.FRUNK, "Open frunk", dangerous=True, wake=False),
         _ci(Command.TRUNK, "Open/close trunk", dangerous=True, wake=False),
         _ci(Command.SENTRY_ON, "Sentry mode on"),
-        _ci(Command.SENTRY_OFF, "Sentry mode off"),
+        _ci(Command.SENTRY_OFF, "Sentry mode off", dangerous=True),
         _ci(Command.WAKE, "Wake up", wake=False),
     )
 }
@@ -89,6 +91,8 @@ def validate_arg(cmd: Command, arg: float | int | None) -> float | int | None:
         return None
     if arg is None:
         raise ValueError(f"{cmd.value} needs an argument ({kind})")
+    if isinstance(arg, bool) or not math.isfinite(float(arg)):
+        raise ValueError(f"{cmd.value} needs a finite number")
     if kind == "temp_c":
         lo, hi = TEMP_C_RANGE
         value = round(float(arg) * 2) / 2  # the car works in 0.5 degree steps

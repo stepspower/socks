@@ -162,12 +162,14 @@ class FakeBackend:
         self.fail_commands = fail_commands
         self.sent: list[tuple[Command, float | int | None]] = []
         self.reads = 0
+        self.last_wake: bool | None = None
         self.closed = False
 
     async def available(self) -> bool:
         return self.available_flag
 
-    async def read_state(self) -> VehicleState:
+    async def read_state(self, wake: bool = False) -> VehicleState:
+        self.last_wake = wake
         if self.delay:
             await asyncio.sleep(self.delay)
         if not self.available_flag:

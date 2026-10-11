@@ -119,7 +119,12 @@ def run[T](coro: Awaitable[T]) -> T:
 
 
 def fake_browser(
-    fake: FakeTesla, *, state_override: str | None = None, error: str | None = None
+    fake: FakeTesla,
+    *,
+    state_override: str | None = None,
+    error: str | None = None,
+    forged_first: int = 0,
+    statuses: list[int] | None = None,
 ) -> tuple[Callable[[str], None], list[str]]:
     """Mimic Tesla's authorize page: record the challenge, redirect to the loopback."""
     opened: list[str] = []
@@ -137,10 +142,18 @@ def fake_browser(
             params["code"] = code
 
         async def follow() -> None:
+            redirect = q["redirect_uri"]
             async with aiohttp.ClientSession() as s:
-                redirect = q["redirect_uri"].replace("localhost", "127.0.0.1")
-                async with s.get(redirect, params=params) as resp:
-                    await resp.read()
+                for i in range(forged_first):  # stray/forged callbacks first (audit L1)
+                    forged = {"state": f"forged{i}", "code": "EU_attacker"}
+                    async with s.get(redirect, params=forged) as resp:
+                        if statuses is not None:
+                            statuses.append(resp.status)
+                try:
+                    async with s.get(redirect, params=params) as resp:
+                        await resp.read()
+                except aiohttp.ClientError:
+                    pass  # server already gave up
 
         tasks.append(asyncio.get_running_loop().create_task(follow()))
 
@@ -256,7 +269,9 @@ def test_login_flow(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     q = parse_qs(urlparse(opened[0]).query)
     assert form["redirect_uri"] == q["redirect_uri"][0]
     redirect = urlparse(form["redirect_uri"])
-    assert redirect.hostname == "localhost" and redirect.path == "/callback"
+    assert redirect.hostname == "127.0.0.1" and redirect.path == "/callback"
+    assert redirect.geturl().startswith("http://127.0.0.1:")
+    assert oauth.LOCATION_SCOPE not in q["scope"][0].split()
     assert redirect.port and redirect.port > 1024
     assert tokens.access_token == "acc-SECRET-0002" and tokens.region == "eu"
     assert oauth.load_tokens(path) == tokens
@@ -281,10 +296,29 @@ def test_login_sends_secret_when_given(tmp_path: Path) -> None:
     assert run(go()).forms[0]["client_secret"] == "shh"
 
 
-def test_login_rejects_bad_state(tmp_path: Path) -> None:
+def test_bad_state_is_ignored_and_login_continues(tmp_path: Path) -> None:
+    statuses: list[int] = []
+
+    async def go() -> Tokens:
+        async with fake_tesla() as (fake, ep):
+            browser, _ = fake_browser(fake, forged_first=3, statuses=statuses)
+            return await oauth.login(
+                settings(),
+                endpoints=ep,
+                path=tmp_path / "t.json",
+                open_browser=browser,
+                timeout=10,
+            )
+
+    tokens = run(go())
+    assert statuses == [400, 400, 400]
+    assert tokens.access_token == "acc-SECRET-0002"
+
+
+def test_too_many_bad_states_abort(tmp_path: Path) -> None:
     async def go() -> None:
         async with fake_tesla() as (fake, ep):
-            browser, _ = fake_browser(fake, state_override="forged")
+            browser, _ = fake_browser(fake, forged_first=oauth.MAX_BAD_CALLBACKS)
             await oauth.login(
                 settings(),
                 endpoints=ep,
@@ -293,9 +327,31 @@ def test_login_rejects_bad_state(tmp_path: Path) -> None:
                 timeout=10,
             )
 
-    with pytest.raises(OAuthError, match="state mismatch"):
+    with pytest.raises(OAuthError, match="too many invalid"):
         run(go())
     assert not (tmp_path / "t.json").exists()
+
+
+def test_bad_state_only_times_out(tmp_path: Path) -> None:
+    async def go() -> None:
+        async with fake_tesla() as (fake, ep):
+            browser, _ = fake_browser(fake, state_override="forged")
+            await oauth.login(
+                settings(),
+                endpoints=ep,
+                path=tmp_path / "t.json",
+                open_browser=browser,
+                timeout=0.5,
+            )
+
+    with pytest.raises(OAuthError, match="timed out"):
+        run(go())
+
+
+def test_default_scopes_exclude_location() -> None:
+    assert oauth.LOCATION_SCOPE == "vehicle_location"
+    assert oauth.LOCATION_SCOPE not in oauth.DEFAULT_SCOPES
+    assert oauth.REDIRECT_HOST == oauth.BIND_HOST == "127.0.0.1"
 
 
 def test_login_authorization_denied(tmp_path: Path) -> None:

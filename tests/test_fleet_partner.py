@@ -182,6 +182,8 @@ def test_cli_parser_wiring() -> None:
     add_fleet_parser(parser.add_subparsers(dest="cmd", required=True))
     a = parser.parse_args(["fleet", "login", "--port", "53682", "--no-browser"])
     assert a.func is fleet_login and a.port == 53682 and a.no_browser
+    assert not a.with_location
+    assert parser.parse_args(["fleet", "login", "--with-location"]).with_location
     assert parser.parse_args(["fleet", "register"]).func is fleet_register
     assert parser.parse_args(["fleet", "status", "--check-key"]).func is fleet_status
 
@@ -196,3 +198,33 @@ def test_cli_status_not_logged_in(
     assert fleet_status(argparse.Namespace()) == 1
     out = capsys.readouterr().out
     assert "Not logged in" in out and "NOT SET" in out
+
+
+def test_redact_location() -> None:
+    from socks.fleet.redact import redact_location
+
+    raw = {
+        "response": {
+            "vin": "V",
+            "drive_state": {
+                "latitude": 52.37,
+                "longitude": 4.89,
+                "heading": 90,
+                "native_latitude": 52.37,
+                "native_longitude": 4.89,
+                "native_type": "wgs",
+                "active_route_destination": "Home",
+                "active_route_latitude": 1.0,
+                "speed": 0,
+                "shift_state": "P",
+            },
+            "charge_state": {"battery_level": 80},
+            "list": [{"location_state": {"latitude": 1}}, {"est_lat": 1, "x": 2}],
+        }
+    }
+    out = redact_location(raw)
+    assert out["response"]["drive_state"] == {"speed": 0, "shift_state": "P"}
+    assert out["response"]["charge_state"] == {"battery_level": 80}
+    assert out["response"]["list"] == [{}, {"x": 2}]
+    assert raw["response"]["drive_state"]["latitude"] == 52.37  # input untouched
+    assert redact_location([1, "a", None]) == [1, "a", None]

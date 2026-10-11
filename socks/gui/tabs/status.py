@@ -31,6 +31,7 @@ class StatusTab(QWidget):
         self._units = "metric"
 
         self.title = QLabel("No vehicle data yet")
+        self.title.setTextFormat(Qt.TextFormat.PlainText)  # car_name comes from the car/cloud
         tf = QFont(self.font())
         tf.setPointSizeF(tf.pointSizeF() * 1.3)
         tf.setWeight(QFont.Weight.DemiBold)

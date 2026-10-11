@@ -155,7 +155,7 @@ def test_settings_roundtrip(tmp_path: Path) -> None:
         cloud_enabled=True,
         client_id='abc"def\\x',
         region="na",
-        poll_seconds=300,
+        poll_seconds=900,
         tariff_eur_per_kwh=0.25,
         currency="CZK",
     )
@@ -190,3 +190,38 @@ def test_settings_corrupt_file(tmp_path: Path) -> None:
     f = tmp_path / "s.toml"
     f.write_text("this is = = not toml")
     assert Settings.load(f) == Settings()
+
+
+def test_load_refuses_symlinked_key(tmp_path: Path) -> None:
+    real = tmp_path / "real.pem"
+    keys.write_private_key(keys.generate_private_key(), real)
+    link = tmp_path / "link.pem"
+    link.symlink_to(real)
+    with pytest.raises(keys.KeyFileError, match="symlink"):
+        keys.load_private_key(link)
+    with pytest.raises(keys.KeyFileError, match="regular file"):
+        keys.load_private_key(tmp_path)
+
+
+def test_poll_floor_clamped_on_load_and_save(tmp_path: Path) -> None:
+    s = Settings(poll_seconds=5)
+    assert s.min_poll_seconds() == 60
+    s.save()
+    assert s.poll_seconds == 60 and Settings.load().poll_seconds == 60
+    s = Settings(poll_seconds=120, cloud_enabled=True)
+    assert s.min_poll_seconds() == 600
+    s.save()
+    assert Settings.load().poll_seconds == 600
+    f = tmp_path / "s.toml"
+    f.write_text("poll_seconds = 1\ncloud_enabled = true\n")
+    assert Settings.load(f).poll_seconds == 600
+    f.write_text("poll_seconds = 0\ncloud_enabled = true\n")
+    assert Settings.load(f).poll_seconds == 0  # off stays off
+
+
+def test_settings_invalid_vin_ignored(tmp_path: Path) -> None:
+    f = tmp_path / "s.toml"
+    f.write_text('vin = "LRW3E7EJOTC899247"\n')
+    assert Settings.load(f).vin == ""
+    f.write_text('vin = "lrw3e7ejxtc899247"\n')
+    assert Settings.load(f).vin == "LRW3E7EJXTC899247"

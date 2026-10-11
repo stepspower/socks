@@ -196,7 +196,7 @@ def _first_paint(args: argparse.Namespace, win: object) -> None:
     # preferred we wait for an explicit Refresh (each read costs money).
     settings = win.ctx.settings  # type: ignore[attr-defined]
     if args.fake or getattr(settings, "prefer", "ble") == "ble":
-        QTimer.singleShot(0, win.refresh)  # type: ignore[attr-defined]
+        QTimer.singleShot(0, win.first_read)  # type: ignore[attr-defined]
 
 
 def _screenshot(win: object, path: str) -> None:

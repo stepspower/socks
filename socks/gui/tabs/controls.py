@@ -54,6 +54,7 @@ class ControlsTab(QWidget):
             "Every command asks for confirmation before anything is sent to the car."
         )
         self.result.setWordWrap(True)
+        self.result.setTextFormat(Qt.TextFormat.PlainText)  # may hold the car's refusal reason
         self.result.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.result.setAccessibleName("Last command result")
 

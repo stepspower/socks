@@ -7,7 +7,7 @@ Flow (``login``):
 1. Generate a PKCE verifier/challenge (S256) and a random ``state``.
 2. Start a one-shot HTTP server on ``127.0.0.1`` with an OS-assigned free port.
 3. Open ``https://auth.tesla.com/oauth2/v3/authorize?...`` in the browser.
-4. The browser is redirected to ``http://localhost:<port>/callback?code=..&state=..``;
+4. The browser is redirected to ``http://127.0.0.1:<port>/callback?code=..&state=..``;
    the state is compared in constant time, then the code is exchanged at the
    Fleet auth token endpoint together with the verifier.
 5. Tokens are written to ``$XDG_CONFIG_HOME/socks/tokens.json`` (file 0600,
@@ -47,8 +47,12 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 TOKEN_FILE_NAME = "tokens.json"  # noqa: S105 - a file name
-REDIRECT_HOST = "localhost"  # what the browser is sent to; the server binds 127.0.0.1
+# RFC 8252 §7.3/§8.3: use the IPv4 literal, never "localhost", so the browser cannot be
+# sent to [::1] where another local process could be listening (audit M1).
 BIND_HOST = "127.0.0.1"
+REDIRECT_HOST = BIND_HOST
+FALLBACK_PORT = 53682  # register http://127.0.0.1:53682/callback for `--port 53682`
+MAX_BAD_CALLBACKS = 20  # stray/forged callbacks tolerated before giving up (audit L1)
 REDIRECT_PATH = "/callback"
 LOGIN_TIMEOUT_S = 300.0
 EXPIRY_SKEW_S = 60
@@ -59,8 +63,8 @@ DEFAULT_SCOPES: tuple[str, ...] = (
     "vehicle_device_data",
     "vehicle_cmds",
     "vehicle_charging_cmds",
-    "vehicle_location",
 )
+LOCATION_SCOPE = "vehicle_location"  # opt-in only (audit L4): SOCKS does not use location
 
 _FLEET_AUTH_TOKEN_URL = "https://fleet-auth.prd.vn.cloud.tesla.com/oauth2/v3/token"  # noqa: S105
 _AUTH_HOST = {"na": "auth.tesla.com", "eu": "auth.tesla.com", "cn": "auth.tesla.cn"}
@@ -209,7 +213,12 @@ def load_tokens(path: Path | None = None) -> Tokens | None:
     except FileNotFoundError:
         return None
     if mode & 0o077:
-        log.warning("%s had mode %o; tightening to 0600", path, mode)
+        log.warning(
+            "%s had mode %o; tightened to 0600. Tokens may have been exposed: run "
+            "`socks-cli fleet logout && socks-cli fleet login`",
+            path,
+            mode,
+        )
         os.chmod(path, 0o600)
     return Tokens.from_json(path.read_text(encoding="utf-8"))
 
@@ -279,6 +288,7 @@ class LoopbackServer:
         self._runner: Any = None
         self._future: asyncio.Future[CallbackResult] | None = None
         self.port = 0
+        self.bad_callbacks = 0
 
     @property
     def redirect_uri(self) -> str:
@@ -324,8 +334,14 @@ class LoopbackServer:
         q = request.query
         got_state = q.get("state", "")
         if not secrets.compare_digest(got_state.encode(), self._state.encode()):
-            self._fail("state mismatch in OAuth callback (possible CSRF); aborted")
-            return _page(web, 400, "Login rejected: state mismatch.")
+            # Not ours (stray probe or forgery): answer generically and keep waiting
+            # for the real redirect, so a local process cannot abort the login (L1).
+            self.bad_callbacks += 1
+            if "code" in q:
+                log.warning("ignored OAuth callback with a wrong state (possible CSRF)")
+            if self.bad_callbacks >= MAX_BAD_CALLBACKS:
+                self._fail("too many invalid OAuth callbacks; login aborted")
+            return _page(web, 400, "Bad request.")
         if "error" in q:
             # error codes/descriptions are not secret; truncate defensively
             desc = q.get("error_description", "")[:200]

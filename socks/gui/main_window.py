@@ -10,6 +10,8 @@ thread; results come back to GUI-side coroutines that update widgets.
 from __future__ import annotations
 
 import contextlib
+import html
+import inspect
 import logging
 import shutil
 import tempfile
@@ -42,7 +44,7 @@ from socks.gui._deps import (
 from socks.gui.async_bridge import AsyncBridge, describe
 from socks.gui.tabs.controls import ControlsTab
 from socks.gui.tabs.history import HistoryTab
-from socks.gui.tabs.settings import SettingsTab
+from socks.gui.tabs.settings import SettingsTab, min_poll_seconds
 from socks.gui.tabs.status import StatusTab
 from socks.gui.widgets.confirm_dialog import confirm
 from socks.gui.widgets.log_view import LogView, QtLogHandler
@@ -123,11 +125,12 @@ class MainWindow(QMainWindow):
         sb.showMessage("Starting…")
 
         self._actions()
-        self.status_tab.refresh_requested.connect(self.refresh)
+        self.status_tab.refresh_requested.connect(lambda: self.refresh())
         self.controls_tab.command_requested.connect(self._on_command)
         self.history_tab.reload_requested.connect(self.reload_history)
         self.settings_tab.save_requested.connect(self._save_settings)
-        self.settings_tab.load(ctx.settings, self._close_to_tray())
+        self._poll_note = ""
+        self.settings_tab.load(ctx.settings, self._close_to_tray(), self._poll_in_background())
         self._apply_units()
 
         self.age_timer = QTimer(self)
@@ -155,8 +158,8 @@ class MainWindow(QMainWindow):
             self.addAction(a)
             return a
 
-        act("Refresh", QKeySequence.StandardKey.Refresh, self.refresh)
-        act("Refresh", "Ctrl+R", self.refresh)
+        act("Refresh", QKeySequence.StandardKey.Refresh, lambda *_a: self.refresh())
+        act("Refresh", "Ctrl+R", lambda *_a: self.refresh())
         act("Toggle log", "Ctrl+L", self.log_btn.toggle)
         act("Quit", QKeySequence.StandardKey.Quit, self.quit_app)
         for i in range(4):
@@ -169,7 +172,7 @@ class MainWindow(QMainWindow):
         tray = QSystemTrayIcon(self.ctx.icon, self)
         menu = QMenu(self)
         menu.addAction("Show SOCKS", self._show_from_tray)
-        menu.addAction("Refresh", self.refresh)
+        menu.addAction("Refresh", lambda: self.refresh())
         menu.addSeparator()
         menu.addAction("Quit", self.quit_app)
         tray.setContextMenu(menu)
@@ -191,25 +194,39 @@ class MainWindow(QMainWindow):
                 self._backend = make_real_backend(self.ctx.settings)
         return self._backend
 
-    def refresh(self) -> None:
+    def refresh(self, *, wake: bool = True, ble_only: bool = False, poll: bool = False) -> None:
+        """Read the car. Manual Refresh may wake it; polls never do (audit M2)."""
         if self.bridge.busy(self.status_tab):
             return
-        self.bridge.spawn(self.status_tab, self._refresh(), "refresh")
+        self.bridge.spawn(self.status_tab, self._refresh(wake, ble_only, poll), "refresh")
 
-    async def _refresh(self) -> None:
+    def first_read(self) -> None:
+        """Automatic read after first paint: Bluetooth only (never a paid cloud
+        fallback); may wake the car like a manual Refresh (free over BLE)."""
+        self.refresh(wake=True, ble_only=True)
+
+    async def _refresh(self, wake: bool, ble_only: bool, poll: bool) -> None:
         self.status_tab.set_busy(True)
         try:
             backend = self._get_backend()
             if backend is None:
                 raise RuntimeError("no backend available (core.backend missing)")
-            state = await self.bridge.io(backend.read_state())
+            if ble_only and not self.ctx.fake and getattr(backend, "ble", None) is not None:
+                backend = backend.ble
+            state = await self.bridge.io(read_state(backend, wake=wake))
         except Exception as exc:  # noqa: BLE001 - shown inline, never a modal
             msg = describe(exc)
+            if poll and is_asleep(exc):
+                self._poll_note = f"car asleep — poll at {datetime.now():%H:%M} skipped"
+                log.info("poll skipped: car asleep (not woken)")
+                self._tick_age()
+                return
             log.warning("refresh failed: %s", msg, exc_info=exc if self.ctx.debug else None)
             self.statusBar().showMessage(f"Refresh failed: {msg}")
             return
         finally:
             self.status_tab.set_busy(False)
+        self._poll_note = ""
         self._show_state(state)
         await self._record(state)
 
@@ -224,7 +241,8 @@ class MainWindow(QMainWindow):
         if self.tray is not None:
             soc = "–" if s.soc is None else f"{s.soc} %"
             rng = fmt.dist(s.rated_range_km, self._units())
-            self.tray.setToolTip(f"SOCKS — {s.car_name or 'car'}: {soc} · {rng}")
+            name = html.escape(s.car_name or "car")  # tooltips may render rich text
+            self.tray.setToolTip(f"SOCKS — {name}: {soc} · {rng}")
 
     def _tick_age(self) -> None:
         s = self._last
@@ -232,17 +250,28 @@ class MainWindow(QMainWindow):
             return
         self.status_tab.update_age()
         src = getattr(s.source, "value", str(s.source)).upper()
-        self.statusBar().showMessage(
-            f"Last update {fmt.local_time(s.ts)} ({fmt.age(s.ts)}) via {src}"
-        )
+        msg = f"Last update {fmt.local_time(s.ts)} ({fmt.age(s.ts)}) via {src}"
+        if self._poll_note:
+            msg += f" · {self._poll_note}"
+        self.statusBar().showMessage(msg)
 
     def _poll(self) -> None:
-        if self.isVisible() or self.tray is not None:
-            self.refresh()
+        if not self.isVisible() and not self._poll_in_background():
+            return  # hidden in the tray: poll only if the user opted in
+        self.refresh(wake=False, poll=True)
+
+    def _poll_in_background(self) -> bool:
+        return bool(self.ctx.gui_prefs.value("poll_in_background", False, type=bool))
 
     def _poll_seconds(self) -> int:
-        n = int(getattr(self.ctx.settings, "poll_seconds", 0) or 0)
-        return n or (FAKE_POLL_SECONDS if self.ctx.fake else 0)
+        s = self.ctx.settings
+        n = int(getattr(s, "poll_seconds", 0) or 0)
+        if self.ctx.fake:
+            return n or FAKE_POLL_SECONDS
+        if n <= 0:
+            return 0
+        # Enforce the floor here too: settings files can be hand-edited.
+        return max(n, min_poll_seconds(s, bool(getattr(s, "cloud_enabled", False))))
 
     def _apply_poll(self) -> None:
         n = self._poll_seconds()
@@ -390,6 +419,7 @@ class MainWindow(QMainWindow):
             self.settings_tab.show_result(f"Could not save: {msg}", False)
             return
         self.ctx.gui_prefs.setValue("close_to_tray", self.settings_tab.close_to_tray.isChecked())
+        self.ctx.gui_prefs.setValue("poll_in_background", self.settings_tab.poll_bg.isChecked())
         self.ctx.gui_prefs.sync()
         with contextlib.suppress(OSError):
             Path(self.ctx.gui_prefs.fileName()).chmod(0o600)
@@ -449,6 +479,38 @@ class MainWindow(QMainWindow):
         if self.tray is not None:
             self.tray.hide()
         QTimer.singleShot(0, QApplication.quit)
+
+
+def read_state(backend: Any, *, wake: bool) -> Any:
+    """``backend.read_state(wake=...)`` when supported, else the plain call.
+
+    Without the kwarg a poll could wake the car, so that fallback is logged once.
+    """
+    fn = backend.read_state
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        params = {}
+    if "wake" in params or any(p.kind is p.VAR_KEYWORD for p in params.values()):
+        return fn(wake=wake)
+    if not wake and not getattr(read_state, "_warned", False):
+        read_state._warned = True  # type: ignore[attr-defined]
+        log.warning("backend has no read_state(wake=False); polls may wake the car")
+    return fn()
+
+
+try:
+    from socks.core.backend import ASLEEP as _ASLEEP
+except ImportError:  # core not present: dev shim
+    _ASLEEP = "Asleep"
+
+
+def is_asleep(exc: BaseException) -> bool:
+    """True when a non-waking read reports the car asleep (``CommandError.kind == ASLEEP``)."""
+    kind = getattr(exc, "kind", None)
+    if kind is not None:
+        return str(kind).lower() == str(_ASLEEP).lower()
+    return "asleep" in str(exc).lower()  # backends without CommandError.kind
 
 
 def _closer(obj: Any) -> Any:

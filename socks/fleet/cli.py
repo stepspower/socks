@@ -86,6 +86,8 @@ def fleet_login(args: argparse.Namespace) -> int:
                 settings,
                 client_secret=secret,
                 port=int(getattr(args, "port", 0) or 0),
+                scopes=oauth.DEFAULT_SCOPES
+                + ((oauth.LOCATION_SCOPE,) if getattr(args, "with_location", False) else ()),
                 open_browser=(lambda _u: None) if no_browser else oauth.webbrowser.open,
                 on_url=show,
             )
@@ -168,7 +170,17 @@ def add_fleet_parser(subparsers: Any) -> argparse.ArgumentParser:
 
     sp = sub.add_parser("login", help="sign in with Tesla in the browser")
     common(sp)
-    sp.add_argument("--port", type=int, default=0, help="fixed loopback port (default random)")
+    sp.add_argument(
+        "--port",
+        type=int,
+        default=0,
+        help="fixed loopback port, e.g. 53682 (default: random free port)",
+    )
+    sp.add_argument(
+        "--with-location",
+        action="store_true",
+        help="also request the vehicle_location scope (off by default)",
+    )
     sp.add_argument("--no-browser", action="store_true", help="only print the URL")
     sp.set_defaults(func=fleet_login)
 

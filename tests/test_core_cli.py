@@ -79,3 +79,26 @@ def test_key_generate_import_public(tmp_path: Path, capsys: pytest.CaptureFixtur
 def test_format_status_imperial() -> None:
     text = format_status(make_state(doors_open=("trunk",)), imperial=True)
     assert " mi" in text and "°F" in text and "trunk" in text
+
+
+def test_json_redacts_location_by_default(
+    capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import tests.fakes as fakes
+
+    original = fakes.make_state
+
+    def located(**kw: object) -> object:
+        return original(**{"raw": {"drive_state": {"latitude": 50.1, "longitude": 14.4}}, **kw})
+
+    monkeypatch.setattr(fakes, "make_state", located)
+    assert main(["--fake", "json"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "latitude" not in out and "50.1" not in out
+    assert main(["--fake", "json", "--with-location"]) == EXIT_OK
+    assert "latitude" in capsys.readouterr().out
+
+
+def test_sentry_off_needs_yes(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--fake", "cmd", "sentry_off"]) == EXIT_REFUSED
+    assert main(["--fake", "cmd", "set_temp", "inf"]) == EXIT_FAIL

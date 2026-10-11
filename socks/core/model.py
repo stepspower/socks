@@ -78,7 +78,7 @@ class VehicleState:
     # misc
     car_name: str | None = None
     firmware: str | None = None
-    raw: dict = field(default_factory=dict, compare=False)  # original payload, never persisted
+    raw: dict = field(default_factory=dict, compare=False, repr=False)  # payload, never persisted
 
 
 # Canonical names used in doors_open / windows_open.

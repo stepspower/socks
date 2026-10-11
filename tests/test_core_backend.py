@@ -29,6 +29,7 @@ from tesla_protocol.command import vcsec_pb2, vehicle_pb2
 
 from socks.core import keys
 from socks.core.backend import (
+    ASLEEP,
     BleBackend,
     CloudBackend,
     CommandError,
@@ -350,7 +351,7 @@ async def test_ble_wakes_sleeping_car_and_survives_optional_failures(key_path: P
     msgs["status"].closureStatuses.frontDriverDoor = vcsec_pb2.CLOSURESTATE_OPEN
     vehicle = FakeBleVehicle(msgs)
     vehicle.fail_reads = {"closures", "climate"}
-    s = await _ble(key_path, vehicle).read_state()
+    s = await _ble(key_path, vehicle).read_state(wake=True)
     assert "wake_up" in vehicle.calls
     assert s.soc == 55
     assert s.inside_temp_c is None
@@ -614,3 +615,60 @@ async def test_real_library_objects_construct_without_io(key_path: Path) -> None
     assert isinstance(signed, VehicleSigned)
     assert signed.private_key is not None
     await cloud.close()
+
+
+async def test_ble_background_read_never_wakes(key_path: Path) -> None:
+    msgs = _protobuf_state()
+    msgs["status"] = vcsec_pb2.VehicleStatus(
+        vehicleSleepStatus=vcsec_pb2.VEHICLE_SLEEP_STATUS_ASLEEP
+    )
+    vehicle = FakeBleVehicle(msgs)
+    ble = _ble(key_path, vehicle)
+    with pytest.raises(NotAvailable, match="asleep") as exc:
+        await ble.read_state()
+    assert exc.value.kind == ASLEEP
+    assert "wake_up" not in vehicle.calls
+    assert vehicle.wake_if_asleep is True  # restored for commands
+
+
+async def test_ble_awake_read_disables_library_wake(key_path: Path) -> None:
+    seen: list[bool] = []
+
+    class Spy(FakeBleVehicle):
+        async def charge_state(self) -> Any:
+            seen.append(self.wake_if_asleep)
+            return await super().charge_state()
+
+    vehicle = Spy()
+    await _ble(key_path, vehicle).read_state()
+    await _ble(key_path, vehicle).read_state(wake=True)
+    assert seen == [False, True]
+
+
+class AsleepBackend(FakeBackend):
+    async def read_state(self, wake: bool = False) -> Any:
+        if wake:
+            return await super().read_state(wake=True)
+        raise NotAvailable("Bluetooth: car is asleep", kind=ASLEEP)
+
+
+async def test_router_asleep_is_final_and_wake_is_passed() -> None:
+    cloud = FakeBackend(source=Source.CLOUD)
+    router = Router(AsleepBackend(source=Source.BLE), cloud)
+    with pytest.raises(NotAvailable, match="asleep"):
+        await router.read_state()
+    assert cloud.reads == 0  # no paid fallback for a sleeping car
+    s = await router.read_state(wake=True)
+    assert s.source is Source.BLE
+
+
+def test_fake_backend_only_from_checkout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import socks
+
+    pkg = tmp_path / "site" / "socks"
+    pkg.mkdir(parents=True)
+    (tmp_path / "site" / "tests").mkdir()
+    (tmp_path / "site" / "tests" / "fakes.py").write_text("raise SystemExit('must not run')\n")
+    monkeypatch.setattr(socks, "__file__", str(pkg / "__init__.py"))
+    with pytest.raises(RuntimeError, match="source checkout"):
+        fake_backend()

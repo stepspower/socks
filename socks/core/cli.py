@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
 import sys
 from collections.abc import Sequence
 from datetime import datetime
@@ -47,6 +48,11 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="show the car's state as a table")
     j = sub.add_parser("json", help="print the full VehicleState as JSON")
     j.add_argument("--no-raw", action="store_true", help="omit the raw payload")
+    j.add_argument(
+        "--with-location",
+        action="store_true",
+        help="keep latitude/longitude etc. (redacted by default)",
+    )
     c = sub.add_parser("cmd", help="send a command (no name: list commands)")
     c.add_argument("name", nargs="?")
     c.add_argument("arg", nargs="?", type=float)
@@ -104,7 +110,7 @@ async def _run(args: argparse.Namespace) -> int:
             )
             return EXIT_REFUSED
         arg: float | int | None = args.arg
-        if arg is not None and info.arg == "percent" and arg == int(arg):
+        if arg is not None and info.arg == "percent" and math.isfinite(arg) and arg == int(arg):
             arg = int(arg)
     backend = _make_backend(args, settings)
     try:
@@ -112,9 +118,13 @@ async def _run(args: argparse.Namespace) -> int:
             await backend.send(cmd, arg)
             print(f"ok: {info.label} via {_source_label(backend)}")
             return EXIT_OK
-        state = await backend.read_state()
+        state = await backend.read_state(wake=True)  # explicit user request: may wake (BLE)
         if args.action == "json":
             data = state_to_dict(state, include_raw=not args.no_raw)
+            if not args.with_location:
+                from socks.fleet.redact import redact_location
+
+                data = redact_location(data)
             print(json.dumps(data, indent=2, default=str, ensure_ascii=False))
         else:
             print(format_status(state, imperial=settings.units == "imperial"))

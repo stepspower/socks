@@ -44,8 +44,10 @@ def public_key_url(domain: str) -> str:
 
 def pairing_link(domain: str, vin: str | None = None) -> str:
     """Link the owner opens on the phone to add the virtual key to the car."""
-    link = f"https://tesla.com/_ak/{domain}"
-    return f"{link}?vin={vin}" if vin else link
+    from urllib.parse import quote, urlencode
+
+    link = f"https://tesla.com/_ak/{quote(domain, safe='.-')}"
+    return f"{link}?{urlencode({'vin': vin})}" if vin else link
 
 
 # --------------------------------------------------------------------------- registration

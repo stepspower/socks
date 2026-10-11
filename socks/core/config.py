@@ -15,7 +15,7 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
-from socks.core.keys import write_secret_file
+from socks.core.keys import validate_vin, write_secret_file
 
 log = logging.getLogger(__name__)
 
@@ -23,6 +23,8 @@ APP_NAME = "socks"
 UNITS = ("metric", "imperial")
 SOURCES = ("ble", "cloud")
 REGIONS = ("eu", "na", "cn")
+MIN_POLL_BLE = 60  # seconds, polling over Bluetooth only
+MIN_POLL_CLOUD = 600  # seconds, when the (paid) cloud is enabled
 
 
 @dataclass(frozen=True)
@@ -68,7 +70,7 @@ class Settings:
     cloud_enabled: bool = False
     client_id: str = ""
     region: str = "eu"  # eu | na | cn
-    poll_seconds: int = 0  # 0 = off; history recorder interval when a window is open
+    poll_seconds: int = 0  # 0 = off, else >= min_poll_seconds() (60 s; 600 s with cloud)
     tariff_eur_per_kwh: float = 0.0
     currency: str = "EUR"
 
@@ -97,11 +99,26 @@ class Settings:
                 values[f.name] = _coerce(f.name, data[f.name], getattr(defaults, f.name))
             except (TypeError, ValueError) as e:
                 log.warning("settings: ignoring %s: %s", f.name, e)
-        return cls(**{**{f.name: getattr(defaults, f.name) for f in fields(cls)}, **values})
+        settings = cls(**{**{f.name: getattr(defaults, f.name) for f in fields(cls)}, **values})
+        settings.clamp_poll()
+        return settings
+
+    def min_poll_seconds(self) -> int:
+        """Smallest allowed non-zero poll interval: 60 s (BLE only) or 600 s (cloud on)."""
+        return MIN_POLL_CLOUD if self.cloud_enabled else MIN_POLL_BLE
+
+    def clamp_poll(self) -> None:
+        """Raise a too-short poll interval to the floor (0 = off stays 0). Audit M2: polling
+        must neither keep the car awake nor run up Fleet API bills."""
+        floor = self.min_poll_seconds()
+        if 0 < self.poll_seconds < floor:
+            log.warning("settings: poll_seconds %d raised to %d", self.poll_seconds, floor)
+            self.poll_seconds = floor
 
     def save(self, path: Path | None = None) -> None:
         """Write the settings file atomically (0600, dir 0700)."""
         path = path or paths().settings_file
+        self.clamp_poll()
         lines = ["# SOCKS settings (written by SOCKS; comments are not preserved)"]
         for f in fields(self):
             lines.append(f"{f.name} = {_toml_value(getattr(self, f.name))}")
@@ -132,6 +149,8 @@ def _coerce(name: str, value: Any, default: Any) -> Any:
         return float(value)
     if not isinstance(value, str):
         raise TypeError("expected a string")
+    if name == "vin" and value:
+        return validate_vin(value)
     choices = {"units": UNITS, "prefer": SOURCES, "region": REGIONS}.get(name)
     if choices and value not in choices:
         raise ValueError(f"must be one of {', '.join(choices)}")
