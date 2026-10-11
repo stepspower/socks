@@ -53,7 +53,7 @@ from socks.gui.location import (
     set_purpose,
 )
 from socks.gui.tabs.controls import ControlsTab
-from socks.gui.tabs.depart import result_failed
+from socks.gui.tabs.depart import error_text, format_steps, result_failed
 from socks.gui.tabs.history import HistoryTab
 from socks.gui.tabs.settings import SettingsTab
 from socks.gui.tabs.status import StatusTab
@@ -142,6 +142,8 @@ class MainWindow(QMainWindow):
         self.status_tab.command_requested.connect(self._on_command)
         self.status_tab.confirmed_command_requested.connect(self._on_slide_command)
         self.status_tab.depart.set_plan(ctx.settings.depart_plan)
+        self.status_tab.set_name_override(ctx.settings.car_name)
+        self.status_tab.rename_requested.connect(self._rename_car)
         self.status_tab.depart.arm_requested.connect(self._arm_departure)
         self.status_tab.depart.disarm_requested.connect(self._disarm_departure)
         self.controls_tab.command_requested.connect(self._on_command)
@@ -303,7 +305,7 @@ class MainWindow(QMainWindow):
         if self.tray is not None:
             soc = "–" if s.soc is None else f"{s.soc} %"
             rng = fmt.dist(s.rated_range_km, self._units())
-            name = html.escape(s.car_name or "car")  # tooltips may render rich text
+            name = html.escape(self.status_tab.display_name())  # tooltips may render rich text
             self.tray.setToolTip(self.tr("SOCKS — {0}: {1} · {2}").format(name, soc, rng))
 
     def _tick_age(self) -> None:
@@ -658,13 +660,12 @@ class MainWindow(QMainWindow):
             try:
                 lines = await self.bridge.io(depart.arm(self._get_backend(), plan))
             except Exception as exc:  # noqa: BLE001 - inline
-                lines = [f"{depart.FAILED}: {describe(exc)}"]
-            failed = result_failed(lines)
-            if failed:
-                card.set_busy(self.tr("Could not set: {0}").format(failed))
+                card.set_busy(self.tr("Not set: {0}").format(error_text(exc)))
                 return
-            notes = [ln.split(":", 1)[1].strip() for ln in lines if ln.startswith(depart.NOTE)]
-            card.set_busy(" ".join(notes))
+            text, failed = format_steps(lines)
+            card.set_busy(text)
+            if failed:
+                return
             self.ctx.settings.depart_plan = plan
             self._persist_settings()
             card.set_plan(plan)
@@ -681,7 +682,7 @@ class MainWindow(QMainWindow):
             try:
                 result = await self.bridge.io(depart.disarm(self._get_backend()))
             except Exception as exc:  # noqa: BLE001 - inline
-                result = f"{depart.FAILED}: {describe(exc)}"
+                result = f"{depart.FAILED}: {error_text(exc)}"
             failed = result_failed(result)
             if failed:
                 card.set_busy(self.tr("Could not cancel: {0}").format(failed))
@@ -707,6 +708,14 @@ class MainWindow(QMainWindow):
             self.status_tab.depart.show_cleared()
         elif result_failed(result):
             log.warning("could not clear the departure: %s", result_failed(result))
+
+    def _rename_car(self, name: str) -> None:
+        s = self.ctx.settings
+        s.car_name = name
+        self._persist_settings()
+        self.status_tab.set_name_override(name)
+        if self.tray is not None and self._last is not None:
+            self._show_state(self._last)
 
     def _persist_settings(self) -> None:
         path = self.ctx.extras.get("settings_path")

@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, time
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, Qt, QTime, QTimer, Signal
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, QTime, QTimer, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog,
@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QSizePolicy,
     QSlider,
     QTimeEdit,
     QVBoxLayout,
@@ -59,6 +60,69 @@ def plan_text(plan: depart.DeparturePlan, units: str) -> tuple[str, str, str]:
         f"{plan.charge_limit} %",
         fmt.temp(plan.temp_c, units),
     )
+
+
+_STEP_NAMES = {
+    "set_charge_limit": QT_TRANSLATE_NOOP("DepartCard", "Charge limit"),
+    "set_temp": QT_TRANSLATE_NOOP("DepartCard", "Cabin"),
+    "set_scheduled_departure": QT_TRANSLATE_NOOP("DepartCard", "Departure"),
+}
+
+
+def _step_name(rest: str) -> tuple[str, str]:
+    """Split "Set charge limit 75 %" into ("Charge limit", "75 %") using core's labels."""
+    from socks.core.commands import COMMANDS, Command
+
+    for value, name in _STEP_NAMES.items():
+        label = COMMANDS[Command(value)].label
+        if rest.startswith(label):
+            short = QCoreApplication.translate("DepartCard", name)
+            return short, rest[len(label) :].strip()
+    return "", rest
+
+
+def format_steps(lines: list[str]) -> tuple[str, bool]:
+    """core.depart.arm result lines → one short line per step; (text, any step failed).
+
+    "ok: Set charge limit 75 %" → "Charge limit 75 % — ok"; an "ok" line mentioning
+    "already" → "— already set"; "failed: Set temperature 21 °C: <reason>" → "Cabin 21 °C —
+    failed: <reason>". Notes are kept as they are. Only failed lines make it an error.
+    """
+    tr = QCoreApplication.translate
+    out: list[str] = []
+    failed = False
+    for line in lines:
+        kind, _sep, rest = line.partition(":")
+        rest = rest.strip()
+        if kind == depart.NOTE:
+            out.append(rest)
+            continue
+        if kind == depart.FAILED:
+            failed = True
+            head, _s, reason = rest.partition(": ")
+            name, what = _step_name(head)
+            if not name:  # plan validation / transport error without a step
+                out.append(tr("DepartCard", "Not set: {0}").format(rest))
+            else:
+                out.append(tr("DepartCard", "{0} {1} — failed: {2}").format(name, what, reason))
+            continue
+        name, what = _step_name(rest)
+        if "already" in what.lower():
+            what = what.replace("(already set)", "").strip()
+            out.append(tr("DepartCard", "{0} {1} — already set").format(name or rest, what))
+        else:
+            out.append(tr("DepartCard", "{0} {1} — ok").format(name or rest, what).strip())
+    return "\n".join(out), failed
+
+
+def error_text(exc: BaseException) -> str:
+    """A transport exception → short text; "car not reachable" only for NotAvailable."""
+    from socks.core.backend import NotAvailable
+    from socks.gui.async_bridge import describe
+
+    if isinstance(exc, NotAvailable):
+        return QCoreApplication.translate("DepartCard", "car not reachable")
+    return describe(exc)
 
 
 def result_failed(lines: list[str] | str | None) -> str | None:
@@ -173,17 +237,25 @@ class DepartCard(QFrame):
         self.cabin.activated.connect(lambda: self._open("cabin"))
         self.cancel = QPushButton(self.tr("Cancel departure"))
         self.cancel.clicked.connect(self.disarm_requested)
+        # Result/notes: plain text, wraps, never widens the bar (Ignored horizontal hint).
         self.status = QLabel("")
         self.status.setTextFormat(Qt.TextFormat.PlainText)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(12, 8, 12, 8)
-        lay.addWidget(title)
-        lay.addSpacing(12)
+        self.status.setWordWrap(True)
+        self.status.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Minimum)
+        self.status.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.status.hide()
+        row = QHBoxLayout()
+        row.addWidget(title)
+        row.addSpacing(12)
         for w in (self.button, self.when, QLabel("·"), self.charge, QLabel("·"), self.cabin):
-            lay.addWidget(w)
+            row.addWidget(w)
         self._dots = [w for w in self.findChildren(QLabel) if w.text() == "·"]
-        lay.addWidget(self.status, 1)
-        lay.addWidget(self.cancel)
+        row.addStretch(1)
+        row.addWidget(self.cancel)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.addLayout(row)
+        lay.addWidget(self.status)
         self.set_plan(None)
 
     def set_charge_limit(self, limit: int | None) -> None:
@@ -203,11 +275,12 @@ class DepartCard(QFrame):
 
     def set_busy(self, text: str) -> None:
         self.status.setText(text)
+        self.status.setVisible(bool(text))
 
     def show_cleared(self) -> None:
         self.set_plan(None)
-        self.status.setText(self.tr("Departure done — cleared"))
-        QTimer.singleShot(8000, lambda: self.status.setText(""))
+        self.set_busy(self.tr("Departure done — cleared"))
+        QTimer.singleShot(8000, lambda: self.set_busy(""))
 
     def _open(self, focus: str) -> None:
         dlg = DepartDialog(
@@ -218,7 +291,7 @@ class DepartCard(QFrame):
                 try:
                     plan = dlg.plan()
                 except ValueError as exc:
-                    self.status.setText(str(exc))
+                    self.set_busy(str(exc))
                     return
                 self.arm_requested.emit(plan)
         finally:

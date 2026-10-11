@@ -144,11 +144,11 @@ async def arm(router: Any, plan: DeparturePlan, now: datetime | None = None) -> 
     results: list[str] = []
     for cmd, arg, what in steps:
         try:
-            await router.send(cmd, arg)
+            note = await router.send(cmd, arg)
         except CommandError as e:
             results.append(f"{FAILED}: {_label(cmd)} {what}: {e}")
             return results
-        results.append(f"{OK}: {_label(cmd)} {what}")
+        results.append(f"{OK}: {_label(cmd)} {what}" + (f" ({note})" if note else ""))
     if plan.depart_at - now > timedelta(hours=24):
         results.append(
             f"{NOTE}: the car repeats the departure daily, so it will also prepare at "
@@ -160,10 +160,10 @@ async def arm(router: Any, plan: DeparturePlan, now: datetime | None = None) -> 
 async def disarm(router: Any) -> str:
     """Switch the scheduled departure off. Returns "ok: ..." or "failed: ..."."""
     try:
-        await router.send(Command.SET_SCHEDULED_DEPARTURE, None)
+        note = await router.send(Command.SET_SCHEDULED_DEPARTURE, None)
     except CommandError as e:
         return f"{FAILED}: {_label(Command.SET_SCHEDULED_DEPARTURE)} off: {e}"
-    return f"{OK}: {_label(Command.SET_SCHEDULED_DEPARTURE)} off"
+    return f"{OK}: {_label(Command.SET_SCHEDULED_DEPARTURE)} off" + (f" ({note})" if note else "")
 
 
 async def maintain(router: Any, settings: Any, now: datetime | None = None) -> str | None:

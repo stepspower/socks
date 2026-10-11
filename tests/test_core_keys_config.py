@@ -230,3 +230,14 @@ def test_new_settings_defaults_and_trip_interval_floor(tmp_path: Path) -> None:
     f.write_text("trip_watch_interval_seconds = 30\nlocation_enabled = false\n")
     loaded = Settings.load(f)
     assert loaded.trip_watch_interval_seconds == 300 and loaded.location_enabled is False
+
+
+def test_vin_model() -> None:
+    assert keys.vin_model("LRW3E7EJXTC899247") == "Model 3"
+    assert keys.vin_model("5YJSA1E26MF000001") == "Model S"
+    assert keys.vin_model("7SAYGDEE5PA000001") == "Model Y"
+    assert keys.vin_model("5YJXCAE21LF000001") == "Model X"
+    assert keys.vin_model("7G2CEHED0RA000001") == "Cybertruck"
+    assert keys.vin_model("WVWZZZ1KZAW000001") is None  # not a Tesla code
+    assert keys.vin_model("short") is None
+    assert Settings().car_name == ""

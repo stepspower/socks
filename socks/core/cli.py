@@ -124,8 +124,9 @@ async def _run(args: argparse.Namespace) -> int:
     backend = _make_backend(args, settings)
     try:
         if args.action == "cmd":
-            await backend.send(cmd, arg)
-            print(f"ok: {info.label} via {_source_label(backend)}")
+            note = await backend.send(cmd, arg)
+            extra = f" ({note})" if note else ""
+            print(f"ok: {info.label} via {_source_label(backend)}{extra}")
             return EXIT_OK
         # Explicit user request: may wake (BLE only). Location only fetched when asked for.
         want_location = bool(args.with_location and settings.location_enabled)

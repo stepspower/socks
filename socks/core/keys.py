@@ -50,6 +50,26 @@ def validate_vin(vin: str) -> str:
     return norm
 
 
+_TESLA_MODELS = {
+    "S": "Model S",
+    "3": "Model 3",
+    "X": "Model X",
+    "Y": "Model Y",
+    "C": "Cybertruck",
+    "R": "Roadster",
+    "T": "Semi",
+}
+
+
+def vin_model(vin: str) -> str | None:
+    """Tesla model from VIN position 4 ("LRW3..." -> "Model 3"); None if not decodable."""
+    try:
+        norm = validate_vin(vin)
+    except ValueError:
+        return None
+    return _TESLA_MODELS.get(norm[3])
+
+
 def is_valid_vin(vin: str) -> bool:
     try:
         validate_vin(vin)

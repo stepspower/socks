@@ -25,6 +25,7 @@ from tesla_protocol.command import vcsec_pb2, vehicle_pb2
 from socks.core import keys
 from socks.core.backend import (
     ASLEEP,
+    REFUSED,
     BleBackend,
     CloudBackend,
     CommandError,
@@ -425,10 +426,11 @@ async def test_ble_command_outcomes(key_path: Path) -> None:
 
     class Refusing(FakeBleVehicle):
         async def door_lock(self) -> dict[str, Any]:
-            return {"response": {"result": False, "reason": "already locked"}}
+            return {"response": {"result": False, "reason": "user_present"}}
 
-    with pytest.raises(CommandError, match="already locked"):
+    with pytest.raises(CommandError, match="user_present") as exc:
         await _ble(key_path, Refusing()).send(Command.LOCK)
+    assert exc.value.kind == REFUSED and not isinstance(exc.value, NotAvailable)
 
 
 # ======================================================================= cloud
@@ -905,3 +907,79 @@ def test_parse_departure_flags() -> None:
     assert s.preconditioning_enabled is True and s.off_peak_charging_enabled is False
     b = parse_ble_payload(VIN, {"charge_state": {"preconditioning_times": {"all_week": {}}}}, TS)
     assert b.preconditioning_enabled is True and b.off_peak_charging_enabled is None
+
+
+@pytest.mark.parametrize(
+    ("cmd", "arg", "reason"),
+    [
+        (Command.SET_CHARGE_LIMIT, 75, "already_set"),
+        (Command.LOCK, None, "already locked"),
+        (Command.CLIMATE_ON, None, "already_on"),
+        (Command.CHARGE_STOP, None, "not_charging"),
+        (Command.CHARGE_START, None, "is_charging"),
+    ],
+)
+async def test_noop_refusals_are_success(
+    key_path: Path, cmd: Command, arg: Any, reason: str
+) -> None:
+    class NoOp(FakeBleVehicle):
+        def __getattr__(self, name: str) -> Any:
+            async def command(*args: Any, **kwargs: Any) -> dict[str, Any]:
+                return {"response": {"result": False, "reason": reason}}
+
+            return command
+
+    assert await _ble(key_path, NoOp()).send(cmd, arg) == "already set"
+
+
+async def test_not_charging_is_refusal_for_other_commands(key_path: Path) -> None:
+    class NotCharging(FakeBleVehicle):
+        async def set_charging_amps(self, amps: int) -> dict[str, Any]:
+            return {"response": {"result": False, "reason": "not_charging"}}
+
+    with pytest.raises(CommandError, match="not_charging"):
+        await _ble(key_path, NotCharging()).send(Command.SET_CHARGE_AMPS, 16)
+
+
+class RefusingBackend(FakeBackend):
+    async def send(self, cmd: Command, arg: Any = None) -> str | None:
+        raise CommandError("car refused the command: user_present", kind=REFUSED)
+
+
+async def test_router_never_turns_refusal_into_not_available() -> None:
+    cloud = FakeBackend(source=Source.CLOUD)
+    with pytest.raises(CommandError) as exc:
+        await Router(RefusingBackend(source=Source.BLE), cloud).send(Command.LOCK)
+    assert not isinstance(exc.value, NotAvailable) and "user_present" in str(exc.value)
+    assert cloud.sent == []  # the car answered: no fail-over
+
+
+async def test_router_returns_noop_note_and_depart_arm_says_so(key_path: Path) -> None:
+    from datetime import timedelta
+
+    from socks.core import depart
+
+    class Already(FakeBleVehicle):
+        async def set_charge_limit(self, percent: int) -> dict[str, Any]:
+            return {"response": {"result": False, "reason": "already_set"}}
+
+    router = Router(_ble(key_path, Already()), None)
+    assert await router.send(Command.SET_CHARGE_LIMIT, 75) == "already set"
+    now = datetime.now(UTC)
+    plan = depart.make_plan(now + timedelta(hours=10), 75, 21.0, now=now)
+    lines = await depart.arm(router, plan, now=now)
+    assert lines[0].startswith("ok") and "already set" in lines[0]
+    assert all(line.startswith("ok") for line in lines)
+
+
+async def test_car_name_override_then_vin_model(key_path: Path) -> None:
+    s = await _ble(key_path, FakeBleVehicle()).read_state()
+    assert s.car_name == "Model 3"  # LRW3... decoded
+    ble = BleBackend(
+        VIN, key_path, vehicle_factory=FakeBleVehicle, clock=lambda: TS, car_name="Stepmobile"
+    )
+    assert (await ble.read_state()).car_name == "Stepmobile"
+    c = await _cloud(key_path, FakeCloudVehicle()).read_state()
+    assert c.car_name == "step's 3"  # the car's own name beats the model
+    settings = Settings(vin=VIN, key_path=key_path, car_name="Rocket")
+    assert build_router(settings).ble.car_name == "Rocket"

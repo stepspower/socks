@@ -8,9 +8,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from PySide6.QtCore import QCoreApplication, Qt, Signal
-from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, Qt, Signal
+from PySide6.QtGui import QFont, QPalette
+from PySide6.QtWidgets import (
+    QGridLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from socks.gui import fmt
 from socks.gui.inline_logic import (
@@ -23,7 +30,7 @@ from socks.gui.inline_logic import (
 from socks.gui.labels import command_label
 from socks.gui.tabs.depart import DepartCard
 from socks.gui.widgets.gauge import Gauge
-from socks.gui.widgets.inline import InlineEdit, ToggleChip
+from socks.gui.widgets.inline import EditableValue, InlineEdit, ToggleChip
 from socks.gui.widgets.slide_switch import SlideSwitch
 from socks.gui.widgets.status_card import Chip, StatusCard
 
@@ -84,6 +91,8 @@ class StatusTab(QWidget):
     refresh_requested = Signal()
     #: (Command, argument in command units or None) — the window runs the confirm gate
     command_requested = Signal(object, object)
+    #: new display name for the car ("" = back to the name the car/VIN gives)
+    rename_requested = Signal(str)
     #: (Command, arg): already confirmed by a completed slide gesture (no dialog)
     confirmed_command_requested = Signal(object, object)
 
@@ -92,12 +101,22 @@ class StatusTab(QWidget):
         self._state: Any = None
         self._units = "metric"
 
-        self.title = QLabel(self.tr("No vehicle data yet"))
-        self.title.setTextFormat(Qt.TextFormat.PlainText)  # car_name comes from the car/cloud
+        # Click-to-rename title (PlainText: car_name comes from the car/cloud).
+        self.name_override = ""
+        self.title = EditableValue(self.tr("No vehicle data yet"))
+        self.title.setForegroundRole(QPalette.ColorRole.WindowText)
         tf = QFont(self.font())
         tf.setPointSizeF(tf.pointSizeF() * 1.3)
         tf.setWeight(QFont.Weight.DemiBold)
         self.title.setFont(tf)
+        self.title.activated.connect(self._start_rename)
+        self.rename = QLineEdit()
+        self.rename.setFont(tf)
+        self.rename.setMaxLength(60)
+        self.rename.setPlaceholderText(self.tr("Name (empty = model name)"))
+        self.rename.setAccessibleName(self.tr("Car name"))
+        self.rename.hide()
+        self.rename.installEventFilter(self)
         self.chip = Chip()
         self.chip.set_chip(self.tr("no data"), "muted")
         self.refresh_btn = QPushButton(self.tr("&Refresh"))
@@ -106,6 +125,7 @@ class StatusTab(QWidget):
 
         head = QHBoxLayout()
         head.addWidget(self.title)
+        head.addWidget(self.rename)
         head.addWidget(self.chip)
         head.addStretch(1)
         head.addWidget(self.refresh_btn)
@@ -300,6 +320,56 @@ class StatusTab(QWidget):
             if field == "charging":
                 ch.setVisible(bool(s.plugged_in))
 
+    # ------------------------------------------------------------- rename
+
+    def display_name(self) -> str:
+        s = self._state
+        car = s.car_name if s is not None else None
+        return self.name_override or car or self.tr("Vehicle")
+
+    def _show_title(self) -> None:
+        self.title.setText(self.display_name())
+        vin = self._state.vin if self._state is not None else ""
+        tip = self.tr("Click to rename")
+        self.title.setToolTip(f"VIN {vin}\n{tip}" if vin else tip)
+
+    def set_name_override(self, name: str) -> None:
+        self.name_override = name or ""
+        self._show_title()
+
+    def _start_rename(self) -> None:
+        self.rename.setText(self.name_override or self.display_name())
+        self.title.hide()
+        self.rename.show()
+        self.rename.selectAll()
+        self.rename.setFocus()
+
+    def _end_rename(self, commit: bool) -> None:
+        if not self.rename.isVisible():
+            return
+        self.rename.hide()
+        self.title.show()
+        self.title.setFocus()
+        if commit:
+            text = self.rename.text().strip()
+            car = self._state.car_name if self._state is not None else None
+            if text == (car or ""):
+                text = ""  # same as the car's own name: no override needed
+            self.rename_requested.emit(text)
+
+    def eventFilter(self, obj: QObject, ev: QEvent) -> bool:
+        if obj is self.rename:
+            if ev.type() == QEvent.Type.KeyPress:
+                if ev.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                    self._end_rename(True)
+                    return True
+                if ev.key() == Qt.Key.Key_Escape:
+                    self._end_rename(False)
+                    return True
+            elif ev.type() == QEvent.Type.FocusOut:
+                self._end_rename(False)
+        return super().eventFilter(obj, ev)
+
     def set_location(
         self,
         text: str | None,
@@ -344,7 +414,7 @@ class StatusTab(QWidget):
     def update_state(self, s: Any) -> None:
         self._state = s
         u = self._units
-        self.title.setText(s.car_name or s.vin or self.tr("Vehicle"))
+        self._show_title()
         charging_name = s.charging.name
         is_charging = charging_name == "CHARGING"
         cap = fmt.dist(s.rated_range_km, u)

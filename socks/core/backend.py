@@ -23,12 +23,13 @@ import contextlib
 import logging
 import time
 from collections.abc import Awaitable, Callable, Iterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
 from socks.core.commands import COMMANDS, Command, CommandArg, DepartureArg, validate_arg
-from socks.core.keys import KeyFileError, is_valid_vin, load_private_key
+from socks.core.keys import KeyFileError, is_valid_vin, load_private_key, vin_model
 from socks.core.model import ChargingState, ShiftState, Source, VehicleState
 from socks.history.units import KM_PER_MI
 
@@ -78,7 +79,10 @@ class Backend(Protocol):
         """
         ...
 
-    async def send(self, cmd: Command, arg: CommandArg = None) -> None: ...
+    async def send(self, cmd: Command, arg: CommandArg = None) -> str | None:
+        """Send a command (raises CommandError). Returns None, or a short note such as
+        "already set" when the car reported it was already in the requested state."""
+        ...
 
 
 def _utcnow() -> datetime:
@@ -466,6 +470,12 @@ def _describe(exc: BaseException) -> str:
     return f"{type(exc).__name__}: {str(msg)[:200]}"
 
 
+def _named_state(state: VehicleState, override: str | None) -> VehicleState:
+    """car_name = user override, else what the car reports (cloud), else the VIN's model."""
+    name = override or state.car_name or vin_model(state.vin)
+    return state if name == state.car_name else replace(state, car_name=name)
+
+
 def _wrappable(exc: BaseException) -> bool:
     """Ordinary errors plus tesla-fleet-api's (``TeslaFleetError`` is a BaseException);
     never CancelledError, KeyboardInterrupt or SystemExit."""
@@ -474,12 +484,48 @@ def _wrappable(exc: BaseException) -> bool:
     return any(c.__module__.startswith("tesla_fleet_api") for c in type(exc).__mro__)
 
 
-def _check_result(result: Any) -> None:
-    """Raise if a command reply says ``result: false``."""
+# Refusals that only mean "the car is already in the requested state" (Tesla reason
+# strings, normalised to lower_snake_case). Some only count for specific commands.
+_NOOP_REASONS = frozenset(
+    {
+        "already_set",
+        "already_on",
+        "already_off",
+        "already_locked",
+        "already_unlocked",
+        "already_open",
+        "already_closed",
+        "already_standard",
+        "already_max_range",
+    }
+)
+_NOOP_FOR: dict[str, frozenset[Command]] = {
+    "not_charging": frozenset({Command.CHARGE_STOP}),
+    "is_charging": frozenset({Command.CHARGE_START}),
+    "charging": frozenset({Command.CHARGE_START}),
+    "is_unlocked": frozenset({Command.UNLOCK}),
+    "is_locked": frozenset({Command.LOCK}),
+}
+REFUSED = "Refused"  # CommandError.kind for a definitive car-side refusal (never failed over)
+
+
+def _normalise_reason(reason: str) -> str:
+    return reason.strip().lower().replace(" ", "_").replace("-", "_")
+
+
+def _check_result(result: Any, cmd: Command | None = None) -> str | None:
+    """Raise CommandError(kind=REFUSED) if a command reply says ``result: false``.
+
+    A refusal that just means "already in that state" is success: returns "already set".
+    """
     resp = result.get("response", result) if isinstance(result, dict) else None
-    if isinstance(resp, dict) and resp.get("result") is False:
-        reason = str(resp.get("reason") or "no reason given")[:200]
-        raise CommandError(f"car refused the command: {reason}")
+    if not (isinstance(resp, dict) and resp.get("result") is False):
+        return None
+    reason = str(resp.get("reason") or "no reason given")[:200]
+    norm = _normalise_reason(reason)
+    if norm in _NOOP_REASONS or (cmd is not None and cmd in _NOOP_FOR.get(norm, ())):
+        return "already set"
+    raise CommandError(f"car refused the command: {reason}", kind=REFUSED)
 
 
 def _scalar(arg: CommandArg) -> float | int | None:
@@ -588,9 +634,11 @@ class BleBackend:
         command_timeout: float = COMMAND_TIMEOUT,
         wake_timeout: float = WAKE_TIMEOUT,
         vehicle_factory: Callable[[], Any] | None = None,
+        car_name: str | None = None,
         clock: Callable[[], datetime] = _utcnow,
     ) -> None:
         self.vin = vin
+        self.car_name = car_name or None  # user override (Settings.car_name)
         self.key_path = key_path
         self.connect_timeout = connect_timeout
         self.command_timeout = command_timeout
@@ -685,7 +733,7 @@ class BleBackend:
                         payload[name] = _to_dict(await getattr(vehicle, name)())
             except CommandError as e:
                 log.debug("optional BLE read failed: %s", e)
-        return parse_ble_payload(self.vin, payload, self._clock())
+        return _named_state(parse_ble_payload(self.vin, payload, self._clock()), self.car_name)
 
     async def pair(self, role: str = "driver", timeout: float = PAIR_TIMEOUT) -> bool:
         """Send the BLE add-key request for this backend's key (form factor cloud_key).
@@ -721,7 +769,7 @@ class BleBackend:
                 raise
             return True
 
-    async def send(self, cmd: Command, arg: CommandArg = None) -> None:
+    async def send(self, cmd: Command, arg: CommandArg = None) -> str | None:
         try:
             arg = validate_arg(cmd, arg)
         except ValueError as e:
@@ -733,7 +781,7 @@ class BleBackend:
                     _timeout_for(cmd, self.command_timeout, self.wake_timeout)
                 ):
                     result = await _dispatch(vehicle, cmd, arg, self.wake_timeout, cloud=False)
-            _check_result(result)
+            return _check_result(result, cmd)
 
     async def close(self) -> None:
         vehicle, self._vehicle = self._vehicle, None
@@ -828,9 +876,11 @@ class CloudBackend:
         command_timeout: float = COMMAND_TIMEOUT,
         wake_timeout: float = WAKE_TIMEOUT,
         vehicle_factory: Callable[[], Any] | None = None,
+        car_name: str | None = None,
         clock: Callable[[], datetime] = _utcnow,
     ) -> None:
         self.vin = vin
+        self.car_name = car_name or None  # user override (Settings.car_name)
         self.key_path = key_path
         self.region = region
         self.command_timeout = command_timeout
@@ -882,9 +932,9 @@ class CloudBackend:
                 data = await vehicle.vehicle_data(endpoints=endpoints)
         if not isinstance(data, dict):
             raise CommandError("cloud read: unexpected reply")
-        return parse_cloud_payload(self.vin, data, self._clock())
+        return _named_state(parse_cloud_payload(self.vin, data, self._clock()), self.car_name)
 
-    async def send(self, cmd: Command, arg: CommandArg = None) -> None:
+    async def send(self, cmd: Command, arg: CommandArg = None) -> str | None:
         try:
             arg = validate_arg(cmd, arg)
         except ValueError as e:
@@ -906,7 +956,7 @@ class CloudBackend:
             with _guard(f"cloud {cmd.value}", command=True):
                 async with asyncio.timeout(timeout):
                     result = await _dispatch(vehicle, cmd, arg, self.wake_timeout, cloud=True)
-        _check_result(result)
+        return _check_result(result, cmd)
 
     async def close(self) -> None:
         session, self._session = self._session, None
@@ -978,17 +1028,17 @@ class Router(Backend):
 
         return await self._run(op, failover_on_maybe=True)
 
-    async def send(self, cmd: Command, arg: CommandArg = None) -> None:
+    async def send(self, cmd: Command, arg: CommandArg = None) -> str | None:
         try:
             arg = validate_arg(cmd, arg)
         except ValueError as e:
             raise CommandError(str(e)) from None
 
-        async def op(b: Backend) -> None:
-            await b.send(cmd, arg)
+        async def op(b: Backend) -> str | None:
+            return await b.send(cmd, arg)
 
         only = Source.CLOUD if COMMANDS[cmd].cloud_only else None
-        await self._run(op, failover_on_maybe=False, only=only)
+        return await self._run(op, failover_on_maybe=False, only=only)
 
     async def _run[T](
         self,
@@ -1012,6 +1062,9 @@ class Router(Backend):
                 self.last_error = str(e)
                 if e.kind == ASLEEP:
                     self.last_source = backend.name  # reachable, just asleep
+                    raise
+                if e.kind == REFUSED:  # the car answered: definitive, never fail over
+                    self.last_source = backend.name
                     raise
                 self._failed_at[backend.name] = self._monotonic()
                 if e.maybe_executed and not failover_on_maybe:
@@ -1042,11 +1095,16 @@ class Router(Backend):
 def build_router(settings: Any, token_provider: TokenProvider | None = None) -> Router:
     """Router from Settings. The cloud backend exists only if enabled *and* a token provider
     (from ``socks.fleet``) is given."""
-    ble = BleBackend(settings.vin, Path(settings.key_path))
+    name = getattr(settings, "car_name", "") or None
+    ble = BleBackend(settings.vin, Path(settings.key_path), car_name=name)
     cloud = None
     if settings.cloud_enabled and token_provider is not None:
         cloud = CloudBackend(
-            settings.vin, Path(settings.key_path), token_provider, region=settings.region
+            settings.vin,
+            Path(settings.key_path),
+            token_provider,
+            region=settings.region,
+            car_name=name,
         )
     prefer = Source.CLOUD if settings.prefer == "cloud" else Source.BLE
     return Router(ble, cloud, prefer)

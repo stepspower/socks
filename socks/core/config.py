@@ -62,6 +62,7 @@ def paths() -> AppPaths:
 @dataclass
 class Settings:
     vin: str = ""
+    car_name: str = ""  # user override for the displayed name ("" = car/VIN model)
     key_path: Path = field(default_factory=lambda: paths().key_file)
     units: str = "metric"  # metric | imperial
     prefer: str = "ble"  # ble | cloud
