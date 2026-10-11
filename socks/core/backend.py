@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-from socks.core.commands import Command, validate_arg
+from socks.core.commands import COMMANDS, Command, validate_arg
 from socks.core.keys import KeyFileError, is_valid_vin, load_private_key
 from socks.core.model import KM_PER_MILE, ChargingState, ShiftState, Source, VehicleState
 
@@ -192,6 +192,49 @@ def _scheduled_start(charge: dict[str, Any]) -> datetime | None:
     return _epoch(_get(charge, "scheduled_charging_start_time"))
 
 
+def _schedule_mode(charge: dict[str, Any]) -> str | None:
+    """ "Off" | "StartAt" | "DepartBy" from the protobuf enum name or the REST string."""
+    mode = _variant(_get(charge, "scheduled_charging_mode"))
+    if mode is None:
+        return None
+    mode = mode.removeprefix("ScheduledChargingMode")
+    return mode if mode in ("Off", "StartAt", "DepartBy") else None
+
+
+def _scheduled_departure(charge: dict[str, Any]) -> datetime | None:
+    """BLE: protobuf Timestamp (RFC 3339 string); REST: epoch seconds."""
+    mode = _schedule_mode(charge)
+    if mode is not None and mode != "DepartBy":
+        return None
+    value = _get(charge, "scheduled_departure_time")
+    if isinstance(value, str) and "T" in value:
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC) if parsed.timestamp() > 0 else None
+    return _epoch(value)
+
+
+def _departure_options(charge: dict[str, Any]) -> dict[str, Any]:
+    """Current preconditioning/off-peak settings as ``set_scheduled_departure`` kwargs, so
+    editing the departure time does not silently switch them off (the library sends an
+    absent block as "off")."""
+    pre = _variant(_get(charge, "preconditioning_times"))
+    off = _variant(_get(charge, "off_peak_charging_times"))
+    pre_on = pre is not None or _bool(_get(charge, "preconditioning_enabled")) is True
+    off_on = off is not None or _bool(_get(charge, "off_peak_charging_enabled")) is True
+    return {
+        "preconditioning_enabled": pre_on,
+        "preconditioning_weekdays_only": pre == "weekdays",
+        "off_peak_charging_enabled": off_on,
+        "off_peak_charging_weekdays_only": off == "weekdays",
+        "end_off_peak_time": _int(_get(charge, "off_peak_hours_end_time")) or 0,
+    }
+
+
 def _minutes_to_limit(charge: dict[str, Any]) -> int | None:
     for name in ("minutes_to_charge_limit", "minutes_to_full_charge"):
         value = _int(_get(charge, name))
@@ -278,6 +321,10 @@ def _charge_fields(charge: dict[str, Any]) -> dict[str, Any]:
         "plugged_in": _plugged_in(_get(charge, "conn_charge_cable"), charging),
         "charge_port_open": _bool(_get(charge, "charge_port_door_open")),
         "scheduled_charging_start": _scheduled_start(charge),
+        "charge_current_request_a": _int(_get(charge, "charge_current_request")),
+        "charge_current_request_max_a": _int(_get(charge, "charge_current_request_max")),
+        "scheduled_charging_mode": _schedule_mode(charge),
+        "scheduled_departure": _scheduled_departure(charge),
     }
 
 
@@ -420,11 +467,30 @@ def _check_result(result: Any) -> None:
         raise CommandError(f"car refused the command: {reason}")
 
 
+async def _current_charge(vehicle: Any, cloud: bool) -> dict[str, Any]:
+    if cloud:
+        data = await vehicle.vehicle_data(endpoints=["charge_state"])
+        resp = data.get("response", data) if isinstance(data, dict) else {}
+        return _section(resp if isinstance(resp, dict) else {}, "charge_state")
+    return _to_dict(await vehicle.charge_state())
+
+
 async def _dispatch(
-    vehicle: Any, cmd: Command, arg: float | int | None, wake_timeout: float
+    vehicle: Any, cmd: Command, arg: float | int | None, wake_timeout: float, *, cloud: bool
 ) -> Any:
     """Call the tesla-fleet-api method for ``cmd`` (identical on BLE and signed cloud)."""
     match cmd:
+        case Command.SET_CHARGE_AMPS:
+            return await vehicle.set_charging_amps(int(arg or 0))
+        case Command.SET_SCHEDULED_CHARGING:
+            # minutes after midnight, vehicle-local time; None disables.
+            return await vehicle.set_scheduled_charging(arg is not None, int(arg or 0))
+        case Command.SET_SCHEDULED_DEPARTURE:
+            # Preserve preconditioning/off-peak (costs one extra read on the cloud).
+            options = _departure_options(await _current_charge(vehicle, cloud))
+            return await vehicle.set_scheduled_departure(
+                enable=arg is not None, departure_time=int(arg or 0), **options
+            )
         case Command.LOCK:
             return await vehicle.door_lock()
         case Command.UNLOCK:
@@ -633,7 +699,7 @@ class BleBackend:
                 async with asyncio.timeout(
                     _timeout_for(cmd, self.command_timeout, self.wake_timeout)
                 ):
-                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout)
+                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout, cloud=False)
             _check_result(result)
 
     async def close(self) -> None:
@@ -795,7 +861,7 @@ class CloudBackend:
         try:
             with _guard(f"cloud {cmd.value}", command=True):
                 async with asyncio.timeout(timeout):
-                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout)
+                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout, cloud=True)
         except NotAvailable as e:
             # VehicleOffline: the command never reached the car (cloud commands, VCSEC ones
             # included, need the car online), so wake it and retry once.
@@ -806,7 +872,7 @@ class CloudBackend:
                     await vehicle.wake_up(wait=True, timeout=self.wake_timeout)
             with _guard(f"cloud {cmd.value}", command=True):
                 async with asyncio.timeout(timeout):
-                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout)
+                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout, cloud=True)
         _check_result(result)
 
     async def close(self) -> None:
@@ -888,11 +954,21 @@ class Router(Backend):
         async def op(b: Backend) -> None:
             await b.send(cmd, arg)
 
-        await self._run(op, failover_on_maybe=False)
+        only = Source.CLOUD if COMMANDS[cmd].cloud_only else None
+        await self._run(op, failover_on_maybe=False, only=only)
 
-    async def _run[T](self, op: Callable[[Backend], Awaitable[T]], *, failover_on_maybe: bool) -> T:
+    async def _run[T](
+        self,
+        op: Callable[[Backend], Awaitable[T]],
+        *,
+        failover_on_maybe: bool,
+        only: Source | None = None,
+    ) -> T:
         reasons: list[str] = []
         for backend in self.backends():
+            if only is not None and backend.name is not only:
+                reasons.append(f"{backend.name.value}: command is {only.value}-only")
+                continue
             label = "Bluetooth" if backend.name is Source.BLE else "cloud"
             if not await backend.available():
                 reasons.append(f"{label}: not set up (VIN or key missing)")

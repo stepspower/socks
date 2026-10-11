@@ -83,6 +83,11 @@ class VehicleState:
     longitude: float | None = None
     heading: int | None = None  # degrees, 0 = north
     gps_as_of: datetime | None = None  # UTC, when the car took the fix
+    # charging current and schedule (editable in place)
+    charge_current_request_a: int | None = None  # requested AC current
+    charge_current_request_max_a: int | None = None  # max the charger/car allows
+    scheduled_departure: datetime | None = None  # UTC; None unless mode is DepartBy
+    scheduled_charging_mode: str | None = None  # "Off" | "StartAt" | "DepartBy"
     raw: dict = field(default_factory=dict, compare=False, repr=False)  # payload, never persisted
 
 
@@ -134,6 +139,7 @@ def state_from_dict(data: dict[str, Any]) -> VehicleState:
     kwargs["shift"] = _enum_or(ShiftState, kwargs["shift"], ShiftState.UNKNOWN)
     kwargs["scheduled_charging_start"] = dt(kwargs["scheduled_charging_start"])
     kwargs["gps_as_of"] = dt(kwargs["gps_as_of"])
+    kwargs["scheduled_departure"] = dt(kwargs["scheduled_departure"])
     kwargs["doors_open"] = tuple(kwargs["doors_open"] or ())
     kwargs["windows_open"] = tuple(kwargs["windows_open"] or ())
     kwargs["raw"] = dict(kwargs["raw"] or {})

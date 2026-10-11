@@ -115,7 +115,7 @@ async def _run(args: argparse.Namespace) -> int:
             )
             return EXIT_REFUSED
         arg: float | int | None = args.arg
-        if arg is not None and info.arg == "percent" and math.isfinite(arg) and arg == int(arg):
+        if arg is not None and info.arg != "temp_c" and math.isfinite(arg) and arg == int(arg):
             arg = int(arg)
     backend = _make_backend(args, settings)
     try:

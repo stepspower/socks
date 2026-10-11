@@ -64,9 +64,22 @@ def make_state(**overrides: Any) -> VehicleState:
         longitude=FAKE_HOME[1],
         heading=90,
         gps_as_of=FAKE_START,
+        charge_current_request_a=16,
+        charge_current_request_max_a=16,
+        scheduled_departure=None,
+        scheduled_charging_mode="Off",
         raw={"fake": True},
     )
     return replace(base, **overrides)
+
+
+def _next_local_minutes(now: datetime, minutes: int) -> datetime:
+    """Next occurrence of ``minutes`` after local midnight, as UTC (like the car does)."""
+    local = now.astimezone()
+    at = local.replace(hour=minutes // 60, minute=minutes % 60, second=0, microsecond=0)
+    if at <= local:
+        at += timedelta(days=1)
+    return at.astimezone(UTC)
 
 
 def _range_km(soc: int) -> float:
@@ -213,6 +226,10 @@ class FakeBackend:
             sentry_on=current.sentry_on,
             charge_port_open=current.charge_port_open or script.charge_port_open,
             doors_open=current.doors_open,
+            charge_current_request_a=current.charge_current_request_a,
+            scheduled_charging_mode=current.scheduled_charging_mode,
+            scheduled_charging_start=current.scheduled_charging_start,
+            scheduled_departure=current.scheduled_departure,
         )
 
     async def send(self, cmd: Command, arg: float | int | None = None) -> None:
@@ -250,6 +267,25 @@ class FakeBackend:
                 )
             case Command.SET_CHARGE_LIMIT:
                 changes["charge_limit"] = int(arg or 80)
+            case Command.SET_CHARGE_AMPS:
+                cap = s.charge_current_request_max_a or 32
+                changes["charge_current_request_a"] = min(int(arg or 0), cap)
+            case Command.SET_SCHEDULED_CHARGING:
+                if arg is None:
+                    changes["scheduled_charging_mode"] = "Off"
+                    changes["scheduled_charging_start"] = None
+                else:
+                    changes["scheduled_charging_mode"] = "StartAt"
+                    changes["scheduled_charging_start"] = _next_local_minutes(s.ts, int(arg))
+                    changes["scheduled_departure"] = None
+            case Command.SET_SCHEDULED_DEPARTURE:
+                if arg is None:
+                    changes["scheduled_charging_mode"] = "Off"
+                    changes["scheduled_departure"] = None
+                else:
+                    changes["scheduled_charging_mode"] = "DepartBy"
+                    changes["scheduled_departure"] = _next_local_minutes(s.ts, int(arg))
+                    changes["scheduled_charging_start"] = None
             case Command.CHARGE_PORT_OPEN:
                 changes["charge_port_open"] = True
             case Command.CHARGE_PORT_CLOSE:

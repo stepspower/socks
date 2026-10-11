@@ -301,8 +301,8 @@ class FakeBleVehicle:
 
     def __getattr__(self, name: str) -> Any:
         # Any command method (door_lock, set_charge_limit, ...): record and answer OK.
-        async def command(*args: Any) -> dict[str, Any]:
-            self.calls.append(f"{name}{args}")
+        async def command(*args: Any, **kwargs: Any) -> dict[str, Any]:
+            self.calls.append(f"{name}{args}" + (f"{kwargs}" if kwargs else ""))
             if self.command_error is not None:
                 raise self.command_error
             return {"response": {"result": True, "reason": ""}}
@@ -411,7 +411,7 @@ async def test_ble_commands_map_to_library(key_path: Path) -> None:
     assert "actuate_trunk('front',)" in vehicle.calls
     assert "set_sentry_mode(False,)" in vehicle.calls
     assert "flash_lights()" in vehicle.calls
-    with pytest.raises(CommandError, match="percent"):
+    with pytest.raises(CommandError, match="50..100"):
         await ble.send(Command.SET_CHARGE_LIMIT, 20)
 
 
@@ -453,11 +453,11 @@ class FakeCloudVehicle(FakeBleVehicle):
     def __getattr__(self, name: str) -> Any:
         inner = super().__getattr__(name)
 
-        async def command(*args: Any) -> dict[str, Any]:
+        async def command(*args: Any, **kwargs: Any) -> dict[str, Any]:
             if self.offline_once:
                 self.offline_once = False
                 raise VehicleOffline()
-            return await inner(*args)
+            return await inner(*args, **kwargs)
 
         return command
 
@@ -788,3 +788,93 @@ def test_redaction_strips_state_location() -> None:
     for key in ("latitude", "longitude", "heading", "gps_as_of"):
         assert key not in d
     assert "latitude" not in str(d["raw"])
+
+
+def test_parse_charge_current_and_schedule() -> None:
+    cs = vehicle_pb2.ChargeState(
+        charge_current_request=13,
+        charge_current_request_max=16,
+        scheduled_charging_mode=2,  # ScheduledChargingModeDepartBy
+    )
+    cs.scheduled_departure_time.seconds = 1791790200
+    from socks.core.backend import _to_dict
+
+    s = parse_ble_payload(VIN, {"charge_state": _to_dict(cs)}, TS)
+    assert (s.charge_current_request_a, s.charge_current_request_max_a) == (13, 16)
+    assert s.scheduled_charging_mode == "DepartBy"
+    assert s.scheduled_departure == datetime(2026, 10, 12, 7, 30, tzinfo=UTC)
+    rest = {
+        "charge_state": {
+            "charge_current_request": 10,
+            "charge_current_request_max": 32,
+            "scheduled_charging_mode": "StartAt",
+            "scheduled_departure_time": 1791790200,
+        }
+    }
+    c = parse_cloud_payload(VIN, rest, TS)
+    assert c.charge_current_request_a == 10 and c.scheduled_charging_mode == "StartAt"
+    assert c.scheduled_departure is None  # not in DepartBy mode
+    rest["charge_state"]["scheduled_charging_mode"] = "DepartBy"
+    c = parse_cloud_payload(VIN, rest, TS)
+    assert c.scheduled_departure == datetime(2026, 10, 12, 7, 30, tzinfo=UTC)
+    assert parse_cloud_payload(VIN, {}, TS).scheduled_charging_mode is None
+
+
+async def test_ble_new_commands_dispatch(key_path: Path) -> None:
+    msgs = _protobuf_state()
+    msgs["charge"].preconditioning_times.weekdays.SetInParent()
+    msgs["charge"].off_peak_hours_end_time = 360
+    vehicle = FakeBleVehicle(msgs)
+    ble = _ble(key_path, vehicle)
+    await ble.send(Command.SET_CHARGE_AMPS, 16.0)
+    await ble.send(Command.SET_SCHEDULED_CHARGING, 420)
+    await ble.send(Command.SET_SCHEDULED_CHARGING, None)
+    await ble.send(Command.SET_SCHEDULED_DEPARTURE, 450)
+    assert "set_charging_amps(16,)" in vehicle.calls
+    assert "set_scheduled_charging(True, 420)" in vehicle.calls
+    assert "set_scheduled_charging(False, 0)" in vehicle.calls
+    dep = [c for c in vehicle.calls if c.startswith("set_scheduled_departure")][0]
+    for part in (
+        "'enable': True",
+        "'departure_time': 450",
+        "'preconditioning_enabled': True",
+        "'preconditioning_weekdays_only': True",
+        "'off_peak_charging_enabled': False",
+        "'end_off_peak_time': 360",
+    ):
+        assert part in dep, (part, dep)
+    with pytest.raises(CommandError, match="5..32"):
+        await ble.send(Command.SET_CHARGE_AMPS, 40)
+    with pytest.raises(CommandError):
+        await ble.send(Command.SET_SCHEDULED_DEPARTURE, 1440)
+
+
+async def test_cloud_departure_preserves_options(key_path: Path) -> None:
+    vehicle = FakeCloudVehicle()
+    resp = dict(CLOUD_PAYLOAD["response"])
+    resp["charge_state"] = {
+        **resp["charge_state"],
+        "preconditioning_enabled": True,
+        "preconditioning_times": "all_week",
+        "off_peak_charging_enabled": True,
+        "off_peak_charging_times": "weekdays",
+        "off_peak_hours_end_time": 400,
+    }
+    vehicle.data = {"response": resp}
+    await _cloud(key_path, vehicle).send(Command.SET_SCHEDULED_DEPARTURE, None)
+    dep = [c for c in vehicle.calls if c.startswith("set_scheduled_departure")][0]
+    assert "'enable': False" in dep and "'preconditioning_weekdays_only': False" in dep
+    assert "'off_peak_charging_weekdays_only': True" in dep and "400" in dep
+
+
+async def test_router_cloud_only_commands(monkeypatch: pytest.MonkeyPatch) -> None:
+    from dataclasses import replace
+
+    from socks.core.commands import COMMANDS
+
+    monkeypatch.setitem(COMMANDS, Command.HONK, replace(COMMANDS[Command.HONK], cloud_only=True))
+    ble, cloud = FakeBackend(source=Source.BLE), FakeBackend(source=Source.CLOUD)
+    await Router(ble, cloud).send(Command.HONK)
+    assert ble.sent == [] and cloud.sent == [(Command.HONK, None)]
+    with pytest.raises(NotAvailable, match="cloud-only"):
+        await Router(ble, None).send(Command.HONK)

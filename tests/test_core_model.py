@@ -131,3 +131,46 @@ async def test_fake_backend_realtime_and_failures() -> None:
     assert not await off.available()
     with pytest.raises(CommandError):
         await off.read_state()
+
+
+def test_arg_metadata_for_editors() -> None:
+    t = COMMANDS[Command.SET_TEMP]
+    assert (t.min, t.max, t.step, t.unit) == (15.0, 28.0, 0.5, "°C")
+    lim = COMMANDS[Command.SET_CHARGE_LIMIT]
+    assert (lim.min, lim.max, lim.step, lim.unit) == (50, 100, 1, "%")
+    amps = COMMANDS[Command.SET_CHARGE_AMPS]
+    assert (amps.arg, amps.min, amps.max, amps.step, amps.unit) == ("amps", 5, 32, 1, "A")
+    assert amps.needs_wake and not amps.dangerous
+    for cmd in (Command.SET_SCHEDULED_CHARGING, Command.SET_SCHEDULED_DEPARTURE):
+        info = COMMANDS[cmd]
+        assert info.arg == "minutes_after_midnight" and info.arg_optional
+        assert (info.min, info.max) == (0, 1439)
+        assert validate_arg(cmd, None) is None
+        assert validate_arg(cmd, 450.0) == 450
+    assert COMMANDS[Command.LOCK].min is None and COMMANDS[Command.LOCK].unit is None
+    assert not any(i.cloud_only for i in COMMANDS.values())
+    assert validate_arg(Command.SET_CHARGE_AMPS, 16) == 16
+    for bad in (4, 33, 16.5, None):
+        with pytest.raises(ValueError):
+            validate_arg(Command.SET_CHARGE_AMPS, bad)
+
+
+async def test_fake_backend_schedule_and_amps() -> None:
+    fb = FakeBackend()
+    s0 = await fb.read_state()
+    assert s0.charge_current_request_a == 16 and s0.scheduled_charging_mode == "Off"
+    await fb.send(Command.SET_CHARGE_AMPS, 10)
+    await fb.send(Command.SET_SCHEDULED_DEPARTURE, 450)
+    s = await fb.read_state()
+    assert s.charge_current_request_a == 10
+    assert s.scheduled_charging_mode == "DepartBy" and s.scheduled_departure is not None
+    local = s.scheduled_departure.astimezone()
+    assert (local.hour, local.minute) == (7, 30)
+    await fb.send(Command.SET_SCHEDULED_CHARGING, 120)
+    s = await fb.read_state()
+    assert s.scheduled_charging_mode == "StartAt" and s.scheduled_departure is None
+    await fb.send(Command.SET_SCHEDULED_CHARGING, None)
+    s = await fb.read_state()
+    assert s.scheduled_charging_mode == "Off" and s.scheduled_charging_start is None
+    d = state_to_dict(s)
+    assert state_from_dict(d) == s
