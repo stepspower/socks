@@ -11,8 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QKeySequence
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QKeySequence, QPalette
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -200,6 +200,14 @@ class SettingsTab(QWidget):
 
         bottom = QHBoxLayout()
         bottom.addWidget(self.setup_btn)
+        self.log_btn = QPushButton(self.tr("Open log folder"))
+        self.log_btn.setFlat(True)
+        self.log_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.log_btn.setForegroundRole(QPalette.ColorRole.Link)
+        self.log_btn.clicked.connect(self._open_log_folder)
+        self.log_btn.hide()
+        self._log_file: Path | None = None
+        bottom.addWidget(self.log_btn)
         bottom.addWidget(self.result, 1)
         bottom.addWidget(self.save_btn)
 
@@ -295,6 +303,16 @@ class SettingsTab(QWidget):
         )
         if path:
             self.key_path.setText(path)
+
+    def set_log_file(self, path: Path | None) -> None:
+        self._log_file = path
+        self.log_btn.setVisible(path is not None)
+        if path is not None:
+            self.log_btn.setToolTip(str(path))
+
+    def _open_log_folder(self) -> None:
+        if self._log_file is not None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._log_file.parent)))
 
     def _key_status(self, text: str) -> None:
         p = Path(text.strip() or str(DEFAULT_KEY)).expanduser()

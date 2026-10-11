@@ -87,7 +87,17 @@ The same from the terminal: `socks-cli status`. If it times out, see Troubleshoo
 README.
 
 Try one harmless command: `socks-cli cmd flash_lights`. Dangerous commands (`unlock`, `frunk`,
-`trunk`, `sentry_off`) need `--yes`. In the GUI each command shows a confirmation dialog first.
+`trunk`, `sentry_off`) need `--yes`. The GUI has no confirmation dialogs: risky switches
+(unlock, sentry off, open charge port/frunk/trunk) only act after a full slide, or Enter/Space
+held for a second.
+
+### Log file
+
+SOCKS writes a log to `~/.local/state/socks/socks.log` (`$XDG_STATE_HOME/socks/`; rotated at
+1 MB, 3 old files kept; folder 0700, file 0600). Settings > **Open log folder** opens it. Start
+with `socks --debug` to log Bluetooth and Fleet API details as well. Tokens, secrets and private
+keys are removed from every line before it is written, so the file can be attached to a bug
+report — still read it over first, because it does contain your VIN and car state.
 
 ## 7. How history accumulates
 

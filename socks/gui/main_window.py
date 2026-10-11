@@ -152,6 +152,7 @@ class MainWindow(QMainWindow):
         self.settings_tab.save_requested.connect(self._save_settings)
         self.settings_tab.wizard_requested.connect(self.open_wizard)
         self.settings_tab.awake.setChecked(self._awake_wanted())
+        self.settings_tab.set_log_file(ctx.extras.get("log_file"))
         self.settings_tab.set_language(
             str(ctx.gui_prefs.value("language", "auto")), str(ctx.extras.get("language", "en"))
         )

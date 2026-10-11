@@ -149,6 +149,16 @@ def main(argv: list[str] | None = None) -> int:
 
     extras["language"] = i18n.install(app, str(prefs.value("language", "auto")))
     extras["config_dir"] = cfg_dir
+    from socks.gui import logfile
+
+    try:
+        # --fake runs log into the throwaway config dir (removed on quit)
+        log_dir = cfg_dir / "log" if args.fake else None
+        file_handler = logfile.install(args.debug, log_dir)
+    except OSError as exc:  # unwritable state dir: keep running with the in-app log
+        logging.getLogger("socks.gui").warning("no log file: %s", exc)
+        file_handler = None
+    extras["log_file"] = Path(file_handler.baseFilename) if file_handler else None
     extras["redact_location"] = bool(args.screenshot)  # never put coordinates in images
     extras["tray_icon"] = tray_icon
     ctx = AppContext(settings, args.fake, args.debug, icon, handler, prefs, extras)

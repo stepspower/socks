@@ -923,234 +923,234 @@ Otisk {2}</translation>
         <translation>Spouštění…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="180"/>
+        <location filename="../main_window.py" line="181"/>
         <source>driving — {0} s</source>
         <translation>jízda — {0} s</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="182"/>
+        <location filename="../main_window.py" line="183"/>
         <source>awake lock</source>
         <translation>bez uspání</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="183"/>
+        <location filename="../main_window.py" line="184"/>
         <source>This computer will not sleep while the car is driving</source>
         <translation>Počítač se během jízdy auta neuspí</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="213"/>
+        <location filename="../main_window.py" line="214"/>
         <source>Tab {0}</source>
         <translation>Karta {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="214"/>
+        <location filename="../main_window.py" line="215"/>
         <source>Ctrl+{0}</source>
         <translation>Ctrl+{0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="224"/>
+        <location filename="../main_window.py" line="225"/>
         <source>Show SOCKS</source>
         <translation>Zobrazit SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="225"/>
+        <location filename="../main_window.py" line="226"/>
         <source>Refresh</source>
         <translation>Obnovit</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="227"/>
+        <location filename="../main_window.py" line="228"/>
         <source>Quit</source>
         <translation>Ukončit</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="229"/>
+        <location filename="../main_window.py" line="230"/>
         <source>SOCKS</source>
         <translation>SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="281"/>
+        <location filename="../main_window.py" line="282"/>
         <source>car asleep — poll at {0:%H:%M} skipped</source>
         <translation>auto spí — dotaz v {0:%H:%M} vynechán</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="289"/>
+        <location filename="../main_window.py" line="290"/>
         <source>Refresh failed: {0}</source>
         <translation>Obnovení selhalo: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="303"/>
+        <location filename="../main_window.py" line="304"/>
         <source>retrying ({0}/{1})…</source>
         <translation>nový pokus ({0}/{1})…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="311"/>
+        <location filename="../main_window.py" line="312"/>
         <source>weak Bluetooth signal — move closer to the car or press Refresh</source>
         <translation>slabý signál Bluetooth — přibližte se k autu nebo klikněte na Obnovit</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="325"/>
+        <location filename="../main_window.py" line="326"/>
         <source>SOCKS — {0}: {1} · {2}</source>
         <translation>SOCKS — {0}: {1} · {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="333"/>
+        <location filename="../main_window.py" line="334"/>
         <source>Last update {0} ({1}) via {2}</source>
         <translation>Poslední aktualizace {0} ({1}) přes {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="365"/>
+        <location filename="../main_window.py" line="366"/>
         <source>Could not keep the computer awake: {0}</source>
         <translation>Počítač nelze udržet vzhůru: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="468"/>
+        <location filename="../main_window.py" line="469"/>
         <source>Set a VIN in Settings (or refresh once) to see history.</source>
         <translation>Pro zobrazení historie nastavte VIN v Nastavení (nebo jednou obnovte).</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="486"/>
+        <location filename="../main_window.py" line="487"/>
         <source>Could not load history: {0}</source>
         <translation>Historii nelze načíst: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="497"/>
+        <location filename="../main_window.py" line="498"/>
         <source>Nothing to export yet.</source>
         <translation>Zatím není co exportovat.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="505"/>
+        <location filename="../main_window.py" line="506"/>
         <source>Export {0}</source>
         <translation>Export: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="513"/>
+        <location filename="../main_window.py" line="514"/>
         <source>Exporting {0}…</source>
         <translation>Exportování: {0}…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="524"/>
+        <location filename="../main_window.py" line="525"/>
         <source>Export failed: {0}</source>
         <translation>Export selhal: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="528"/>
+        <location filename="../main_window.py" line="529"/>
         <source>Exported {0} rows to {1}</source>
         <translation>Exportováno {0} řádků do {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="549"/>
+        <location filename="../main_window.py" line="550"/>
         <source>Export drive as GPX</source>
         <translation>Exportovat jízdu jako GPX</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="551"/>
+        <location filename="../main_window.py" line="552"/>
         <source>GPX track (*.gpx)</source>
         <translation>Trasa GPX (*.gpx)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="564"/>
+        <location filename="../main_window.py" line="565"/>
         <source>GPX export failed: {0}</source>
         <translation>Export GPX selhal: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="568"/>
+        <location filename="../main_window.py" line="569"/>
         <source>Exported {0} track points to {1}</source>
         <translation>Exportováno {0} bodů trasy do {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="575"/>
+        <location filename="../main_window.py" line="576"/>
         <source>Chart saved to {0}</source>
         <translation>Graf uložen do {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="577"/>
+        <location filename="../main_window.py" line="578"/>
         <source>Could not save {0}</source>
         <translation>{0} nelze uložit</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="589"/>
+        <location filename="../main_window.py" line="590"/>
         <source>Still sending the previous command…</source>
         <translation>Předchozí příkaz se stále odesílá…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="606"/>
         <location filename="../main_window.py" line="607"/>
+        <location filename="../main_window.py" line="608"/>
         <source>{0} failed: {1}</source>
         <translation>{0} selhalo: {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="614"/>
         <location filename="../main_window.py" line="615"/>
+        <location filename="../main_window.py" line="616"/>
         <source>{0}: done</source>
         <translation>{0}: hotovo</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="631"/>
+        <location filename="../main_window.py" line="632"/>
         <source>Could not save: {0}</source>
         <translation>Nelze uložit: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="650"/>
+        <location filename="../main_window.py" line="651"/>
         <source>Saved at {0}.</source>
         <translation>Uloženo v {0}.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="660"/>
+        <location filename="../main_window.py" line="661"/>
         <source>Sending to the car…</source>
         <translation>Odesílání do auta…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="664"/>
+        <location filename="../main_window.py" line="665"/>
         <source>Not set: {0}</source>
         <translation>Nenastaveno: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="682"/>
+        <location filename="../main_window.py" line="683"/>
         <source>Cancelling…</source>
         <translation>Rušení…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="689"/>
+        <location filename="../main_window.py" line="690"/>
         <source>Could not cancel: {0}</source>
         <translation>Nelze zrušit: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="750"/>
+        <location filename="../main_window.py" line="751"/>
         <source>(coordinates hidden)</source>
         <translation>(souřadnice skryty)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="790"/>
+        <location filename="../main_window.py" line="791"/>
         <source>trip watch: {0} ({1} reads, ≈ ${2:.3f})</source>
         <translation>sledování jízdy: {0} ({1} čtení, ≈ ${2:.3f})</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="800"/>
+        <location filename="../main_window.py" line="801"/>
         <source>Could not set purpose: {0}</source>
         <translation>Účel nelze nastavit: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="818"/>
+        <location filename="../main_window.py" line="819"/>
         <source>Could not rename place: {0}</source>
         <translation>Místo nelze přejmenovat: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="824"/>
+        <location filename="../main_window.py" line="825"/>
         <source>Place saved. Use Rebuild labels to relabel drives.</source>
         <translation>Místo uloženo. Jízdy znovu označíte pomocí Znovu vytvořit štítky.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="839"/>
+        <location filename="../main_window.py" line="840"/>
         <source>Rebuild failed: {0}</source>
         <translation>Opětovné vytvoření selhalo: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="847"/>
+        <location filename="../main_window.py" line="848"/>
         <source>{0} places, {1} drives relabelled.</source>
         <translation>Míst: {0}, znovu označených jízd: {1}.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="898"/>
+        <location filename="../main_window.py" line="899"/>
         <source>Log •</source>
         <translation>Protokol •</translation>
     </message>
@@ -1383,47 +1383,52 @@ Otisk {2}</translation>
         <translation>Ja&amp;zyk:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="222"/>
+        <location filename="../tabs/settings.py" line="203"/>
+        <source>Open log folder</source>
+        <translation>Otevřít složku s logy</translation>
+    </message>
+    <message>
+        <location filename="../tabs/settings.py" line="230"/>
         <source>Restart SOCKS to apply.</source>
         <translation>Pro použití restartujte SOCKS.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="292"/>
+        <location filename="../tabs/settings.py" line="300"/>
         <source>Import existing private key</source>
         <translation>Importovat existující soukromý klíč</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="294"/>
+        <location filename="../tabs/settings.py" line="302"/>
         <source>PEM key (*.pem);;All files (*)</source>
         <translation>Klíč PEM (*.pem);;Všechny soubory (*)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="308"/>
+        <location filename="../tabs/settings.py" line="326"/>
         <source>Key file not found at this path.</source>
         <translation>Soubor klíče na této cestě nebyl nalezen.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="324"/>
+        <location filename="../tabs/settings.py" line="342"/>
         <source>0 = off; otherwise at least {0} s. Polling never wakes a sleeping car.</source>
         <translation>0 = vypnuto; jinak nejméně {0} s. Dotazování nikdy neprobudí spící auto.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="329"/>
+        <location filename="../tabs/settings.py" line="347"/>
         <source>With the cloud enabled, a poll that falls back to the cloud is a paid read.</source>
         <translation>Při zapnutém cloudu je dotaz, který přejde na cloud, placeným čtením.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="332"/>
+        <location filename="../tabs/settings.py" line="350"/>
         <source>Up to ${0:.2f} a day at this interval.</source>
         <translation>Až ${0:.2f} denně při tomto intervalu.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="341"/>
+        <location filename="../tabs/settings.py" line="359"/>
         <source>Starts when the car leaves Bluetooth range moving; stops when it is parked. Each poll is a paid cloud read ($0.002): about ${0:.3f} per hour of driving.</source>
         <translation>Spustí se, když auto za jízdy opustí dosah Bluetooth; skončí, když zaparkuje. Každý dotaz je placené čtení z cloudu ($0.002): asi ${0:.3f} za hodinu jízdy.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="345"/>
+        <location filename="../tabs/settings.py" line="363"/>
         <source>Requires cloud access.</source>
         <translation>Vyžaduje cloudový přístup.</translation>
     </message>
@@ -1468,209 +1473,209 @@ Otisk {2}</translation>
 <context>
     <name>StatusTab</name>
     <message>
-        <location filename="../tabs/status.py" line="80"/>
+        <location filename="../tabs/status.py" line="81"/>
         <source>No vehicle data yet</source>
         <extracomment>(Command, argument in command units or None) — the window runs the confirm gate new display name for the car (&quot;&quot; = back to the name the car/VIN gives) (Command, arg): already confirmed by a completed slide gesture (no dialog)</extracomment>
         <translation>Zatím žádná data vozu</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="90"/>
+        <location filename="../tabs/status.py" line="91"/>
         <source>Name (empty = model name)</source>
         <translation>Název (prázdné = název modelu)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="91"/>
+        <location filename="../tabs/status.py" line="92"/>
         <source>Car name</source>
         <translation>Název auta</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="95"/>
+        <location filename="../tabs/status.py" line="96"/>
         <source>no data</source>
         <translation>žádná data</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="96"/>
+        <location filename="../tabs/status.py" line="97"/>
         <source>&amp;Refresh</source>
         <translation>&amp;Obnovit</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="97"/>
+        <location filename="../tabs/status.py" line="98"/>
         <source>Read the current state from the car (F5)</source>
         <translation>Načíst aktuální stav z auta (F5)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="108"/>
+        <location filename="../tabs/status.py" line="109"/>
         <source>Range</source>
         <translation>Dojezd</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="109"/>
+        <location filename="../tabs/status.py" line="110"/>
         <source>Charging</source>
         <translation>Nabíjení</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="110"/>
+        <location filename="../tabs/status.py" line="111"/>
         <source>Temperature</source>
         <translation>Teplota</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="111"/>
+        <location filename="../tabs/status.py" line="112"/>
         <source>Locks &amp; closures</source>
         <translation>Zámky a otvory</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="112"/>
+        <location filename="../tabs/status.py" line="113"/>
         <source>Odometer</source>
         <translation>Počítadlo km</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="113"/>
-        <location filename="../tabs/status.py" line="281"/>
+        <location filename="../tabs/status.py" line="114"/>
+        <location filename="../tabs/status.py" line="285"/>
         <source>Vehicle</source>
         <translation>Vozidlo</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="139"/>
+        <location filename="../tabs/status.py" line="143"/>
         <source>Location</source>
         <translation>Poloha</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="141"/>
+        <location filename="../tabs/status.py" line="145"/>
         <source>Open in &amp;map</source>
         <translation>Otevřít na &amp;mapě</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="142"/>
+        <location filename="../tabs/status.py" line="146"/>
         <source>Opens openstreetmap.org in your browser</source>
         <translation>Otevře openstreetmap.org v prohlížeči</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="144"/>
+        <location filename="../tabs/status.py" line="148"/>
         <source>Cop&amp;y</source>
         <translation>&amp;Kopírovat</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="250"/>
+        <location filename="../tabs/status.py" line="254"/>
         <source>Limit {0} %</source>
         <translation>Limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="264"/>
+        <location filename="../tabs/status.py" line="268"/>
         <source>Target {0}</source>
         <translation>Cíl {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="273"/>
+        <location filename="../tabs/status.py" line="277"/>
         <source>Plug in the cable to charge</source>
         <translation>Pro nabíjení připojte kabel</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="286"/>
+        <location filename="../tabs/status.py" line="290"/>
         <source>Click to rename</source>
         <translation>Kliknutím přejmenujete</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="336"/>
+        <location filename="../tabs/status.py" line="340"/>
         <source>GPS fix {0}</source>
         <translation>GPS fix {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="357"/>
+        <location filename="../tabs/status.py" line="361"/>
         <source>Refreshing…</source>
         <translation>Obnovování…</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="378"/>
+        <location filename="../tabs/status.py" line="382"/>
         <source>usable {0} %</source>
         <translation>využitelné {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="380"/>
+        <location filename="../tabs/status.py" line="384"/>
         <source>ideal {0}</source>
         <translation>ideální {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="390"/>
+        <location filename="../tabs/status.py" line="394"/>
         <source>Unplugged</source>
         <translation>Odpojeno</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="402"/>
+        <location filename="../tabs/status.py" line="406"/>
         <source>Plugged in · {0}</source>
         <translation>Připojeno · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="404"/>
+        <location filename="../tabs/status.py" line="408"/>
         <source>limit {0} %</source>
         <translation>limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="407"/>
+        <location filename="../tabs/status.py" line="411"/>
         <source> · starts {0}</source>
         <translation> · začátek {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="418"/>
+        <location filename="../tabs/status.py" line="422"/>
         <source>{0} inside</source>
         <translation>{0} uvnitř</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="419"/>
+        <location filename="../tabs/status.py" line="423"/>
         <source>{0} outside{1}</source>
         <translation>{0} venku{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="423"/>
+        <location filename="../tabs/status.py" line="427"/>
         <source>Locked</source>
         <translation>Zamčeno</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="424"/>
+        <location filename="../tabs/status.py" line="428"/>
         <source>UNLOCKED</source>
         <translation>ODEMČENO</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="425"/>
+        <location filename="../tabs/status.py" line="429"/>
         <source>Lock state unknown</source>
         <translation>Stav zámků neznámý</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="429"/>
+        <location filename="../tabs/status.py" line="433"/>
         <source>open: {0}</source>
         <translation>otevřeno: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="431"/>
+        <location filename="../tabs/status.py" line="435"/>
         <source>windows: {0}</source>
         <translation>okna: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="440"/>
+        <location filename="../tabs/status.py" line="444"/>
         <source>Shift {0}</source>
         <translation>Řazení {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="443"/>
+        <location filename="../tabs/status.py" line="447"/>
         <source>firmware {0}</source>
         <translation>firmware {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="456"/>
+        <location filename="../tabs/status.py" line="460"/>
         <source>Read at {0}</source>
         <translation>Načteno v {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="461"/>
+        <location filename="../tabs/status.py" line="465"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="462"/>
+        <location filename="../tabs/status.py" line="466"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Síla signálu Bluetooth; vzdálenost je jen hrubý odhad</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="465"/>
+        <location filename="../tabs/status.py" line="469"/>
         <source>Data source {0}, {1}</source>
         <translation>Zdroj dat {0}, {1}</translation>
     </message>

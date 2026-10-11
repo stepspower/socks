@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -123,6 +124,9 @@ class StatusTab(QWidget):
             self.vehicle_card,
         )
         for i, c in enumerate(cards):
+            # Fill the row height so side-by-side cards share top and bottom edges
+            # (StatusCard's default Maximum policy would centre the shorter one).
+            c.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
             grid.addWidget(c, i // 2, i % 2)
         grid.setRowStretch(3, 1)
 
