@@ -6,9 +6,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import errno
 import hashlib
 import json
 import os
+import socket
 import stat
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -25,6 +27,7 @@ from aiohttp import web
 from socks.fleet import oauth
 from socks.fleet.oauth import Endpoints, OAuthError, Tokens
 
+PORTAL_PORTS = oauth.REDIRECT_PORTS  # captured before the autouse fixture patches it
 ACCESS = "acc-SECRET-0001"
 REFRESH = "ref-SECRET-0001"
 
@@ -160,6 +163,21 @@ def fake_browser(
     return open_url, opened
 
 
+@pytest.fixture(autouse=True)
+def free_redirect_ports(monkeypatch: pytest.MonkeyPatch) -> tuple[int, ...]:
+    """Use three currently free ports instead of the real 53682-53684 in tests."""
+    held = []
+    for _ in range(3):
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        held.append(sock)
+    ports = tuple(sock.getsockname()[1] for sock in held)
+    for sock in held:
+        sock.close()
+    monkeypatch.setattr(oauth, "REDIRECT_PORTS", ports)
+    return ports
+
+
 # --------------------------------------------------------------------------- PKCE
 
 
@@ -269,8 +287,7 @@ def test_login_flow(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     q = parse_qs(urlparse(opened[0]).query)
     assert form["redirect_uri"] == q["redirect_uri"][0]
     redirect = urlparse(form["redirect_uri"])
-    assert redirect.hostname == "127.0.0.1" and redirect.path == "/callback"
-    assert redirect.geturl().startswith("http://127.0.0.1:")
+    assert redirect.hostname == "localhost" and redirect.path == "/callback"
     assert oauth.LOCATION_SCOPE not in q["scope"][0].split()
     assert redirect.port and redirect.port > 1024
     assert tokens.access_token == "acc-SECRET-0002" and tokens.region == "eu"
@@ -351,7 +368,7 @@ def test_bad_state_only_times_out(tmp_path: Path) -> None:
 def test_default_scopes_exclude_location() -> None:
     assert oauth.LOCATION_SCOPE == "vehicle_location"
     assert oauth.LOCATION_SCOPE not in oauth.DEFAULT_SCOPES
-    assert oauth.REDIRECT_HOST == oauth.BIND_HOST == "127.0.0.1"
+    assert oauth.REDIRECT_HOST == "localhost"  # Tesla rejects http://127.0.0.1
 
 
 def test_login_authorization_denied(tmp_path: Path) -> None:
@@ -385,7 +402,7 @@ def test_login_timeout(tmp_path: Path) -> None:
         run(go())
 
 
-def test_loopback_binds_ipv4_loopback_only() -> None:
+def test_second_server_takes_next_registered_port() -> None:
     async def go() -> tuple[int, int]:
         a, b = oauth.LoopbackServer("s"), oauth.LoopbackServer("s")
         await a.start()
@@ -401,8 +418,25 @@ def test_loopback_binds_ipv4_loopback_only() -> None:
             await a.close()
             await b.close()
 
-    pa, pb = run(go())
-    assert pa != pb and pa > 0
+    assert run(go()) == oauth.REDIRECT_PORTS[:2]
+
+
+def test_all_registered_ports_busy_fails_clearly() -> None:
+    held = [socket.socket() for _ in oauth.REDIRECT_PORTS]
+    try:
+        for sock, port in zip(held, oauth.REDIRECT_PORTS, strict=True):
+            sock.bind(("127.0.0.1", port))
+            sock.listen()
+        with pytest.raises(OAuthError, match="no login port free") as ei:
+            run(oauth.LoopbackServer("s").start())
+        assert "--port" in str(ei.value)
+    finally:
+        for sock in held:
+            sock.close()
+
+
+def test_registered_ports_are_the_portal_ones() -> None:
+    assert PORTAL_PORTS == (53682, 53683, 53684)
 
 
 def test_refresh_rotates_and_persists(tmp_path: Path) -> None:
@@ -478,3 +512,111 @@ def test_status(tmp_path: Path) -> None:
 def test_missing_client_id(tmp_path: Path) -> None:
     with pytest.raises(OAuthError, match="client_id"):
         run(oauth.login(SimpleNamespace(client_id="", region="eu"), path=tmp_path / "t"))
+
+
+# --------------------------------------------------------------------------- dual-stack bind
+
+
+def _has_ipv6_loopback() -> bool:
+    try:
+        with socket.socket(socket.AF_INET6) as s:
+            s.bind(("::1", 0))
+        return True
+    except OSError:
+        return False
+
+
+needs_ipv6 = pytest.mark.skipif(not _has_ipv6_loopback(), reason="host has no ::1")
+
+
+@needs_ipv6
+def test_loopback_listens_on_both_families() -> None:
+    async def go() -> None:
+        srv = oauth.LoopbackServer("s")
+        await srv.start()
+        try:
+            async with aiohttp.ClientSession() as s:
+                for host in ("127.0.0.1", "[::1]"):
+                    url = f"http://{host}:{srv.port}/callback?state=wrong"
+                    async with s.get(url) as resp:
+                        assert resp.status == 400
+        finally:
+            await srv.close()
+
+    run(go())
+
+
+@needs_ipv6
+def test_forced_port_aborts_if_ipv6_side_is_squatted() -> None:
+    squatter = socket.socket(socket.AF_INET6)
+    squatter.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+    squatter.bind(("::1", 0))
+    squatter.listen()
+    port = squatter.getsockname()[1]
+    try:
+        with pytest.raises(OAuthError, match="another program holds it"):
+            oauth._bind_loopback_pair(port)
+        # and the IPv4 side was released again
+        with socket.socket(socket.AF_INET) as probe:
+            probe.bind(("127.0.0.1", port))
+    finally:
+        squatter.close()
+
+
+def test_next_port_when_ipv6_side_taken(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = oauth._bind
+    calls: list[tuple[str, int]] = []
+
+    def fake_bind(family: socket.AddressFamily, host: str, port: int) -> socket.socket:
+        calls.append((host, port))
+        if family == socket.AF_INET6:
+            if sum(1 for h, _ in calls if h == "::1") == 1:
+                raise OSError(errno.EADDRINUSE, "Address already in use")
+            # pretend success without needing IPv6 on the test host
+            return real(socket.AF_INET, "127.0.0.1", 0)
+        return real(family, host, port)
+
+    monkeypatch.setattr(oauth, "_bind", fake_bind)
+    monkeypatch.setattr(oauth.socket, "has_ipv6", True)
+    p1, p2, _ = oauth.REDIRECT_PORTS
+    socks = oauth._bind_first_free(oauth.REDIRECT_PORTS)
+    try:
+        assert len(socks) == 2
+        assert calls == [("127.0.0.1", p1), ("::1", p1), ("127.0.0.1", p2), ("::1", p2)]
+        assert socks[0].getsockname()[1] == p2
+    finally:
+        for s in socks:
+            s.close()
+
+
+def test_forced_port_aborts_on_ipv6_in_use_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = oauth._bind
+
+    def fake_bind(family: socket.AddressFamily, host: str, port: int) -> socket.socket:
+        if family == socket.AF_INET6:
+            raise OSError(errno.EADDRINUSE, "Address already in use")
+        return real(family, host, port)
+
+    monkeypatch.setattr(oauth, "_bind", fake_bind)
+    monkeypatch.setattr(oauth.socket, "has_ipv6", True)
+    with socket.socket() as tmp:
+        tmp.bind(("127.0.0.1", 0))
+        port = tmp.getsockname()[1]
+    with pytest.raises(OAuthError, match="another program holds it"):
+        oauth._bind_loopback_pair(port)
+
+
+def test_no_ipv6_on_host_falls_back_to_ipv4(monkeypatch: pytest.MonkeyPatch) -> None:
+    real = oauth._bind
+
+    def fake_bind(family: socket.AddressFamily, host: str, port: int) -> socket.socket:
+        if family == socket.AF_INET6:
+            raise OSError(errno.EADDRNOTAVAIL, "Cannot assign requested address")
+        return real(family, host, port)
+
+    monkeypatch.setattr(oauth, "_bind", fake_bind)
+    socks = oauth._bind_loopback_pair(oauth.REDIRECT_PORTS[0])
+    try:
+        assert len(socks) == 1 and socks[0].family == socket.AF_INET
+    finally:
+        socks[0].close()

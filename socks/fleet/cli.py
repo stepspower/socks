@@ -174,7 +174,7 @@ def add_fleet_parser(subparsers: Any) -> argparse.ArgumentParser:
         "--port",
         type=int,
         default=0,
-        help="fixed loopback port, e.g. 53682 (default: random free port)",
+        help="override the loopback port (default: first free of 53682, 53683, 53684)",
     )
     sp.add_argument(
         "--with-location",

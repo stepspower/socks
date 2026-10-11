@@ -5,9 +5,10 @@
 Flow (``login``):
 
 1. Generate a PKCE verifier/challenge (S256) and a random ``state``.
-2. Start a one-shot HTTP server on ``127.0.0.1`` with an OS-assigned free port.
+2. Start a one-shot HTTP server on ``127.0.0.1`` and ``::1`` on the first free port of
+   ``REDIRECT_PORTS`` (53682, 53683, 53684; all registered in the Tesla portal).
 3. Open ``https://auth.tesla.com/oauth2/v3/authorize?...`` in the browser.
-4. The browser is redirected to ``http://127.0.0.1:<port>/callback?code=..&state=..``;
+4. The browser is redirected to ``http://localhost:<port>/callback?code=..&state=..``;
    the state is compared in constant time, then the code is exchanged at the
    Fleet auth token endpoint together with the verifier.
 5. Tokens are written to ``$XDG_CONFIG_HOME/socks/tokens.json`` (file 0600,
@@ -26,6 +27,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import errno
 import hashlib
 import json
 import logging
@@ -47,11 +49,16 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 TOKEN_FILE_NAME = "tokens.json"  # noqa: S105 - a file name
-# RFC 8252 §7.3/§8.3: use the IPv4 literal, never "localhost", so the browser cannot be
-# sent to [::1] where another local process could be listening (audit M1).
+# Tesla's portal only accepts http:// redirect URIs on "localhost" (127.0.0.1 is rejected),
+# so the browser may resolve it to either 127.0.0.1 or ::1. We therefore hold the SAME port
+# on BOTH loopback addresses, so no other local user can squat the side we did not bind
+# (audit M1, RFC 8252 §8.3).
+REDIRECT_HOST = "localhost"
 BIND_HOST = "127.0.0.1"
-REDIRECT_HOST = BIND_HOST
-FALLBACK_PORT = 53682  # register http://127.0.0.1:53682/callback for `--port 53682`
+BIND_HOST_V6 = "::1"
+# Tesla requires an explicit port on http:// redirect URIs and cannot register random ports,
+# so exactly these are registered in the portal (http://localhost:<port>/callback), tried in order.
+REDIRECT_PORTS: tuple[int, ...] = (53682, 53683, 53684)
 MAX_BAD_CALLBACKS = 20  # stray/forged callbacks tolerated before giving up (audit L1)
 REDIRECT_PATH = "/callback"
 LOGIN_TIMEOUT_S = 300.0
@@ -279,10 +286,66 @@ class CallbackResult:
     code: str = field(repr=False)
 
 
-class LoopbackServer:
-    """One-shot redirect receiver on 127.0.0.1 with a random free port."""
+def _bind(family: socket.AddressFamily, host: str, port: int) -> socket.socket:
+    sock = socket.socket(family, socket.SOCK_STREAM)
+    try:
+        if family == socket.AF_INET6:
+            sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 1)
+        sock.bind((host, port))
+    except BaseException:
+        sock.close()
+        raise
+    return sock
 
-    def __init__(self, state: str, port: int = 0) -> None:
+
+# errnos meaning "this host has no usable ::1" - then nobody else can bind it either
+_NO_IPV6 = {errno.EADDRNOTAVAIL, errno.EAFNOSUPPORT, errno.EPROTONOSUPPORT}
+
+
+def _bind_loopback_pair(port: int) -> list[socket.socket]:
+    """Bind ``port`` on 127.0.0.1 AND ::1, or raise OAuthError (fail closed).
+
+    If the host has no IPv6 loopback at all, IPv4 alone is safe and is used.
+    """
+    try:
+        v4 = _bind(socket.AF_INET, BIND_HOST, port)
+    except OSError as exc:
+        raise OAuthError(f"cannot listen on {BIND_HOST}:{port} ({exc.strerror})") from None
+    if not socket.has_ipv6:
+        return [v4]
+    try:
+        v6 = _bind(socket.AF_INET6, BIND_HOST_V6, v4.getsockname()[1])
+    except OSError as exc:
+        if exc.errno in _NO_IPV6:
+            log.debug("no IPv6 loopback on this host; listening on IPv4 only")
+            return [v4]
+        v4.close()
+        raise OAuthError(
+            f"cannot listen on [{BIND_HOST_V6}]:{port} ({exc.strerror}); another program holds it"
+        ) from None
+    return [v4, v6]
+
+
+def _bind_first_free(ports: Sequence[int]) -> list[socket.socket]:
+    """Try each registered redirect port in order; the first that binds on both wins."""
+    errors: list[str] = []
+    for port in ports:
+        try:
+            return _bind_loopback_pair(port)
+        except OAuthError as exc:
+            errors.append(str(exc))
+    raise OAuthError(
+        "no login port free: "
+        + "; ".join(errors)
+        + ". Close the program using these ports, or register another "
+        "http://localhost:<port>/callback in the Tesla portal and pass --port <port>."
+    )
+
+
+class LoopbackServer:
+    """One-shot redirect receiver on 127.0.0.1 and ::1 (same registered port)."""
+
+    def __init__(self, state: str, port: int | None = None) -> None:
         self._state = state
         self._port = port
         self._runner: Any = None
@@ -302,14 +365,16 @@ class LoopbackServer:
         app.router.add_get(REDIRECT_PATH, self._handle)
         self._runner = web.AppRunner(app, access_log=None)
         await self._runner.setup()
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            sock.bind((BIND_HOST, self._port))  # port 0: OS picks a random free port
-        except OSError:
-            sock.close()
+            ports = (self._port,) if self._port else REDIRECT_PORTS
+            socks = _bind_first_free(ports)
+        except BaseException:
+            await self._runner.cleanup()
+            self._runner = None
             raise
-        self.port = sock.getsockname()[1]
-        await web.SockSite(self._runner, sock).start()
+        self.port = socks[0].getsockname()[1]
+        for sock in socks:
+            await web.SockSite(self._runner, sock).start()
 
     async def wait(self, timeout: float = LOGIN_TIMEOUT_S) -> CallbackResult:
         if self._future is None:

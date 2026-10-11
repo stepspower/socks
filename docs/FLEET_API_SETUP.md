@@ -14,8 +14,11 @@ developer.tesla.com on 2026-10-11; portal labels change, so follow the meaning i
    "Personal Linux desktop companion for my own car"; purpose: personal use, own vehicle.
 4. **Client details** - OAuth grant type *Authorization Code and Machine-to-Machine*:
    - Allowed Origin URL: `https://auth.stepspower.net`
-   - Allowed Redirect URIs: `http://127.0.0.1/callback` **and** `http://127.0.0.1:53682/callback`
-     (use `127.0.0.1`, not `localhost`)
+   - Allowed Redirect URIs, exactly these three: `http://localhost:53682/callback`,
+     `http://localhost:53683/callback`, `http://localhost:53684/callback`
+     (the portal accepts plain `http://` only for `localhost` with an explicit port; SOCKS
+     uses the first free one and listens on both 127.0.0.1 and ::1 so no other program can
+     catch the redirect)
    - Allowed Returned URL: `https://auth.stepspower.net`
 5. **Scopes**: openid, offline_access, Vehicle Information (`vehicle_device_data`), Vehicle
    Commands (`vehicle_cmds`), Vehicle Charging Management (`vehicle_charging_cmds`). Vehicle
@@ -35,6 +38,6 @@ developer.tesla.com on 2026-10-11; portal labels change, so follow the meaning i
    (SOCKS uses the same key that is already paired over BLE, so this may show it as present.)
 10. **Sign in**: `socks-cli fleet login` - the browser opens Tesla's login; tokens land in
     `~/.config/socks/tokens.json` (0600). Press Enter at the secret prompt to try pure PKCE;
-    if Tesla rejects that, rerun and paste the secret. If Tesla says the redirect URI does not
-    match, use `socks-cli fleet login --port 53682`.
+    if Tesla rejects that, rerun and paste the secret. If all three ports are busy, close
+    the program holding them (or register another port and pass `--port`).
 11. Check: `socks-cli fleet status`. Then enable *Cloud* in Settings. Keep polling off.
