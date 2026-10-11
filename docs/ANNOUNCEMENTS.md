@@ -32,7 +32,7 @@ Limits: the laptop must be within Bluetooth range (about 10 m). Cloud costs mone
 
 No telemetry. GPL-3.0-or-later. Six languages (machine-drafted). Built with AI assistance (Claude), under my review. In-project security review, report in the repo.
 
-Flatpak bundle and .deb on the release (rpm coming). Testers wanted:
+Flatpak bundle and .deb on the release. Testers wanted:
 https://github.com/stepspower/socks/releases/tag/v0.1.0
 
 Tesla is a trademark of Tesla, Inc.; not affiliated.
@@ -53,7 +53,7 @@ It is plain Qt 6, so it looks the same on KDE, GNOME and XFCE, X11 and Wayland, 
 
 It talks to the car over BlueZ and Bluetooth LE, so no Tesla cloud account is needed; the Fleet API is optional. History is a local SQLite file under XDG paths. No telemetry, no update checks.
 
-Install: Flatpak bundle, .deb or wheel from the GitHub release (rpm coming). It is not on Flathub because Flathub's policy excludes AI-assisted submissions, and this project was built with AI assistance (Claude), under review.
+Install: Flatpak bundle, .deb or wheel from the GitHub release. It is not on Flathub because Flathub's policy excludes AI-assisted submissions, and this project was built with AI assistance (Claude), under review.
 
 Needs a Bluetooth LE adapter and about 10 m to the car. GPL-3.0-or-later.
 
