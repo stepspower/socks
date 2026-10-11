@@ -86,6 +86,8 @@ class VehicleState:
     charge_current_request_max_a: int | None = None  # max the charger/car allows
     scheduled_departure: datetime | None = None  # UTC; None unless mode is DepartBy
     scheduled_charging_mode: str | None = None  # "Off" | "StartAt" | "DepartBy"
+    preconditioning_enabled: bool | None = None  # departure preconditioning
+    off_peak_charging_enabled: bool | None = None  # departure off-peak charging
     raw: dict = field(default_factory=dict, compare=False, repr=False)  # payload, never persisted
 
 

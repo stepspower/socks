@@ -47,6 +47,20 @@ class CommandInfo:
     arg_optional: bool = False  # arg may be None (scheduling: None = disable)
 
 
+@dataclass(frozen=True)
+class DepartureArg:
+    """Structured argument for SET_SCHEDULED_DEPARTURE when the caller wants to set
+    preconditioning / off-peak charging explicitly (None = keep what the car has).
+    A plain int argument means: change the time only, preserve both settings."""
+
+    minutes: int  # after midnight, vehicle-local time
+    preconditioning: bool | None = None
+    off_peak_charging: bool | None = None
+
+
+CommandArg = float | int | DepartureArg | None
+
+
 # Argument metadata: kind -> (min, max, step, unit). These are what the car accepts.
 ARG_SPECS: dict[str, tuple[float, float, float, str]] = {
     "temp_c": (15.0, 28.0, 0.5, "°C"),
@@ -119,9 +133,14 @@ def parse_command(name: str) -> Command:
         raise ValueError(f"unknown command {name!r}") from None
 
 
-def validate_arg(cmd: Command, arg: float | int | None) -> float | int | None:
+def validate_arg(cmd: Command, arg: CommandArg) -> CommandArg:
     """Check and normalise a command argument; raise ValueError if wrong or missing."""
     info = COMMANDS[cmd]
+    if isinstance(arg, DepartureArg):
+        if cmd is not Command.SET_SCHEDULED_DEPARTURE:
+            raise ValueError(f"{cmd.value} does not take departure options")
+        minutes = validate_arg(cmd, arg.minutes)
+        return DepartureArg(int(minutes or 0), arg.preconditioning, arg.off_peak_charging)
     kind = info.arg
     if kind is None:
         if arg is not None:

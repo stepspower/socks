@@ -874,3 +874,34 @@ async def test_router_cloud_only_commands(monkeypatch: pytest.MonkeyPatch) -> No
     assert ble.sent == [] and cloud.sent == [(Command.HONK, None)]
     with pytest.raises(NotAvailable, match="cloud-only"):
         await Router(ble, None).send(Command.HONK)
+
+
+async def test_ble_departure_explicit_options(key_path: Path) -> None:
+    from socks.core.commands import DepartureArg
+
+    vehicle = FakeBleVehicle()  # car has no preconditioning/off-peak set
+    await _ble(key_path, vehicle).send(
+        Command.SET_SCHEDULED_DEPARTURE, DepartureArg(450, True, True)
+    )
+    dep = [c for c in vehicle.calls if c.startswith("set_scheduled_departure")][0]
+    for part in (
+        "'preconditioning_enabled': True",
+        "'preconditioning_weekdays_only': False",
+        "'off_peak_charging_enabled': True",
+        "'off_peak_charging_weekdays_only': False",
+        "'end_off_peak_time': 450",
+    ):
+        assert part in dep, (part, dep)
+    with pytest.raises(CommandError):
+        await _ble(key_path, vehicle).send(Command.SET_TEMP, DepartureArg(1))
+
+
+def test_parse_departure_flags() -> None:
+    s = parse_cloud_payload(
+        VIN,
+        {"charge_state": {"preconditioning_enabled": True, "off_peak_charging_enabled": False}},
+        TS,
+    )
+    assert s.preconditioning_enabled is True and s.off_peak_charging_enabled is False
+    b = parse_ble_payload(VIN, {"charge_state": {"preconditioning_times": {"all_week": {}}}}, TS)
+    assert b.preconditioning_enabled is True and b.off_peak_charging_enabled is None

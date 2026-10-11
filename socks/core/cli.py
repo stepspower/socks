@@ -59,6 +59,11 @@ def _parser() -> argparse.ArgumentParser:
     c.add_argument("name", nargs="?")
     c.add_argument("arg", nargs="?", type=float)
     c.add_argument("--yes", action="store_true", help="confirm a dangerous command")
+    d = sub.add_parser("depart", help="one-off 'depart by': charge + cabin ready at HH:MM")
+    d.add_argument("time", nargs="?", help="local departure time HH:MM (next occurrence)")
+    d.add_argument("--limit", type=int, default=90, help="charge limit %% (default 90)")
+    d.add_argument("--temp", type=float, default=21.0, help="cabin °C (default 21)")
+    d.add_argument("--cancel", action="store_true", help="switch the departure off")
     k = sub.add_parser("key", help="manage the command-signing key")
     ksub = k.add_subparsers(dest="key_action", required=True)
     ki = ksub.add_parser("import", help="import an existing, already paired P-256 key")
@@ -84,6 +89,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _key(args)
     if args.action == "cmd" and not args.name:
         return _list_commands()
+    if args.action == "depart":
+        return asyncio.run(_depart(args))
     try:
         return asyncio.run(_run(args))
     except KeyboardInterrupt:
@@ -172,6 +179,51 @@ def _make_backend(args: argparse.Namespace, settings: Any) -> Any:
 def _source_label(backend: Any) -> str:
     src = getattr(backend, "last_source", None) or getattr(backend, "name", None)
     return {"ble": "Bluetooth", "cloud": "cloud"}.get(getattr(src, "value", ""), "fake")
+
+
+async def _depart(args: argparse.Namespace) -> int:
+    """Arm, cancel or show the one-off departure plan (socks.core.depart)."""
+    from datetime import UTC, datetime
+
+    from socks.core import depart
+
+    settings = _load_settings(args.config)
+    if not args.cancel and not args.time:
+        plan = settings.depart_plan
+        if plan is None:
+            print("No departure planned. Usage: socks-cli depart HH:MM [--limit N] [--temp T]")
+        else:
+            print(
+                f"Depart {plan.depart_at.astimezone():%a %d %b %H:%M}: "
+                f"{plan.charge_limit} %, {plan.temp_c:g} °C"
+            )
+        return EXIT_OK
+    now = datetime.now(UTC)
+    plan = None
+    if not args.cancel:
+        try:
+            plan = depart.make_plan(
+                depart.next_occurrence(args.time, now), args.limit, args.temp, now
+            )
+        except ValueError as e:
+            print(f"socks-cli: {e}", file=sys.stderr)
+            return EXIT_USAGE
+    backend = _make_backend(args, settings)
+    try:
+        if plan is None:
+            lines = [await depart.disarm(backend)]
+        else:
+            lines = await depart.arm(backend, plan, now)
+    finally:
+        closer = getattr(backend, "close", None)
+        if closer is not None:
+            await closer()
+    print("\n".join(lines))
+    if any(line.startswith(depart.FAILED) for line in lines):
+        return EXIT_FAIL
+    settings.depart_plan = plan
+    settings.save(args.config)
+    return EXIT_OK
 
 
 def _list_commands() -> int:

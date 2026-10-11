@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
-from socks.core.commands import COMMANDS, Command, validate_arg
+from socks.core.commands import COMMANDS, Command, CommandArg, DepartureArg, validate_arg
 from socks.core.keys import KeyFileError, is_valid_vin, load_private_key
 from socks.core.model import ChargingState, ShiftState, Source, VehicleState
 from socks.history.units import KM_PER_MI
@@ -78,7 +78,7 @@ class Backend(Protocol):
         """
         ...
 
-    async def send(self, cmd: Command, arg: float | int | None = None) -> None: ...
+    async def send(self, cmd: Command, arg: CommandArg = None) -> None: ...
 
 
 def _utcnow() -> datetime:
@@ -219,6 +219,14 @@ def _scheduled_departure(charge: dict[str, Any]) -> datetime | None:
     return _epoch(value)
 
 
+def _flag_or_block(charge: dict[str, Any], flag: str, block: str) -> bool | None:
+    """REST has an explicit bool; BLE marks "on" by the presence of a *_times block."""
+    value = _bool(_get(charge, flag))
+    if value is not None:
+        return value
+    return True if _variant(_get(charge, block)) is not None else None
+
+
 def _departure_options(charge: dict[str, Any]) -> dict[str, Any]:
     """Current preconditioning/off-peak settings as ``set_scheduled_departure`` kwargs, so
     editing the departure time does not silently switch them off (the library sends an
@@ -326,6 +334,12 @@ def _charge_fields(charge: dict[str, Any]) -> dict[str, Any]:
         "charge_current_request_max_a": _int(_get(charge, "charge_current_request_max")),
         "scheduled_charging_mode": _schedule_mode(charge),
         "scheduled_departure": _scheduled_departure(charge),
+        "preconditioning_enabled": _flag_or_block(
+            charge, "preconditioning_enabled", "preconditioning_times"
+        ),
+        "off_peak_charging_enabled": _flag_or_block(
+            charge, "off_peak_charging_enabled", "off_peak_charging_times"
+        ),
     }
 
 
@@ -468,6 +482,12 @@ def _check_result(result: Any) -> None:
         raise CommandError(f"car refused the command: {reason}")
 
 
+def _scalar(arg: CommandArg) -> float | int | None:
+    if isinstance(arg, DepartureArg):
+        raise CommandError("departure options only apply to set_scheduled_departure")
+    return arg
+
+
 async def _current_charge(vehicle: Any, cloud: bool) -> dict[str, Any]:
     if cloud:
         data = await vehicle.vehicle_data(endpoints=["charge_state"])
@@ -477,20 +497,33 @@ async def _current_charge(vehicle: Any, cloud: bool) -> dict[str, Any]:
 
 
 async def _dispatch(
-    vehicle: Any, cmd: Command, arg: float | int | None, wake_timeout: float, *, cloud: bool
+    vehicle: Any, cmd: Command, arg: CommandArg, wake_timeout: float, *, cloud: bool
 ) -> Any:
     """Call the tesla-fleet-api method for ``cmd`` (identical on BLE and signed cloud)."""
     match cmd:
         case Command.SET_CHARGE_AMPS:
-            return await vehicle.set_charging_amps(int(arg or 0))
+            return await vehicle.set_charging_amps(int(_scalar(arg) or 0))
         case Command.SET_SCHEDULED_CHARGING:
             # minutes after midnight, vehicle-local time; None disables.
-            return await vehicle.set_scheduled_charging(arg is not None, int(arg or 0))
+            minutes = _scalar(arg)
+            return await vehicle.set_scheduled_charging(minutes is not None, int(minutes or 0))
         case Command.SET_SCHEDULED_DEPARTURE:
-            # Preserve preconditioning/off-peak (costs one extra read on the cloud).
+            # Preserve preconditioning/off-peak unless given explicitly (costs one extra
+            # read on the cloud).
             options = _departure_options(await _current_charge(vehicle, cloud))
+            minutes = arg.minutes if isinstance(arg, DepartureArg) else arg
+            if isinstance(arg, DepartureArg):
+                if arg.preconditioning is not None:
+                    options["preconditioning_enabled"] = arg.preconditioning
+                    options["preconditioning_weekdays_only"] = False
+                if arg.off_peak_charging is not None:
+                    options["off_peak_charging_enabled"] = arg.off_peak_charging
+                    options["off_peak_charging_weekdays_only"] = False
+                    if arg.off_peak_charging and not options["end_off_peak_time"]:
+                        # No off-peak window known: let it run until departure.
+                        options["end_off_peak_time"] = int(minutes or 0)
             return await vehicle.set_scheduled_departure(
-                enable=arg is not None, departure_time=int(arg or 0), **options
+                enable=minutes is not None, departure_time=int(minutes or 0), **options
             )
         case Command.LOCK:
             return await vehicle.door_lock()
@@ -501,15 +534,14 @@ async def _dispatch(
         case Command.CLIMATE_OFF:
             return await vehicle.auto_conditioning_stop()
         case Command.SET_TEMP:
-            assert arg is not None  # noqa: S101 - validate_arg guarantees it
-            return await vehicle.set_temps(float(arg), float(arg))
+            temp = float(_scalar(arg) or 0)  # validate_arg guarantees a value
+            return await vehicle.set_temps(temp, temp)
         case Command.CHARGE_START:
             return await vehicle.charge_start()
         case Command.CHARGE_STOP:
             return await vehicle.charge_stop()
         case Command.SET_CHARGE_LIMIT:
-            assert arg is not None  # noqa: S101
-            return await vehicle.set_charge_limit(int(arg))
+            return await vehicle.set_charge_limit(int(_scalar(arg) or 0))
         case Command.CHARGE_PORT_OPEN:
             return await vehicle.charge_port_door_open()
         case Command.CHARGE_PORT_CLOSE:
@@ -689,7 +721,7 @@ class BleBackend:
                 raise
             return True
 
-    async def send(self, cmd: Command, arg: float | int | None = None) -> None:
+    async def send(self, cmd: Command, arg: CommandArg = None) -> None:
         try:
             arg = validate_arg(cmd, arg)
         except ValueError as e:
@@ -852,7 +884,7 @@ class CloudBackend:
             raise CommandError("cloud read: unexpected reply")
         return parse_cloud_payload(self.vin, data, self._clock())
 
-    async def send(self, cmd: Command, arg: float | int | None = None) -> None:
+    async def send(self, cmd: Command, arg: CommandArg = None) -> None:
         try:
             arg = validate_arg(cmd, arg)
         except ValueError as e:
@@ -946,7 +978,7 @@ class Router(Backend):
 
         return await self._run(op, failover_on_maybe=True)
 
-    async def send(self, cmd: Command, arg: float | int | None = None) -> None:
+    async def send(self, cmd: Command, arg: CommandArg = None) -> None:
         try:
             arg = validate_arg(cmd, arg)
         except ValueError as e:

@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from socks.core.backend import CommandError, NotAvailable
-from socks.core.commands import Command, validate_arg
+from socks.core.commands import Command, CommandArg, DepartureArg, validate_arg
 from socks.core.model import ChargingState, ShiftState, Source, VehicleState
 
 FAKE_VIN = "5YJ3E7EB0KF000001"  # syntactically valid, not a real car
@@ -71,6 +71,8 @@ def make_state(**overrides: Any) -> VehicleState:
         charge_current_request_max_a=16,
         scheduled_departure=None,
         scheduled_charging_mode="Off",
+        preconditioning_enabled=False,
+        off_peak_charging_enabled=False,
         raw={"fake": True},
     )
     return replace(base, **overrides)
@@ -184,7 +186,7 @@ class FakeBackend:
         self.available_flag = available_flag
         self.fail_reads = fail_reads
         self.fail_commands = fail_commands
-        self.sent: list[tuple[Command, float | int | None]] = []
+        self.sent: list[tuple[Command, CommandArg]] = []
         self.reads = 0
         self.last_wake: bool | None = None
         self.last_include_location: bool | None = None
@@ -233,9 +235,11 @@ class FakeBackend:
             scheduled_charging_mode=current.scheduled_charging_mode,
             scheduled_charging_start=current.scheduled_charging_start,
             scheduled_departure=current.scheduled_departure,
+            preconditioning_enabled=current.preconditioning_enabled,
+            off_peak_charging_enabled=current.off_peak_charging_enabled,
         )
 
-    async def send(self, cmd: Command, arg: float | int | None = None) -> None:
+    async def send(self, cmd: Command, arg: CommandArg = None) -> None:
         try:
             arg = validate_arg(cmd, arg)
         except ValueError as e:
@@ -286,9 +290,15 @@ class FakeBackend:
                     changes["scheduled_charging_mode"] = "Off"
                     changes["scheduled_departure"] = None
                 else:
+                    minutes = arg.minutes if isinstance(arg, DepartureArg) else int(arg)
                     changes["scheduled_charging_mode"] = "DepartBy"
-                    changes["scheduled_departure"] = _next_local_minutes(s.ts, int(arg))
+                    changes["scheduled_departure"] = _next_local_minutes(s.ts, minutes)
                     changes["scheduled_charging_start"] = None
+                    if isinstance(arg, DepartureArg):
+                        if arg.preconditioning is not None:
+                            changes["preconditioning_enabled"] = arg.preconditioning
+                        if arg.off_peak_charging is not None:
+                            changes["off_peak_charging_enabled"] = arg.off_peak_charging
             case Command.CHARGE_PORT_OPEN:
                 changes["charge_port_open"] = True
             case Command.CHARGE_PORT_CLOSE:

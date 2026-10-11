@@ -15,6 +15,7 @@ from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
 
+from socks.core.depart import DeparturePlan
 from socks.core.keys import validate_vin, write_secret_file
 
 log = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ class Settings:
     trip_watch_enabled: bool = False  # cloud-poll while the car is away (costs money)
     trip_watch_interval_seconds: int = 600  # >= MIN_TRIP_WATCH_INTERVAL
     geocode_enabled: bool = False  # opt-in: sends coordinates to openstreetmap.org
+    depart_plan: DeparturePlan | None = None  # one-off "Depart by" (socks.core.depart)
 
     @staticmethod
     def paths() -> AppPaths:
@@ -97,8 +99,11 @@ class Settings:
             if f.name not in data:
                 continue
             try:
+                if f.name == "depart_plan":
+                    values[f.name] = DeparturePlan.from_dict(data[f.name])
+                    continue
                 values[f.name] = _coerce(f.name, data[f.name], getattr(defaults, f.name))
-            except (TypeError, ValueError) as e:
+            except (TypeError, ValueError, KeyError) as e:
                 log.warning("settings: ignoring %s: %s", f.name, e)
         settings = cls(**{**{f.name: getattr(defaults, f.name) for f in fields(cls)}, **values})
         settings.clamp_poll()
@@ -129,7 +134,12 @@ class Settings:
         self.clamp_poll()
         lines = ["# SOCKS settings (written by SOCKS; comments are not preserved)"]
         for f in fields(self):
-            lines.append(f"{f.name} = {_toml_value(getattr(self, f.name))}")
+            if f.name != "depart_plan":
+                lines.append(f"{f.name} = {_toml_value(getattr(self, f.name))}")
+        if self.depart_plan is not None:  # TOML table: must come after all plain keys
+            lines.append("\n[depart_plan]")
+            for key, value in self.depart_plan.to_dict().items():
+                lines.append(f"{key} = {_toml_value(value)}")
         write_secret_file(path, ("\n".join(lines) + "\n").encode("utf-8"))
 
 
