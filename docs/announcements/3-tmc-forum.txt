@@ -1,0 +1,25 @@
+Tesla Motors Club, "Model 3/Y Software" forum
+=============================================
+
+TITLE:
+
+SOCKS: open-source Linux desktop app for Model 3/Y (Bluetooth key, local history, testers wanted)
+
+BODY:
+
+SOCKS is a free Linux desktop app. The name is State Of Charge, Keys & Stats; the acronym came first, so it is what it is.
+
+How it works: the app holds its own key, paired with your key card like a phone key, then talks to the car over Bluetooth LE. No Tesla cloud account is needed. The Fleet API is optional, for out of range.
+
+What it does: status and slide switches (lock, sentry, port, frunk/trunk, climate); one-off "Depart by" (time, charge %, cabin temp); local SQLite history (drives, charges, efficiency, battery health, learned places, yearly km-register export). Location and OpenStreetMap labels are opt-in. With the cloud on, it can fetch Supercharger invoice PDFs.
+
+What it can't do:
+- The laptop has to be within about 10 m for Bluetooth.
+- Cloud use is paid per request beyond Tesla's $10/month discount. Off by default.
+- Tesla does not expose the car's own trip history, so history builds only from what the app observes.
+
+No telemetry. GPL-3.0-or-later. Built with AI assistance (Claude) under my review; in-project security review, report in the repo. Flatpak bundle and .deb on the release, not on Flathub (its policy excludes AI-assisted submissions).
+
+Testers welcome (Model 3/Y, S/X from 2021): https://github.com/stepspower/socks/releases/tag/v0.1.0
+
+Tesla is a trademark of Tesla, Inc.; not affiliated.
