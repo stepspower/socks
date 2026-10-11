@@ -12,7 +12,7 @@ Source0:        %{url}/archive/refs/tags/v%{version}/socks-%{version}.tar.gz
 BuildRequires:  python3-devel >= 3.13
 BuildRequires:  pyproject-rpm-macros
 BuildRequires:  python3-pip
-BuildRequires:  python3-setuptools >= 77
+BuildRequires:  python3-setuptools
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 BuildRequires:  appstream
@@ -38,6 +38,12 @@ Tesla is a trademark of Tesla, Inc. This project is not affiliated with it.
 
 %prep
 %autosetup -n socks-%{version}
+%if 0%{?fedora} && 0%{?fedora} < 43
+# Fedora 42 ships setuptools 74, which predates PEP 639 (SPDX license string, license-files).
+sed -i -e 's/setuptools>=77/setuptools>=61/' \
+       -e 's/^license = "GPL-3.0-or-later"/license = { text = "GPL-3.0-or-later" }/' \
+       -e '/^license-files/d' pyproject.toml
+%endif
 
 %generate_buildrequires
 %pyproject_buildrequires
@@ -84,5 +90,5 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/net.stepspower.Socks.
 %{_datadir}/icons/hicolor/*/apps/net.stepspower.Socks*
 
 %changelog
-* Sat Oct 11 2026 stepspower <security@stepspower.net> - 0.1.0-1
+* Sun Oct 11 2026 stepspower <security@stepspower.net> - 0.1.0-1
 - Initial package

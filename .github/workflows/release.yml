@@ -69,10 +69,27 @@ jobs:
       options: --privileged
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Make a CI variant of the manifest that builds the checked-out tree
+        # The committed manifest uses the git tag source (what Flathub needs); the tag may not
+        # be pushed or the commit pin may be unset yet, so CI builds the tree it checked out.
+        run: |
+          python3 - <<'PY'
+          import re
+          p = "packaging/flatpak/net.stepspower.Socks.yml"
+          s = open(p).read()
+          new, n = re.subn(
+              r"      - type: git\n(?:        .*\n)+",
+              "      - type: dir\n        path: ../..\n        skip: [.git]\n",
+              s,
+          )
+          assert n == 1, "git source block not found in the manifest"
+          open("packaging/flatpak/ci.net.stepspower.Socks.yml", "w").write(new)
+          PY
+          grep -n -A3 "type: dir" packaging/flatpak/ci.net.stepspower.Socks.yml
       - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
         with:
           bundle: socks.flatpak
-          manifest-path: packaging/flatpak/net.stepspower.Socks.yml
+          manifest-path: packaging/flatpak/ci.net.stepspower.Socks.yml
           cache-key: flatpak-builder-${{ github.sha }}
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -81,6 +98,8 @@ jobs:
 
   release:
     needs: [dist, deb, rpm, flatpak]
+    # Publish whatever was built: only the wheel/sdist job is mandatory.
+    if: ${{ always() && needs.dist.result == 'success' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write
