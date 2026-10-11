@@ -6,22 +6,22 @@
     <message>
         <location filename="../tabs/depart.py" line="105"/>
         <source>Not set: {0}</source>
-        <translation type="unfinished">Nenastaveno: {0}</translation>
+        <translation>Nenastaveno: {0}</translation>
     </message>
     <message>
         <location filename="../tabs/depart.py" line="107"/>
         <source>{0} {1} — failed: {2}</source>
-        <translation type="unfinished"></translation>
+        <translation>{0} {1} — selhalo: {2}</translation>
     </message>
     <message>
         <location filename="../tabs/depart.py" line="112"/>
         <source>{0} {1} — already set</source>
-        <translation type="unfinished"></translation>
+        <translation>{0} {1} — již nastaveno</translation>
     </message>
     <message>
         <location filename="../tabs/depart.py" line="114"/>
         <source>{0} {1} — ok</source>
-        <translation type="unfinished"></translation>
+        <translation>{0} {1} — ok</translation>
     </message>
 </context>
 <context>
@@ -297,13 +297,6 @@
     </message>
 </context>
 <context>
-    <name>ConfirmDialog</name>
-    <message>
-        <source>Confirmation letters</source>
-        <translation type="vanished">Potvrzovací písmena</translation>
-    </message>
-</context>
-<context>
     <name>ControlsTab</name>
     <message>
         <location filename="../tabs/controls.py" line="70"/>
@@ -323,61 +316,48 @@
     <message>
         <location filename="../tabs/controls.py" line="73"/>
         <source>Access</source>
-        <translation type="unfinished"></translation>
+        <translation>Přístup</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="74"/>
         <source>Misc</source>
-        <translation type="unfinished"></translation>
+        <translation>Ostatní</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="75"/>
         <source>Cabin temperature</source>
-        <translation type="unfinished"></translation>
+        <translation>Teplota interiéru</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="77"/>
         <source>Charging current</source>
-        <translation type="unfinished"></translation>
+        <translation>Nabíjecí proud</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="78"/>
         <source>Start charging at</source>
-        <translation type="unfinished">Začít nabíjet v</translation>
+        <translation>Začít nabíjet v</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="79"/>
         <source>Departure time</source>
-        <translation type="unfinished">Čas odjezdu</translation>
+        <translation>Čas odjezdu</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="134"/>
         <source>Waiting for the first read from the car…</source>
         <extracomment>(Command, arg) — the gesture/✓ already confirmed it; the window just sends it</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Čekání na první načtení z auta…</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="254"/>
         <source>Waiting for the first read</source>
-        <translation type="unfinished"></translation>
+        <translation>Čekání na první načtení</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="257"/>
         <source>Plug in the cable to charge</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Other</source>
-        <translation type="vanished">Ostatní</translation>
-    </message>
-    <message>
-        <source>More</source>
-        <translation type="vanished">Další</translation>
-    </message>
-    <message>
-        <source>Every command asks for confirmation before anything is sent to the car.</source>
-        <extracomment>(command, argument or None)</extracomment>
-        <translation type="vanished">Každý příkaz vyžaduje potvrzení, než se cokoli odešle do vozu.</translation>
+        <translation>Pro nabíjení připojte kabel</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="136"/>
@@ -385,49 +365,9 @@
         <translation>Výsledek posledního příkazu</translation>
     </message>
     <message>
-        <source>Target temperature</source>
-        <translation type="vanished">Cílová teplota</translation>
-    </message>
-    <message>
         <location filename="../tabs/controls.py" line="76"/>
         <source>Charge limit</source>
         <translation>Limit nabití</translation>
-    </message>
-    <message>
-        <source>Requires typed confirmation</source>
-        <translation type="vanished">Vyžaduje napsané potvrzení</translation>
-    </message>
-    <message>
-        <source>Off</source>
-        <translation type="vanished">Vyp.</translation>
-    </message>
-    <message>
-        <source>{0} value</source>
-        <translation type="vanished">Hodnota: {0}</translation>
-    </message>
-    <message>
-        <source>Target: {0}</source>
-        <translation type="vanished">Cíl: {0}</translation>
-    </message>
-    <message>
-        <source>Charge limit: {0} %</source>
-        <translation type="vanished">Limit nabití: {0} %</translation>
-    </message>
-    <message>
-        <source>Charging current: {0} A</source>
-        <translation type="vanished">Nabíjecí proud: {0} A</translation>
-    </message>
-    <message>
-        <source>Time: {0}</source>
-        <translation type="vanished">Čas: {0}</translation>
-    </message>
-    <message>
-        <source>Turn it off</source>
-        <translation type="vanished">Vypnout</translation>
-    </message>
-    <message>
-        <source>{0} — sending…</source>
-        <translation type="vanished">{0} — odesílání…</translation>
     </message>
 </context>
 <context>
@@ -1123,25 +1063,13 @@ Otisk {2}</translation>
     <message>
         <location filename="../main_window.py" line="570"/>
         <source>Still sending the previous command…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The car will be woken up if it is asleep.</source>
-        <translation type="vanished">Pokud auto spí, bude probuzeno.</translation>
-    </message>
-    <message>
-        <source>{0}: cancelled, nothing sent.</source>
-        <translation type="vanished">{0}: zrušeno, nic neodesláno.</translation>
+        <translation>Předchozí příkaz se stále odesílá…</translation>
     </message>
     <message>
         <location filename="../main_window.py" line="584"/>
         <location filename="../main_window.py" line="585"/>
         <source>{0} failed: {1}</source>
         <translation>{0} selhalo: {1}</translation>
-    </message>
-    <message>
-        <source>{0}: done.</source>
-        <translation type="vanished">{0}: hotovo.</translation>
     </message>
     <message>
         <location filename="../main_window.py" line="592"/>
@@ -1627,7 +1555,7 @@ Otisk {2}</translation>
     <message>
         <location filename="../tabs/status.py" line="259"/>
         <source>Plug in the cable to charge</source>
-        <translation type="unfinished"></translation>
+        <translation>Pro nabíjení připojte kabel</translation>
     </message>
     <message>
         <location filename="../tabs/status.py" line="272"/>
@@ -1735,103 +1663,103 @@ Otisk {2}</translation>
     <message>
         <location filename="../inline_logic.py" line="139"/>
         <source>Lock</source>
-        <translation type="unfinished">Zamknout</translation>
+        <translation>Zámek</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="140"/>
         <source>Locked</source>
-        <translation type="unfinished">Zamčeno</translation>
+        <translation>Zamčeno</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="140"/>
         <source>Unlocked</source>
-        <translation type="unfinished"></translation>
+        <translation>Odemčeno</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="144"/>
         <source>Sentry</source>
-        <translation type="unfinished"></translation>
+        <translation>Strážce</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="145"/>
         <source>Sentry on</source>
-        <translation type="unfinished"></translation>
+        <translation>Strážce zap.</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="145"/>
         <source>Sentry off</source>
-        <translation type="unfinished"></translation>
+        <translation>Strážce vyp.</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="149"/>
         <source>Climate</source>
-        <translation type="unfinished">Klimatizace</translation>
+        <translation>Klimatizace</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="150"/>
         <source>Climate on</source>
-        <translation type="unfinished">Klimatizace zap.</translation>
+        <translation>Klimatizace zap.</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="150"/>
         <source>Climate off</source>
-        <translation type="unfinished">Klimatizace vyp.</translation>
+        <translation>Klimatizace vyp.</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="153"/>
         <location filename="../inline_logic.py" line="154"/>
         <source>Charging</source>
-        <translation type="unfinished">Nabíjení</translation>
+        <translation>Nabíjení</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="154"/>
         <source>Not charging</source>
-        <translation type="unfinished"></translation>
+        <translation>Nenabíjí se</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="157"/>
         <source>Charge port</source>
-        <translation type="unfinished"></translation>
+        <translation>Nabíjecí port</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="158"/>
         <source>Port open</source>
-        <translation type="unfinished"></translation>
+        <translation>Port otevřen</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="158"/>
         <source>Port closed</source>
-        <translation type="unfinished"></translation>
+        <translation>Port zavřen</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="162"/>
         <source>Frunk</source>
-        <translation type="unfinished"></translation>
+        <translation>Přední kufr</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="163"/>
         <source>Frunk open</source>
-        <translation type="unfinished"></translation>
+        <translation>Přední kufr otevřen</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="163"/>
         <source>Frunk closed</source>
-        <translation type="unfinished"></translation>
+        <translation>Přední kufr zavřen</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="167"/>
         <source>Trunk</source>
-        <translation type="unfinished"></translation>
+        <translation>Kufr</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="168"/>
         <source>Trunk open</source>
-        <translation type="unfinished"></translation>
+        <translation>Kufr otevřen</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="168"/>
         <source>Trunk closed</source>
-        <translation type="unfinished"></translation>
+        <translation>Kufr zavřen</translation>
     </message>
 </context>
 <context>

@@ -6,22 +6,22 @@
     <message>
         <location filename="../tabs/depart.py" line="105"/>
         <source>Not set: {0}</source>
-        <translation type="unfinished">Ikke angitt: {0}</translation>
+        <translation>Ikke angitt: {0}</translation>
     </message>
     <message>
         <location filename="../tabs/depart.py" line="107"/>
         <source>{0} {1} — failed: {2}</source>
-        <translation type="unfinished"></translation>
+        <translation>{0} {1} — mislyktes: {2}</translation>
     </message>
     <message>
         <location filename="../tabs/depart.py" line="112"/>
         <source>{0} {1} — already set</source>
-        <translation type="unfinished"></translation>
+        <translation>{0} {1} — allerede satt</translation>
     </message>
     <message>
         <location filename="../tabs/depart.py" line="114"/>
         <source>{0} {1} — ok</source>
-        <translation type="unfinished"></translation>
+        <translation>{0} {1} — ok</translation>
     </message>
 </context>
 <context>
@@ -297,13 +297,6 @@
     </message>
 </context>
 <context>
-    <name>ConfirmDialog</name>
-    <message>
-        <source>Confirmation letters</source>
-        <translation type="vanished">Bekreftelsesbokstaver</translation>
-    </message>
-</context>
-<context>
     <name>ControlsTab</name>
     <message>
         <location filename="../tabs/controls.py" line="70"/>
@@ -323,61 +316,48 @@
     <message>
         <location filename="../tabs/controls.py" line="73"/>
         <source>Access</source>
-        <translation type="unfinished"></translation>
+        <translation>Tilgang</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="74"/>
         <source>Misc</source>
-        <translation type="unfinished"></translation>
+        <translation>Annet</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="75"/>
         <source>Cabin temperature</source>
-        <translation type="unfinished"></translation>
+        <translation>Kupétemperatur</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="77"/>
         <source>Charging current</source>
-        <translation type="unfinished"></translation>
+        <translation>Ladestrøm</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="78"/>
         <source>Start charging at</source>
-        <translation type="unfinished">Start lading kl.</translation>
+        <translation>Start lading kl.</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="79"/>
         <source>Departure time</source>
-        <translation type="unfinished">Avreisetid</translation>
+        <translation>Avreisetid</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="134"/>
         <source>Waiting for the first read from the car…</source>
         <extracomment>(Command, arg) — the gesture/✓ already confirmed it; the window just sends it</extracomment>
-        <translation type="unfinished"></translation>
+        <translation>Venter på første avlesning fra bilen…</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="254"/>
         <source>Waiting for the first read</source>
-        <translation type="unfinished"></translation>
+        <translation>Venter på første avlesning</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="257"/>
         <source>Plug in the cable to charge</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Other</source>
-        <translation type="vanished">Annet</translation>
-    </message>
-    <message>
-        <source>More</source>
-        <translation type="vanished">Mer</translation>
-    </message>
-    <message>
-        <source>Every command asks for confirmation before anything is sent to the car.</source>
-        <extracomment>(command, argument or None)</extracomment>
-        <translation type="vanished">Hver kommando ber om bekreftelse før noe sendes til bilen.</translation>
+        <translation>Koble til kabelen for å lade</translation>
     </message>
     <message>
         <location filename="../tabs/controls.py" line="136"/>
@@ -385,49 +365,9 @@
         <translation>Resultat av siste kommando</translation>
     </message>
     <message>
-        <source>Target temperature</source>
-        <translation type="vanished">Måltemperatur</translation>
-    </message>
-    <message>
         <location filename="../tabs/controls.py" line="76"/>
         <source>Charge limit</source>
         <translation>Ladegrense</translation>
-    </message>
-    <message>
-        <source>Requires typed confirmation</source>
-        <translation type="vanished">Krever skrevet bekreftelse</translation>
-    </message>
-    <message>
-        <source>Off</source>
-        <translation type="vanished">Av</translation>
-    </message>
-    <message>
-        <source>{0} value</source>
-        <translation type="vanished">Verdi for {0}</translation>
-    </message>
-    <message>
-        <source>Target: {0}</source>
-        <translation type="vanished">Mål: {0}</translation>
-    </message>
-    <message>
-        <source>Charge limit: {0} %</source>
-        <translation type="vanished">Ladegrense: {0} %</translation>
-    </message>
-    <message>
-        <source>Charging current: {0} A</source>
-        <translation type="vanished">Ladestrøm: {0} A</translation>
-    </message>
-    <message>
-        <source>Time: {0}</source>
-        <translation type="vanished">Tid: {0}</translation>
-    </message>
-    <message>
-        <source>Turn it off</source>
-        <translation type="vanished">Slå av</translation>
-    </message>
-    <message>
-        <source>{0} — sending…</source>
-        <translation type="vanished">{0} — sender…</translation>
     </message>
 </context>
 <context>
@@ -1123,25 +1063,13 @@ Fingeravtrykk {2}</translation>
     <message>
         <location filename="../main_window.py" line="570"/>
         <source>Still sending the previous command…</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>The car will be woken up if it is asleep.</source>
-        <translation type="vanished">Bilen vekkes hvis den sover.</translation>
-    </message>
-    <message>
-        <source>{0}: cancelled, nothing sent.</source>
-        <translation type="vanished">{0}: avbrutt, ingenting sendt.</translation>
+        <translation>Sender fortsatt forrige kommando…</translation>
     </message>
     <message>
         <location filename="../main_window.py" line="584"/>
         <location filename="../main_window.py" line="585"/>
         <source>{0} failed: {1}</source>
         <translation>{0} mislyktes: {1}</translation>
-    </message>
-    <message>
-        <source>{0}: done.</source>
-        <translation type="vanished">{0}: utført.</translation>
     </message>
     <message>
         <location filename="../main_window.py" line="592"/>
@@ -1627,7 +1555,7 @@ Fingeravtrykk {2}</translation>
     <message>
         <location filename="../tabs/status.py" line="259"/>
         <source>Plug in the cable to charge</source>
-        <translation type="unfinished"></translation>
+        <translation>Koble til kabelen for å lade</translation>
     </message>
     <message>
         <location filename="../tabs/status.py" line="272"/>
@@ -1735,103 +1663,103 @@ Fingeravtrykk {2}</translation>
     <message>
         <location filename="../inline_logic.py" line="139"/>
         <source>Lock</source>
-        <translation type="unfinished">Lås</translation>
+        <translation>Lås</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="140"/>
         <source>Locked</source>
-        <translation type="unfinished">Låst</translation>
+        <translation>Låst</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="140"/>
         <source>Unlocked</source>
-        <translation type="unfinished"></translation>
+        <translation>Ulåst</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="144"/>
         <source>Sentry</source>
-        <translation type="unfinished"></translation>
+        <translation>Vaktmodus</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="145"/>
         <source>Sentry on</source>
-        <translation type="unfinished"></translation>
+        <translation>Vakt på</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="145"/>
         <source>Sentry off</source>
-        <translation type="unfinished"></translation>
+        <translation>Vakt av</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="149"/>
         <source>Climate</source>
-        <translation type="unfinished">Klima</translation>
+        <translation>Klima</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="150"/>
         <source>Climate on</source>
-        <translation type="unfinished">Klima på</translation>
+        <translation>Klima på</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="150"/>
         <source>Climate off</source>
-        <translation type="unfinished">Klima av</translation>
+        <translation>Klima av</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="153"/>
         <location filename="../inline_logic.py" line="154"/>
         <source>Charging</source>
-        <translation type="unfinished">Lading</translation>
+        <translation>Lading</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="154"/>
         <source>Not charging</source>
-        <translation type="unfinished"></translation>
+        <translation>Lader ikke</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="157"/>
         <source>Charge port</source>
-        <translation type="unfinished"></translation>
+        <translation>Ladeluke</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="158"/>
         <source>Port open</source>
-        <translation type="unfinished"></translation>
+        <translation>Luke åpen</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="158"/>
         <source>Port closed</source>
-        <translation type="unfinished"></translation>
+        <translation>Luke lukket</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="162"/>
         <source>Frunk</source>
-        <translation type="unfinished"></translation>
+        <translation>Frunk</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="163"/>
         <source>Frunk open</source>
-        <translation type="unfinished"></translation>
+        <translation>Frunk åpen</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="163"/>
         <source>Frunk closed</source>
-        <translation type="unfinished"></translation>
+        <translation>Frunk lukket</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="167"/>
         <source>Trunk</source>
-        <translation type="unfinished"></translation>
+        <translation>Bagasjerom</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="168"/>
         <source>Trunk open</source>
-        <translation type="unfinished"></translation>
+        <translation>Bagasjerom åpent</translation>
     </message>
     <message>
         <location filename="../inline_logic.py" line="168"/>
         <source>Trunk closed</source>
-        <translation type="unfinished"></translation>
+        <translation>Bagasjerom lukket</translation>
     </message>
 </context>
 <context>
