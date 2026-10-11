@@ -1071,3 +1071,107 @@ async def test_ble_idle_timeout_override(key_path: Path) -> None:
     assert ble.connected and vehicle.disconnects == 0
     await ble.close()
     assert not ble.connected and vehicle.disconnects == 1
+
+
+class VanishingVehicle(LinkVehicle):
+    """Connects once; after a disconnect BlueZ has 'forgotten' the device."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.vanished = False
+
+    async def connect_if_needed(self) -> None:
+        if self.vanished and not self.up:
+            try:
+                from bleak_retry_connector import BleakNotFoundError
+
+                raise BleakNotFoundError("device 'dev_CC_DA' not found: The device disappeared")
+            except BleakNotFoundError as cause:
+                raise BluetoothTransportError() from cause
+        await super().connect_if_needed()
+
+    async def disconnect(self) -> bool:
+        self.vanished = True
+        return await super().disconnect()
+
+
+async def test_ble_rescans_when_device_vanished_from_bluez(key_path: Path) -> None:
+    import asyncio
+
+    made: list[LinkVehicle] = []
+
+    def factory() -> LinkVehicle:
+        v: LinkVehicle = VanishingVehicle() if not made else LinkVehicle()
+        made.append(v)
+        return v
+
+    ble = BleBackend(VIN, key_path, vehicle_factory=factory, clock=lambda: TS, idle_timeout=0.05)
+    await ble.read_state()
+    await asyncio.sleep(0.15)  # idle disconnect; BlueZ forgets the device
+    assert not ble.connected and ble.last_disconnect_reason == "idle"
+    s = await ble.read_state()  # reconnect fails "not found" -> re-scan -> new vehicle
+    assert s.soc == 55 and ble.connected
+    assert len(made) == 2 and made[1].calls.count("find") == 1 and made[1].connects == 1
+    assert ble.last_disconnect_reason == "device vanished from BlueZ; re-scanned"
+    await ble.close()
+    assert ble.last_disconnect_reason == "closed"
+
+
+async def test_ble_other_connect_errors_do_not_rescan(key_path: Path) -> None:
+    made: list[FakeBleVehicle] = []
+
+    class Broken(LinkVehicle):
+        async def connect_if_needed(self) -> None:
+            raise BluetoothTransportError()  # no not-found cause
+
+    def factory() -> FakeBleVehicle:
+        made.append(Broken())
+        return made[-1]
+
+    with pytest.raises(NotAvailable, match="cannot connect"):
+        await BleBackend(VIN, key_path, vehicle_factory=factory).read_state()
+    assert len(made) == 1
+
+
+async def test_ble_proactive_rescan_after_long_idle(key_path: Path) -> None:
+    import asyncio
+
+    now = [100.0]
+    made: list[LinkVehicle] = []
+
+    def factory() -> LinkVehicle:
+        made.append(LinkVehicle())
+        return made[-1]
+
+    ble = BleBackend(
+        VIN,
+        key_path,
+        vehicle_factory=factory,
+        clock=lambda: TS,
+        idle_timeout=0.05,
+        monotonic=lambda: now[0],
+    )
+    await ble.read_state()
+    await asyncio.sleep(0.15)
+    now[0] += 10  # short idle: reconnect the cached device
+    await ble.read_state()
+    assert len(made) == 1 and made[0].connects == 2
+    await asyncio.sleep(0.15)
+    now[0] += 30  # > 20 s down: rebuild + scan before connecting
+    await ble.read_state()
+    assert len(made) == 2 and made[1].calls.count("find") == 1
+    await ble.close()
+
+
+def test_device_gone_detection() -> None:
+    from socks.core.backend import _device_gone
+
+    try:
+        try:
+            raise RuntimeError("Device was removed from bus at /org/bluez/hci10/dev_X")
+        except RuntimeError as inner:
+            raise BluetoothTransportError() from inner
+    except BluetoothTransportError as e:
+        assert _device_gone(e)
+    assert not _device_gone(BluetoothTransportError())
+    assert not _device_gone(TimeoutError())

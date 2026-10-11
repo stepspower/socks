@@ -40,6 +40,8 @@ BLE_CONNECT_TIMEOUT = 20.0
 COMMAND_TIMEOUT = 15.0
 WAKE_TIMEOUT = 30.0
 BLE_IDLE_TIMEOUT = 45.0  # disconnect after this long without a read/command
+BLE_STALE_AFTER = 20.0  # link down longer than this: re-scan before reconnecting
+BLE_RESCAN_TIMEOUT = 10.0  # find_vehicle's scan (bleak default)
 PAIR_TIMEOUT = 60.0
 PAIR_ROLES = ("driver", "owner")
 
@@ -478,6 +480,22 @@ def _named_state(state: VehicleState, override: str | None) -> VehicleState:
     return state if name == state.car_name else replace(state, car_name=name)
 
 
+def _device_gone(exc: BaseException) -> bool:
+    """True if a connect failed because BlueZ no longer knows the device (anywhere in the
+    exception chain: tesla-fleet-api wraps bleak's BleakNotFoundError)."""
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        text = str(cur).lower()
+        if type(cur).__name__ in ("BleakNotFoundError", "BleakDeviceNotFoundError") or (
+            "not found" in text or "removed from bus" in text
+        ):
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
 def _wrappable(exc: BaseException) -> bool:
     """Ordinary errors plus tesla-fleet-api's (``TeslaFleetError`` is a BaseException);
     never CancelledError, KeyboardInterrupt or SystemExit."""
@@ -644,10 +662,14 @@ class BleBackend:
         car_name: str | None = None,
         clock: Callable[[], datetime] = _utcnow,
         idle_timeout: float = BLE_IDLE_TIMEOUT,
+        monotonic: Callable[[], float] = time.monotonic,
     ) -> None:
         self.vin = vin
         self.car_name = car_name or None  # user override (Settings.car_name)
         self.idle_timeout = idle_timeout  # seconds; <= 0 disconnects right after each call
+        self.last_disconnect_reason: str | None = None
+        self._disconnected_at: float | None = None
+        self._monotonic = monotonic
         self._idle_task: asyncio.Task[None] | None = None
         self._holds = 0
         self._link_up = False
@@ -680,13 +702,9 @@ class BleBackend:
         if not await self.available():
             raise NotAvailable("Bluetooth: VIN or key not configured")
         try:
-            if self._vehicle is None:
-                self._vehicle = self._factory()
-            vehicle = self._vehicle
-            async with asyncio.timeout(self.connect_timeout):
-                if vehicle.get_device() is None:
-                    await vehicle.find_vehicle()
-                await vehicle.connect_if_needed()
+            # Scan (<= 10 s) + connect, possibly twice after the device vanished.
+            async with asyncio.timeout(self.connect_timeout + BLE_RESCAN_TIMEOUT):
+                vehicle = await self._link()
             self._link_up = True
         except KeyFileError as e:
             raise NotAvailable(f"Bluetooth: {e}") from None
@@ -798,6 +816,42 @@ class BleBackend:
                     result = await _dispatch(vehicle, cmd, arg, self.wake_timeout, cloud=False)
             return _check_result(result, cmd)
 
+    async def _link(self) -> Any:
+        """Connect, re-discovering the car when BlueZ has forgotten its device object.
+
+        BlueZ removes an unpaired device from D-Bus some time after we disconnect; a
+        reconnect to the cached BLEDevice then fails with "device ... not found". In that
+        case (and proactively when the link has been down longer than BLE_STALE_AFTER) the
+        vehicle object is rebuilt and the car found again by its advertised name.
+        """
+        if self._vehicle is not None and not self._link_up and self._disconnected_at is not None:
+            idle = self._monotonic() - self._disconnected_at
+            if idle > BLE_STALE_AFTER:
+                log.info("BLE: link down for %.0f s, re-scanning for the car", idle)
+                self._vehicle = None
+        fresh = self._vehicle is None
+        if fresh:
+            self._vehicle = self._factory()
+        vehicle = self._vehicle
+        if vehicle.get_device() is None:
+            log.info("BLE: scanning for the car")
+            await vehicle.find_vehicle()
+        elif not fresh:
+            log.info("BLE: reconnecting")
+        try:
+            await vehicle.connect_if_needed()
+            return vehicle
+        except BaseException as e:
+            if not _wrappable(e) or not _device_gone(e) or fresh:
+                raise
+            self.last_disconnect_reason = "device vanished from BlueZ; re-scanned"
+            log.info("BLE: car vanished from BlueZ (%s), re-scanning", type(e).__name__)
+        vehicle = self._vehicle = self._factory()
+        await vehicle.find_vehicle()
+        log.info("BLE: car found again, connecting")
+        await vehicle.connect_if_needed()
+        return vehicle
+
     # ------------------------------------------------------------ link lifetime
 
     @property
@@ -847,10 +901,13 @@ class BleBackend:
         async with self._lock:
             if self._holds or self._vehicle is None:
                 return
-            await self._disconnect(self._vehicle)
+            log.info("BLE: idle for %g s, disconnecting", self.idle_timeout)
+            await self._disconnect(self._vehicle, "idle")
 
-    async def _disconnect(self, vehicle: Any) -> None:
+    async def _disconnect(self, vehicle: Any, reason: str) -> None:
         self._link_up = False
+        self.last_disconnect_reason = reason
+        self._disconnected_at = self._monotonic()
         try:
             async with asyncio.timeout(5):
                 await vehicle.disconnect()
@@ -864,7 +921,7 @@ class BleBackend:
         self._cancel_idle()
         vehicle, self._vehicle = self._vehicle, None
         if vehicle is not None:
-            await self._disconnect(vehicle)
+            await self._disconnect(vehicle, "closed")
 
 
 def _to_dict(message: Any, *, all_fields: bool = False) -> dict[str, Any]:
