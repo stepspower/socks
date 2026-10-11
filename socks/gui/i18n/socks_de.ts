@@ -276,75 +276,81 @@
 <context>
     <name>ControlsTab</name>
     <message>
-        <location filename="../tabs/controls.py" line="70"/>
+        <location filename="../tabs/controls.py" line="68"/>
         <source>Security</source>
         <translation>Sicherheit</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="71"/>
+        <location filename="../tabs/controls.py" line="69"/>
         <source>Climate</source>
         <translation>Klima</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="72"/>
+        <location filename="../tabs/controls.py" line="70"/>
         <source>Charging</source>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="73"/>
+        <location filename="../tabs/controls.py" line="71"/>
         <source>Access</source>
         <translation>Zugang</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="74"/>
+        <location filename="../tabs/controls.py" line="72"/>
         <source>Misc</source>
         <translation>Sonstiges</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="75"/>
+        <location filename="../tabs/controls.py" line="73"/>
         <source>Cabin temperature</source>
         <translation>Innenraumtemperatur</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="77"/>
+        <location filename="../tabs/controls.py" line="75"/>
         <source>Charging current</source>
         <translation>Ladestrom</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="78"/>
+        <location filename="../tabs/controls.py" line="76"/>
         <source>Start charging at</source>
         <translation>Laden starten um</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="79"/>
+        <location filename="../tabs/controls.py" line="77"/>
         <source>Departure time</source>
         <translation>Abfahrtszeit</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="134"/>
+        <location filename="../tabs/controls.py" line="112"/>
         <source>Waiting for the first read from the car…</source>
         <extracomment>(Command, arg) — the gesture/✓ already confirmed it; the window just sends it</extracomment>
         <translation>Warten auf die erste Abfrage vom Fahrzeug…</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="254"/>
+        <location filename="../tabs/controls.py" line="232"/>
         <source>Waiting for the first read</source>
         <translation>Warten auf erste Abfrage</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="257"/>
+        <location filename="../tabs/controls.py" line="235"/>
         <source>Plug in the cable to charge</source>
         <translation>Zum Laden das Kabel anschließen</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="136"/>
+        <location filename="../tabs/controls.py" line="114"/>
         <source>Last command result</source>
         <translation>Ergebnis des letzten Befehls</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="76"/>
+        <location filename="../tabs/controls.py" line="74"/>
         <source>Charge limit</source>
         <translation>Ladelimit</translation>
+    </message>
+    <message>
+        <location filename="../inline_logic.py" line="217"/>
+        <location filename="../inline_logic.py" line="220"/>
+        <source>off</source>
+        <translation>aus</translation>
     </message>
 </context>
 <context>
@@ -1473,209 +1479,224 @@ Fingerabdruck {2}</translation>
 <context>
     <name>StatusTab</name>
     <message>
-        <location filename="../tabs/status.py" line="81"/>
+        <location filename="../tabs/status.py" line="82"/>
         <source>No vehicle data yet</source>
         <extracomment>(Command, argument in command units or None) — the window runs the confirm gate new display name for the car (&quot;&quot; = back to the name the car/VIN gives) (Command, arg): already confirmed by a completed slide gesture (no dialog)</extracomment>
         <translation>Noch keine Fahrzeugdaten</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="91"/>
+        <location filename="../tabs/status.py" line="92"/>
         <source>Name (empty = model name)</source>
         <translation>Name (leer = Modellname)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="92"/>
+        <location filename="../tabs/status.py" line="93"/>
         <source>Car name</source>
         <translation>Fahrzeugname</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="96"/>
+        <location filename="../tabs/status.py" line="97"/>
         <source>no data</source>
         <translation>keine Daten</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="97"/>
+        <location filename="../tabs/status.py" line="98"/>
         <source>&amp;Refresh</source>
         <translation>&amp;Aktualisieren</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="98"/>
+        <location filename="../tabs/status.py" line="99"/>
         <source>Read the current state from the car (F5)</source>
         <translation>Aktuellen Zustand vom Fahrzeug lesen (F5)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="109"/>
+        <location filename="../tabs/status.py" line="110"/>
         <source>Range</source>
         <translation>Reichweite</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="110"/>
+        <location filename="../tabs/status.py" line="111"/>
         <source>Charging</source>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="111"/>
+        <location filename="../tabs/status.py" line="112"/>
         <source>Temperature</source>
         <translation>Temperatur</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="112"/>
+        <location filename="../tabs/status.py" line="113"/>
         <source>Locks &amp; closures</source>
         <translation>Schlösser und Klappen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="113"/>
+        <location filename="../tabs/status.py" line="114"/>
         <source>Odometer</source>
         <translation>Kilometerstand</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="114"/>
-        <location filename="../tabs/status.py" line="285"/>
+        <location filename="../tabs/status.py" line="115"/>
+        <location filename="../tabs/status.py" line="309"/>
         <source>Vehicle</source>
         <translation>Fahrzeug</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="143"/>
+        <location filename="../tabs/status.py" line="144"/>
         <source>Location</source>
         <translation>Standort</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="145"/>
+        <location filename="../tabs/status.py" line="146"/>
         <source>Open in &amp;map</source>
         <translation>In &amp;Karte öffnen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="146"/>
+        <location filename="../tabs/status.py" line="147"/>
         <source>Opens openstreetmap.org in your browser</source>
         <translation>Öffnet openstreetmap.org im Browser</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="148"/>
+        <location filename="../tabs/status.py" line="149"/>
         <source>Cop&amp;y</source>
         <translation>Ko&amp;pieren</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="254"/>
+        <location filename="../tabs/status.py" line="260"/>
         <source>Limit {0} %</source>
         <translation>Limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="268"/>
+        <location filename="../tabs/status.py" line="271"/>
+        <source>starts {0}</source>
+        <translation>Start {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="273"/>
+        <source>starts: off</source>
+        <translation>Start: aus</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="280"/>
+        <source>departure {0}</source>
+        <translation>Abfahrt {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="292"/>
         <source>Target {0}</source>
         <translation>Ziel {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="277"/>
+        <location filename="../tabs/status.py" line="301"/>
         <source>Plug in the cable to charge</source>
         <translation>Zum Laden das Kabel anschließen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="290"/>
+        <location filename="../tabs/status.py" line="314"/>
         <source>Click to rename</source>
         <translation>Klicken zum Umbenennen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="340"/>
+        <location filename="../tabs/status.py" line="364"/>
         <source>GPS fix {0}</source>
         <translation>GPS-Fix {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="361"/>
+        <location filename="../tabs/status.py" line="385"/>
         <source>Refreshing…</source>
         <translation>Wird aktualisiert…</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="382"/>
+        <location filename="../tabs/status.py" line="406"/>
         <source>usable {0} %</source>
         <translation>nutzbar {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="384"/>
+        <location filename="../tabs/status.py" line="408"/>
         <source>ideal {0}</source>
         <translation>ideal {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="394"/>
+        <location filename="../tabs/status.py" line="418"/>
         <source>Unplugged</source>
         <translation>Nicht angeschlossen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="406"/>
+        <location filename="../tabs/status.py" line="430"/>
         <source>Plugged in · {0}</source>
         <translation>Angeschlossen · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="408"/>
+        <location filename="../tabs/status.py" line="432"/>
         <source>limit {0} %</source>
         <translation>Limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="411"/>
+        <location filename="../tabs/status.py" line="438"/>
         <source> · starts {0}</source>
         <translation> · Start {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="422"/>
+        <location filename="../tabs/status.py" line="449"/>
         <source>{0} inside</source>
         <translation>{0} innen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="423"/>
+        <location filename="../tabs/status.py" line="450"/>
         <source>{0} outside{1}</source>
         <translation>{0} außen{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="427"/>
+        <location filename="../tabs/status.py" line="454"/>
         <source>Locked</source>
         <translation>Verriegelt</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="428"/>
+        <location filename="../tabs/status.py" line="455"/>
         <source>UNLOCKED</source>
         <translation>ENTRIEGELT</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="429"/>
+        <location filename="../tabs/status.py" line="456"/>
         <source>Lock state unknown</source>
         <translation>Verriegelungsstatus unbekannt</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="433"/>
+        <location filename="../tabs/status.py" line="460"/>
         <source>open: {0}</source>
         <translation>offen: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="435"/>
+        <location filename="../tabs/status.py" line="462"/>
         <source>windows: {0}</source>
         <translation>Fenster: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="444"/>
+        <location filename="../tabs/status.py" line="471"/>
         <source>Shift {0}</source>
         <translation>Fahrstufe {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="447"/>
+        <location filename="../tabs/status.py" line="474"/>
         <source>firmware {0}</source>
         <translation>Firmware {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="460"/>
+        <location filename="../tabs/status.py" line="487"/>
         <source>Read at {0}</source>
         <translation>Gelesen um {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="465"/>
+        <location filename="../tabs/status.py" line="492"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="466"/>
+        <location filename="../tabs/status.py" line="493"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Bluetooth-Signalstärke; die Entfernung ist nur grob geschätzt</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="469"/>
+        <location filename="../tabs/status.py" line="496"/>
         <source>Data source {0}, {1}</source>
         <translation>Datenquelle {0}, {1}</translation>
     </message>

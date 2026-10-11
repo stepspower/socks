@@ -276,75 +276,81 @@
 <context>
     <name>ControlsTab</name>
     <message>
-        <location filename="../tabs/controls.py" line="70"/>
+        <location filename="../tabs/controls.py" line="68"/>
         <source>Security</source>
         <translation>Beveiliging</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="71"/>
+        <location filename="../tabs/controls.py" line="69"/>
         <source>Climate</source>
         <translation>Klimaat</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="72"/>
+        <location filename="../tabs/controls.py" line="70"/>
         <source>Charging</source>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="73"/>
+        <location filename="../tabs/controls.py" line="71"/>
         <source>Access</source>
         <translation>Toegang</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="74"/>
+        <location filename="../tabs/controls.py" line="72"/>
         <source>Misc</source>
         <translation>Overig</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="75"/>
+        <location filename="../tabs/controls.py" line="73"/>
         <source>Cabin temperature</source>
         <translation>Interieurtemperatuur</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="77"/>
+        <location filename="../tabs/controls.py" line="75"/>
         <source>Charging current</source>
         <translation>Laadstroom</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="78"/>
+        <location filename="../tabs/controls.py" line="76"/>
         <source>Start charging at</source>
         <translation>Laden starten om</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="79"/>
+        <location filename="../tabs/controls.py" line="77"/>
         <source>Departure time</source>
         <translation>Vertrektijd</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="134"/>
+        <location filename="../tabs/controls.py" line="112"/>
         <source>Waiting for the first read from the car…</source>
         <extracomment>(Command, arg) — the gesture/✓ already confirmed it; the window just sends it</extracomment>
         <translation>Wachten op de eerste uitlezing van de auto…</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="254"/>
+        <location filename="../tabs/controls.py" line="232"/>
         <source>Waiting for the first read</source>
         <translation>Wachten op eerste uitlezing</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="257"/>
+        <location filename="../tabs/controls.py" line="235"/>
         <source>Plug in the cable to charge</source>
         <translation>Sluit de kabel aan om te laden</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="136"/>
+        <location filename="../tabs/controls.py" line="114"/>
         <source>Last command result</source>
         <translation>Resultaat laatste opdracht</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="76"/>
+        <location filename="../tabs/controls.py" line="74"/>
         <source>Charge limit</source>
         <translation>Laadlimiet</translation>
+    </message>
+    <message>
+        <location filename="../inline_logic.py" line="217"/>
+        <location filename="../inline_logic.py" line="220"/>
+        <source>off</source>
+        <translation>uit</translation>
     </message>
 </context>
 <context>
@@ -1473,209 +1479,224 @@ Vingerafdruk {2}</translation>
 <context>
     <name>StatusTab</name>
     <message>
-        <location filename="../tabs/status.py" line="81"/>
+        <location filename="../tabs/status.py" line="82"/>
         <source>No vehicle data yet</source>
         <extracomment>(Command, argument in command units or None) — the window runs the confirm gate new display name for the car (&quot;&quot; = back to the name the car/VIN gives) (Command, arg): already confirmed by a completed slide gesture (no dialog)</extracomment>
         <translation>Nog geen voertuiggegevens</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="91"/>
+        <location filename="../tabs/status.py" line="92"/>
         <source>Name (empty = model name)</source>
         <translation>Naam (leeg = modelnaam)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="92"/>
+        <location filename="../tabs/status.py" line="93"/>
         <source>Car name</source>
         <translation>Naam van de auto</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="96"/>
+        <location filename="../tabs/status.py" line="97"/>
         <source>no data</source>
         <translation>geen gegevens</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="97"/>
+        <location filename="../tabs/status.py" line="98"/>
         <source>&amp;Refresh</source>
         <translation>&amp;Vernieuwen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="98"/>
+        <location filename="../tabs/status.py" line="99"/>
         <source>Read the current state from the car (F5)</source>
         <translation>Huidige status uit de auto lezen (F5)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="109"/>
+        <location filename="../tabs/status.py" line="110"/>
         <source>Range</source>
         <translation>Bereik</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="110"/>
+        <location filename="../tabs/status.py" line="111"/>
         <source>Charging</source>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="111"/>
+        <location filename="../tabs/status.py" line="112"/>
         <source>Temperature</source>
         <translation>Temperatuur</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="112"/>
+        <location filename="../tabs/status.py" line="113"/>
         <source>Locks &amp; closures</source>
         <translation>Sloten en openingen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="113"/>
+        <location filename="../tabs/status.py" line="114"/>
         <source>Odometer</source>
         <translation>Kilometerteller</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="114"/>
-        <location filename="../tabs/status.py" line="285"/>
+        <location filename="../tabs/status.py" line="115"/>
+        <location filename="../tabs/status.py" line="309"/>
         <source>Vehicle</source>
         <translation>Voertuig</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="143"/>
+        <location filename="../tabs/status.py" line="144"/>
         <source>Location</source>
         <translation>Locatie</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="145"/>
+        <location filename="../tabs/status.py" line="146"/>
         <source>Open in &amp;map</source>
         <translation>Op &amp;kaart tonen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="146"/>
+        <location filename="../tabs/status.py" line="147"/>
         <source>Opens openstreetmap.org in your browser</source>
         <translation>Opent openstreetmap.org in je browser</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="148"/>
+        <location filename="../tabs/status.py" line="149"/>
         <source>Cop&amp;y</source>
         <translation>K&amp;opiëren</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="254"/>
+        <location filename="../tabs/status.py" line="260"/>
         <source>Limit {0} %</source>
         <translation>Limiet {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="268"/>
+        <location filename="../tabs/status.py" line="271"/>
+        <source>starts {0}</source>
+        <translation>start {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="273"/>
+        <source>starts: off</source>
+        <translation>start: uit</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="280"/>
+        <source>departure {0}</source>
+        <translation>vertrek {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="292"/>
         <source>Target {0}</source>
         <translation>Doel {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="277"/>
+        <location filename="../tabs/status.py" line="301"/>
         <source>Plug in the cable to charge</source>
         <translation>Sluit de kabel aan om te laden</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="290"/>
+        <location filename="../tabs/status.py" line="314"/>
         <source>Click to rename</source>
         <translation>Klik om te hernoemen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="340"/>
+        <location filename="../tabs/status.py" line="364"/>
         <source>GPS fix {0}</source>
         <translation>GPS-fix {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="361"/>
+        <location filename="../tabs/status.py" line="385"/>
         <source>Refreshing…</source>
         <translation>Vernieuwen…</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="382"/>
+        <location filename="../tabs/status.py" line="406"/>
         <source>usable {0} %</source>
         <translation>bruikbaar {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="384"/>
+        <location filename="../tabs/status.py" line="408"/>
         <source>ideal {0}</source>
         <translation>ideaal {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="394"/>
+        <location filename="../tabs/status.py" line="418"/>
         <source>Unplugged</source>
         <translation>Niet aangesloten</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="406"/>
+        <location filename="../tabs/status.py" line="430"/>
         <source>Plugged in · {0}</source>
         <translation>Aangesloten · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="408"/>
+        <location filename="../tabs/status.py" line="432"/>
         <source>limit {0} %</source>
         <translation>limiet {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="411"/>
+        <location filename="../tabs/status.py" line="438"/>
         <source> · starts {0}</source>
         <translation> · start {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="422"/>
+        <location filename="../tabs/status.py" line="449"/>
         <source>{0} inside</source>
         <translation>{0} binnen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="423"/>
+        <location filename="../tabs/status.py" line="450"/>
         <source>{0} outside{1}</source>
         <translation>{0} buiten{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="427"/>
+        <location filename="../tabs/status.py" line="454"/>
         <source>Locked</source>
         <translation>Vergrendeld</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="428"/>
+        <location filename="../tabs/status.py" line="455"/>
         <source>UNLOCKED</source>
         <translation>ONTGRENDELD</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="429"/>
+        <location filename="../tabs/status.py" line="456"/>
         <source>Lock state unknown</source>
         <translation>Vergrendelstatus onbekend</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="433"/>
+        <location filename="../tabs/status.py" line="460"/>
         <source>open: {0}</source>
         <translation>open: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="435"/>
+        <location filename="../tabs/status.py" line="462"/>
         <source>windows: {0}</source>
         <translation>ramen: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="444"/>
+        <location filename="../tabs/status.py" line="471"/>
         <source>Shift {0}</source>
         <translation>Rijstand {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="447"/>
+        <location filename="../tabs/status.py" line="474"/>
         <source>firmware {0}</source>
         <translation>firmware {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="460"/>
+        <location filename="../tabs/status.py" line="487"/>
         <source>Read at {0}</source>
         <translation>Gelezen om {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="465"/>
+        <location filename="../tabs/status.py" line="492"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="466"/>
+        <location filename="../tabs/status.py" line="493"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Bluetooth-signaalsterkte; de afstand is een ruwe schatting</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="469"/>
+        <location filename="../tabs/status.py" line="496"/>
         <source>Data source {0}, {1}</source>
         <translation>Gegevensbron {0}, {1}</translation>
     </message>

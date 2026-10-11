@@ -276,75 +276,81 @@
 <context>
     <name>ControlsTab</name>
     <message>
-        <location filename="../tabs/controls.py" line="70"/>
+        <location filename="../tabs/controls.py" line="68"/>
         <source>Security</source>
         <translation>Zabezpečení</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="71"/>
+        <location filename="../tabs/controls.py" line="69"/>
         <source>Climate</source>
         <translation>Klimatizace</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="72"/>
+        <location filename="../tabs/controls.py" line="70"/>
         <source>Charging</source>
         <translation>Nabíjení</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="73"/>
+        <location filename="../tabs/controls.py" line="71"/>
         <source>Access</source>
         <translation>Přístup</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="74"/>
+        <location filename="../tabs/controls.py" line="72"/>
         <source>Misc</source>
         <translation>Ostatní</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="75"/>
+        <location filename="../tabs/controls.py" line="73"/>
         <source>Cabin temperature</source>
         <translation>Teplota interiéru</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="77"/>
+        <location filename="../tabs/controls.py" line="75"/>
         <source>Charging current</source>
         <translation>Nabíjecí proud</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="78"/>
+        <location filename="../tabs/controls.py" line="76"/>
         <source>Start charging at</source>
         <translation>Začít nabíjet v</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="79"/>
+        <location filename="../tabs/controls.py" line="77"/>
         <source>Departure time</source>
         <translation>Čas odjezdu</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="134"/>
+        <location filename="../tabs/controls.py" line="112"/>
         <source>Waiting for the first read from the car…</source>
         <extracomment>(Command, arg) — the gesture/✓ already confirmed it; the window just sends it</extracomment>
         <translation>Čekání na první načtení z auta…</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="254"/>
+        <location filename="../tabs/controls.py" line="232"/>
         <source>Waiting for the first read</source>
         <translation>Čekání na první načtení</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="257"/>
+        <location filename="../tabs/controls.py" line="235"/>
         <source>Plug in the cable to charge</source>
         <translation>Pro nabíjení připojte kabel</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="136"/>
+        <location filename="../tabs/controls.py" line="114"/>
         <source>Last command result</source>
         <translation>Výsledek posledního příkazu</translation>
     </message>
     <message>
-        <location filename="../tabs/controls.py" line="76"/>
+        <location filename="../tabs/controls.py" line="74"/>
         <source>Charge limit</source>
         <translation>Limit nabití</translation>
+    </message>
+    <message>
+        <location filename="../inline_logic.py" line="217"/>
+        <location filename="../inline_logic.py" line="220"/>
+        <source>off</source>
+        <translation>vypnuto</translation>
     </message>
 </context>
 <context>
@@ -1473,209 +1479,224 @@ Otisk {2}</translation>
 <context>
     <name>StatusTab</name>
     <message>
-        <location filename="../tabs/status.py" line="81"/>
+        <location filename="../tabs/status.py" line="82"/>
         <source>No vehicle data yet</source>
         <extracomment>(Command, argument in command units or None) — the window runs the confirm gate new display name for the car (&quot;&quot; = back to the name the car/VIN gives) (Command, arg): already confirmed by a completed slide gesture (no dialog)</extracomment>
         <translation>Zatím žádná data vozu</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="91"/>
+        <location filename="../tabs/status.py" line="92"/>
         <source>Name (empty = model name)</source>
         <translation>Název (prázdné = název modelu)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="92"/>
+        <location filename="../tabs/status.py" line="93"/>
         <source>Car name</source>
         <translation>Název auta</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="96"/>
+        <location filename="../tabs/status.py" line="97"/>
         <source>no data</source>
         <translation>žádná data</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="97"/>
+        <location filename="../tabs/status.py" line="98"/>
         <source>&amp;Refresh</source>
         <translation>&amp;Obnovit</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="98"/>
+        <location filename="../tabs/status.py" line="99"/>
         <source>Read the current state from the car (F5)</source>
         <translation>Načíst aktuální stav z auta (F5)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="109"/>
+        <location filename="../tabs/status.py" line="110"/>
         <source>Range</source>
         <translation>Dojezd</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="110"/>
+        <location filename="../tabs/status.py" line="111"/>
         <source>Charging</source>
         <translation>Nabíjení</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="111"/>
+        <location filename="../tabs/status.py" line="112"/>
         <source>Temperature</source>
         <translation>Teplota</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="112"/>
+        <location filename="../tabs/status.py" line="113"/>
         <source>Locks &amp; closures</source>
         <translation>Zámky a otvory</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="113"/>
+        <location filename="../tabs/status.py" line="114"/>
         <source>Odometer</source>
         <translation>Počítadlo km</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="114"/>
-        <location filename="../tabs/status.py" line="285"/>
+        <location filename="../tabs/status.py" line="115"/>
+        <location filename="../tabs/status.py" line="309"/>
         <source>Vehicle</source>
         <translation>Vozidlo</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="143"/>
+        <location filename="../tabs/status.py" line="144"/>
         <source>Location</source>
         <translation>Poloha</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="145"/>
+        <location filename="../tabs/status.py" line="146"/>
         <source>Open in &amp;map</source>
         <translation>Otevřít na &amp;mapě</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="146"/>
+        <location filename="../tabs/status.py" line="147"/>
         <source>Opens openstreetmap.org in your browser</source>
         <translation>Otevře openstreetmap.org v prohlížeči</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="148"/>
+        <location filename="../tabs/status.py" line="149"/>
         <source>Cop&amp;y</source>
         <translation>&amp;Kopírovat</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="254"/>
+        <location filename="../tabs/status.py" line="260"/>
         <source>Limit {0} %</source>
         <translation>Limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="268"/>
+        <location filename="../tabs/status.py" line="271"/>
+        <source>starts {0}</source>
+        <translation>start {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="273"/>
+        <source>starts: off</source>
+        <translation>start: vypnuto</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="280"/>
+        <source>departure {0}</source>
+        <translation>odjezd {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="292"/>
         <source>Target {0}</source>
         <translation>Cíl {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="277"/>
+        <location filename="../tabs/status.py" line="301"/>
         <source>Plug in the cable to charge</source>
         <translation>Pro nabíjení připojte kabel</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="290"/>
+        <location filename="../tabs/status.py" line="314"/>
         <source>Click to rename</source>
         <translation>Kliknutím přejmenujete</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="340"/>
+        <location filename="../tabs/status.py" line="364"/>
         <source>GPS fix {0}</source>
         <translation>GPS fix {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="361"/>
+        <location filename="../tabs/status.py" line="385"/>
         <source>Refreshing…</source>
         <translation>Obnovování…</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="382"/>
+        <location filename="../tabs/status.py" line="406"/>
         <source>usable {0} %</source>
         <translation>využitelné {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="384"/>
+        <location filename="../tabs/status.py" line="408"/>
         <source>ideal {0}</source>
         <translation>ideální {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="394"/>
+        <location filename="../tabs/status.py" line="418"/>
         <source>Unplugged</source>
         <translation>Odpojeno</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="406"/>
+        <location filename="../tabs/status.py" line="430"/>
         <source>Plugged in · {0}</source>
         <translation>Připojeno · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="408"/>
+        <location filename="../tabs/status.py" line="432"/>
         <source>limit {0} %</source>
         <translation>limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="411"/>
+        <location filename="../tabs/status.py" line="438"/>
         <source> · starts {0}</source>
         <translation> · začátek {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="422"/>
+        <location filename="../tabs/status.py" line="449"/>
         <source>{0} inside</source>
         <translation>{0} uvnitř</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="423"/>
+        <location filename="../tabs/status.py" line="450"/>
         <source>{0} outside{1}</source>
         <translation>{0} venku{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="427"/>
+        <location filename="../tabs/status.py" line="454"/>
         <source>Locked</source>
         <translation>Zamčeno</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="428"/>
+        <location filename="../tabs/status.py" line="455"/>
         <source>UNLOCKED</source>
         <translation>ODEMČENO</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="429"/>
+        <location filename="../tabs/status.py" line="456"/>
         <source>Lock state unknown</source>
         <translation>Stav zámků neznámý</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="433"/>
+        <location filename="../tabs/status.py" line="460"/>
         <source>open: {0}</source>
         <translation>otevřeno: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="435"/>
+        <location filename="../tabs/status.py" line="462"/>
         <source>windows: {0}</source>
         <translation>okna: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="444"/>
+        <location filename="../tabs/status.py" line="471"/>
         <source>Shift {0}</source>
         <translation>Řazení {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="447"/>
+        <location filename="../tabs/status.py" line="474"/>
         <source>firmware {0}</source>
         <translation>firmware {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="460"/>
+        <location filename="../tabs/status.py" line="487"/>
         <source>Read at {0}</source>
         <translation>Načteno v {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="465"/>
+        <location filename="../tabs/status.py" line="492"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="466"/>
+        <location filename="../tabs/status.py" line="493"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Síla signálu Bluetooth; vzdálenost je jen hrubý odhad</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="469"/>
+        <location filename="../tabs/status.py" line="496"/>
         <source>Data source {0}, {1}</source>
         <translation>Zdroj dat {0}, {1}</translation>
     </message>

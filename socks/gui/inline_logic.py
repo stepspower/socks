@@ -199,3 +199,23 @@ def switch_command(field: str, on: bool) -> str | None:
     """Command value for a completed switch gesture to ``on`` (None: no such direction)."""
     sp = SWITCHES[field]
     return sp.on_cmd if on else sp.off_cmd
+
+
+def editor_value(cmd: str, s: Any, units: str) -> tuple[str, Any] | None:
+    """(display text, editor value) for an inline editor from the car state; None = hide."""
+    if cmd == "set_temp":
+        if s.target_temp_c is None:
+            return None
+        return fmt.temp(s.target_temp_c, units), fmt.temp_to_display(s.target_temp_c, units)
+    if cmd == "set_charge_limit":
+        return None if s.charge_limit is None else (f"{s.charge_limit} %", s.charge_limit)
+    if cmd == "set_charge_amps":
+        a = s.charge_current_request_a
+        return None if a is None else (f"{a} A", a)
+    if cmd == "set_scheduled_charging":
+        m = minutes_of(s.scheduled_charging_start)
+        return (hhmm(m) if m is not None else QCoreApplication.translate("ControlsTab", "off")), m
+    if cmd == "set_scheduled_departure":
+        m = minutes_of(s.scheduled_departure) if s.scheduled_charging_mode != "Off" else None
+        return (hhmm(m) if m is not None else QCoreApplication.translate("ControlsTab", "off")), m
+    return None

@@ -94,7 +94,6 @@ def test_status_tab_emits_through_signal(qapp: object) -> None:
         (Command.FRUNK, None),
     ]
     assert got == [(Command.SET_TEMP, 22.0), (Command.SET_CHARGE_LIMIT, 90)]
-    assert "set_scheduled_departure" not in tab._editors  # the Depart-by card covers it
 
 
 def test_escape_cancels(qapp: object) -> None:
@@ -132,3 +131,33 @@ def test_minutes_of_local() -> None:
     local = dt.astimezone()
     assert minutes_of(dt) == local.hour * 60 + local.minute
     assert minutes_of(None) is None
+
+
+def test_status_charging_start_editor(qapp: object) -> None:
+    from datetime import UTC, datetime
+
+    from PySide6.QtCore import QTime
+
+    from socks.gui.tabs.status import StatusTab
+
+    tab = StatusTab()
+    tab.set_commands(COMMANDS)
+    start = datetime(2026, 10, 11, 21, 0, tzinfo=UTC)
+    tab.update_state(make_state(scheduled_charging_start=start, scheduled_charging_mode="StartAt"))
+    ed = tab._editors["set_scheduled_charging"]
+    local = start.astimezone()
+    assert ed.display._plain == f"starts {local:%H:%M}"
+    assert ed.display.toolTip() == "Click to change"
+    assert tab._editors["set_scheduled_departure"].isHidden()  # only shown for DepartBy
+    got: list[tuple[object, object]] = []
+    tab.command_requested.connect(lambda c, a: got.append((c, a)))
+    ed.start()
+    assert ed.editor.time() == QTime(local.hour, local.minute)
+    ed.editor.setTime(QTime(23, 0))
+    ed._commit()
+    ed.start()
+    ed.off.setChecked(True)
+    ed._commit()
+    assert got == [(Command.SET_SCHEDULED_CHARGING, 1380), (Command.SET_SCHEDULED_CHARGING, None)]
+    tab.update_state(make_state(scheduled_charging_start=None))
+    assert ed.display._plain == "starts: off"

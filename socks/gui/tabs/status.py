@@ -24,6 +24,7 @@ from socks.gui.inline_logic import (
     SWITCHES,
     arg_for,
     display_range,
+    editor_value,
     switch_command,
     switch_enabled,
     switch_state,
@@ -202,6 +203,11 @@ class StatusTab(QWidget):
             editor("set_charge_amps", "spin"),
         )
         row(self.charge_card, switch("charging"), switch("charge_port_open"))
+        row(
+            self.charge_card,
+            editor("set_scheduled_charging", "time"),
+            editor("set_scheduled_departure", "time"),
+        )
         row(self.climate_card, editor("set_temp", "spin"), switch("climate_on"))
         row(self.security_card, switch("locked"), switch("sentry_on"))
         row(self.security_card, switch("frunk"), switch("trunk"))
@@ -257,6 +263,24 @@ class StatusTab(QWidget):
         )
         amps = s.charge_current_request_a
         put("set_charge_amps", f"{amps} A", amps, amps is not None)
+        start = editor_value("set_scheduled_charging", s, u)
+        if start is not None:
+            text, minutes = start
+            put(
+                "set_scheduled_charging",
+                self.tr("starts {0}").format(text)
+                if minutes is not None
+                else self.tr("starts: off"),
+                minutes,
+            )
+        dep = editor_value("set_scheduled_departure", s, u)
+        if dep is not None:
+            put(
+                "set_scheduled_departure",
+                self.tr("departure {0}").format(dep[0]),
+                dep[1],
+                s.scheduled_charging_mode == "DepartBy",
+            )
         if amps is not None and "set_charge_amps" in self._editors:
             lo, hi, step, unit = display_range(self._info("set_charge_amps"), u)
             hi = s.charge_current_request_max_a or hi
@@ -407,7 +431,10 @@ class StatusTab(QWidget):
             detail = (
                 self.tr("limit {0} %").format(s.charge_limit) if s.charge_limit is not None else ""
             )
-            if s.scheduled_charging_start is not None:
+            if (
+                s.scheduled_charging_start is not None
+                and "set_scheduled_charging" not in self._editors
+            ):
                 detail += self.tr(" · starts {0}").format(
                     fmt.local_time(s.scheduled_charging_start)
                 )

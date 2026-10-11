@@ -17,13 +17,11 @@ from typing import Any
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, QTimer, Signal
 from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from socks.gui import fmt
 from socks.gui.inline_logic import (
     SWITCHES,
     arg_for,
     display_range,
-    hhmm,
-    minutes_of,
+    editor_value,
     switch_command,
     switch_enabled,
     switch_state,
@@ -95,26 +93,6 @@ def used_commands() -> set[str]:
             else:
                 out.add(item[1])
     return out
-
-
-def editor_value(cmd: str, s: Any, units: str) -> tuple[str, Any] | None:
-    """(display text, editor value) for an inline editor from the car state; None = hide."""
-    if cmd == "set_temp":
-        if s.target_temp_c is None:
-            return None
-        return fmt.temp(s.target_temp_c, units), fmt.temp_to_display(s.target_temp_c, units)
-    if cmd == "set_charge_limit":
-        return None if s.charge_limit is None else (f"{s.charge_limit} %", s.charge_limit)
-    if cmd == "set_charge_amps":
-        a = s.charge_current_request_a
-        return None if a is None else (f"{a} A", a)
-    if cmd == "set_scheduled_charging":
-        m = minutes_of(s.scheduled_charging_start)
-        return (hhmm(m) if m is not None else _tr("off")), m
-    if cmd == "set_scheduled_departure":
-        m = minutes_of(s.scheduled_departure) if s.scheduled_charging_mode != "Off" else None
-        return (hhmm(m) if m is not None else _tr("off")), m
-    return None
 
 
 class ControlsTab(QWidget):
