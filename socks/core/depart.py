@@ -20,6 +20,7 @@ Edge rules:
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -142,13 +143,15 @@ async def arm(router: Any, plan: DeparturePlan, now: datetime | None = None) -> 
         ),
     ]
     results: list[str] = []
-    for cmd, arg, what in steps:
-        try:
-            note = await router.send(cmd, arg)
-        except CommandError as e:
-            results.append(f"{FAILED}: {_label(cmd)} {what}: {e}")
-            return results
-        results.append(f"{OK}: {_label(cmd)} {what}" + (f" ({note})" if note else ""))
+    hold = getattr(router, "hold", None)  # keep the BLE link up between the steps
+    async with hold() if hold is not None else contextlib.nullcontext():
+        for cmd, arg, what in steps:
+            try:
+                note = await router.send(cmd, arg)
+            except CommandError as e:
+                results.append(f"{FAILED}: {_label(cmd)} {what}: {e}")
+                return results
+            results.append(f"{OK}: {_label(cmd)} {what}" + (f" ({note})" if note else ""))
     if plan.depart_at - now > timedelta(hours=24):
         results.append(
             f"{NOTE}: the car repeats the departure daily, so it will also prepare at "

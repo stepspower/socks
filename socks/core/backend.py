@@ -22,7 +22,7 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
@@ -39,6 +39,7 @@ log = logging.getLogger(__name__)
 BLE_CONNECT_TIMEOUT = 20.0
 COMMAND_TIMEOUT = 15.0
 WAKE_TIMEOUT = 30.0
+BLE_IDLE_TIMEOUT = 45.0  # disconnect after this long without a read/command
 PAIR_TIMEOUT = 60.0
 PAIR_ROLES = ("driver", "owner")
 
@@ -620,8 +621,13 @@ def _timeout_for(cmd: Command, command_timeout: float, wake_timeout: float) -> f
 class BleBackend:
     """Talks to the car directly over Bluetooth LE (BlueZ via bleak; no cloud, no cost).
 
-    The GATT link is opened lazily and kept until :meth:`close`; library keepalive is off so
-    the car can still go to sleep. ``vehicle_factory`` exists for tests only.
+    Connect on demand, disconnect when idle: the GATT link is opened by the first read or
+    command and closed ``idle_timeout`` seconds (default 45) after the last one, so SOCKS
+    does not occupy one of the car's few BLE connection slots or keep it from sleeping.
+    The vehicle object (found device, signing sessions) is kept, so reconnects are quick.
+    ``async with ble.hold():`` keeps the link up across a sequence of calls (drive mode,
+    Depart-by arm); ``idle_timeout`` may also be raised (e.g. 120 s in drive mode).
+    Library keepalive is off. ``vehicle_factory`` exists for tests only.
     """
 
     name = Source.BLE
@@ -637,9 +643,14 @@ class BleBackend:
         vehicle_factory: Callable[[], Any] | None = None,
         car_name: str | None = None,
         clock: Callable[[], datetime] = _utcnow,
+        idle_timeout: float = BLE_IDLE_TIMEOUT,
     ) -> None:
         self.vin = vin
         self.car_name = car_name or None  # user override (Settings.car_name)
+        self.idle_timeout = idle_timeout  # seconds; <= 0 disconnects right after each call
+        self._idle_task: asyncio.Task[None] | None = None
+        self._holds = 0
+        self._link_up = False
         self.key_path = key_path
         self.connect_timeout = connect_timeout
         self.command_timeout = command_timeout
@@ -676,6 +687,7 @@ class BleBackend:
                 if vehicle.get_device() is None:
                     await vehicle.find_vehicle()
                 await vehicle.connect_if_needed()
+            self._link_up = True
         except KeyFileError as e:
             raise NotAvailable(f"Bluetooth: {e}") from None
         except TimeoutError:
@@ -698,7 +710,7 @@ class BleBackend:
         tesla-fleet-api only has a per-vehicle ``wake_if_asleep`` attribute (read at send
         time), so it is set for the duration of this read, under the backend lock.
         """
-        async with self._lock:
+        async with self._session():
             vehicle = await self._connected()
             vehicle.wake_if_asleep = wake
             try:
@@ -750,7 +762,7 @@ class BleBackend:
         """
         if role not in PAIR_ROLES:
             raise CommandError(f"role must be one of {', '.join(PAIR_ROLES)}")
-        async with self._lock:
+        async with self._session():
             vehicle = await self._connected()
             from tesla_protocol.command.keys_pb2 import Role
             from tesla_protocol.command.vcsec_pb2 import KeyFormFactor
@@ -777,7 +789,7 @@ class BleBackend:
             arg = validate_arg(cmd, arg)
         except ValueError as e:
             raise CommandError(str(e)) from None
-        async with self._lock:
+        async with self._session():
             vehicle = await self._connected()
             with _guard(f"Bluetooth {cmd.value}", command=True):
                 async with asyncio.timeout(
@@ -786,10 +798,59 @@ class BleBackend:
                     result = await _dispatch(vehicle, cmd, arg, self.wake_timeout, cloud=False)
             return _check_result(result, cmd)
 
-    async def close(self) -> None:
-        vehicle, self._vehicle = self._vehicle, None
-        if vehicle is None:
+    # ------------------------------------------------------------ link lifetime
+
+    @property
+    def connected(self) -> bool:
+        """True while the GATT link is up (for the status chip)."""
+        vehicle = self._vehicle
+        if vehicle is None or not self._link_up:
+            return False
+        client = getattr(vehicle, "__dict__", {}).get("client")
+        return True if client is None else bool(getattr(client, "is_connected", False))
+
+    @contextlib.asynccontextmanager
+    async def _session(self) -> AsyncIterator[None]:
+        """One read/command: no idle disconnect while it runs, timer restarts after it."""
+        self._cancel_idle()
+        try:
+            async with self._lock:
+                yield
+        finally:
+            self._schedule_idle()
+
+    @contextlib.asynccontextmanager
+    async def hold(self) -> AsyncIterator[None]:
+        """Keep the link up across several calls; the idle timer restarts on exit."""
+        self._holds += 1
+        self._cancel_idle()
+        try:
+            yield
+        finally:
+            self._holds -= 1
+            self._schedule_idle()
+
+    def _cancel_idle(self) -> None:
+        task, self._idle_task = self._idle_task, None
+        if task is not None and not task.done():
+            task.cancel()
+
+    def _schedule_idle(self) -> None:
+        self._cancel_idle()
+        if self._holds or self._vehicle is None or not self._link_up:
             return
+        self._idle_task = asyncio.get_running_loop().create_task(self._idle_disconnect())
+
+    async def _idle_disconnect(self) -> None:
+        await asyncio.sleep(max(0.0, self.idle_timeout))
+        self._idle_task = None  # past this point a new call waits for the lock instead
+        async with self._lock:
+            if self._holds or self._vehicle is None:
+                return
+            await self._disconnect(self._vehicle)
+
+    async def _disconnect(self, vehicle: Any) -> None:
+        self._link_up = False
         try:
             async with asyncio.timeout(5):
                 await vehicle.disconnect()
@@ -797,6 +858,13 @@ class BleBackend:
             if not _wrappable(e):
                 raise
             log.debug("BLE disconnect failed: %s", _describe(e))
+
+    async def close(self) -> None:
+        """Disconnect now (app quit) and forget the vehicle object."""
+        self._cancel_idle()
+        vehicle, self._vehicle = self._vehicle, None
+        if vehicle is not None:
+            await self._disconnect(vehicle)
 
 
 def _to_dict(message: Any, *, all_fields: bool = False) -> dict[str, Any]:
@@ -1085,6 +1153,16 @@ class Router(Backend):
         message = "car not reachable. " + "; ".join(reasons)
         self.last_error = message
         raise NotAvailable(message)
+
+    @contextlib.asynccontextmanager
+    async def hold(self) -> AsyncIterator[None]:
+        """Keep the BLE link up for a sequence of calls (no-op without BLE support)."""
+        hold = getattr(self.ble, "hold", None)
+        if hold is None:
+            yield
+            return
+        async with hold():
+            yield
 
     async def close(self) -> None:
         for backend in (self.ble, self.cloud):

@@ -995,3 +995,79 @@ async def test_ble_read_reports_rssi_without_scan(key_path: Path) -> None:
     assert s.ble_rssi_dbm == -71 and "find" not in vehicle.calls
     vehicle2 = FakeBleVehicle()  # plain object() device: no BlueZ props -> None
     assert (await _ble(key_path, vehicle2).read_state()).ble_rssi_dbm is None
+
+
+class LinkVehicle(FakeBleVehicle):
+    """Fake with a real link state: connect_if_needed only connects when down."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.up = False
+        self.connects = 0
+        self.disconnects = 0
+
+    async def connect_if_needed(self) -> None:
+        if not self.up:
+            self.up = True
+            self.connects += 1
+
+    async def disconnect(self) -> bool:
+        self.up = False
+        self.disconnects += 1
+        return True
+
+
+def _link_ble(key_path: Path, vehicle: LinkVehicle, idle: float) -> BleBackend:
+    return BleBackend(
+        VIN, key_path, vehicle_factory=lambda: vehicle, clock=lambda: TS, idle_timeout=idle
+    )
+
+
+async def test_ble_idle_disconnect_and_reconnect(key_path: Path) -> None:
+    import asyncio
+
+    vehicle = LinkVehicle()
+    ble = _link_ble(key_path, vehicle, 0.05)
+    assert not ble.connected
+    await ble.read_state()
+    await ble.send(Command.FLASH_LIGHTS)  # within the idle window: same link
+    assert vehicle.connects == 1 and ble.connected
+    await asyncio.sleep(0.15)
+    assert vehicle.disconnects == 1 and not ble.connected
+    await ble.read_state()  # reconnect on demand, no rescan
+    assert vehicle.connects == 2 and vehicle.calls.count("find") == 1
+    await ble.close()
+    assert vehicle.disconnects == 2 and not ble.connected
+
+
+async def test_ble_hold_prevents_idle_disconnect(key_path: Path) -> None:
+    import asyncio
+
+    vehicle = LinkVehicle()
+    ble = _link_ble(key_path, vehicle, 0.05)
+    async with ble.hold():
+        await ble.send(Command.SET_CHARGE_LIMIT, 80)
+        await asyncio.sleep(0.15)
+        await ble.send(Command.SET_TEMP, 21)
+        assert vehicle.disconnects == 0 and vehicle.connects == 1
+    await asyncio.sleep(0.15)
+    assert vehicle.disconnects == 1
+    router = Router(ble, None)
+    async with router.hold():
+        await router.send(Command.LOCK)
+        await asyncio.sleep(0.15)
+        assert ble.connected
+    await ble.close()
+
+
+async def test_ble_idle_timeout_override(key_path: Path) -> None:
+    import asyncio
+
+    vehicle = LinkVehicle()
+    ble = _link_ble(key_path, vehicle, 0.05)
+    ble.idle_timeout = 10  # e.g. drive mode
+    await ble.read_state()
+    await asyncio.sleep(0.15)
+    assert ble.connected and vehicle.disconnects == 0
+    await ble.close()
+    assert not ble.connected and vehicle.disconnects == 1
