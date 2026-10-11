@@ -9,6 +9,8 @@ BODY:
 
 SOCKS is a free Linux desktop app. The name is State Of Charge, Keys & Stats; the acronym came first, so it is what it is.
 
+SOCKS = State Of Charge, Keys & Stats. SoC is the battery term for state of charge, hence the sock with a lightning bolt.
+
 How it works: the app holds its own key, paired with your key card like a phone key, then talks to the car over Bluetooth LE. No Tesla cloud account is needed. The Fleet API is optional, for out of range.
 
 What it does: status and slide switches (lock, sentry, port, frunk/trunk, climate); one-off "Depart by" (time, charge %, cabin temp); local SQLite history (drives, charges, efficiency, battery health, learned places, yearly km-register export). Location and OpenStreetMap labels are opt-in. With the cloud on, it can fetch Supercharger invoice PDFs.

@@ -26,6 +26,8 @@ SOCKS: open-source Linux app for Tesla over Bluetooth, no cloud account needed
 
 I built a Linux desktop app for Tesla. It talks to the car over Bluetooth with its own key, paired with your key card, so no Tesla cloud account is needed. The Fleet API is optional, for when you are out of range.
 
+SOCKS = State Of Charge, Keys & Stats. SoC is the battery term for state of charge, hence the sock with a lightning bolt.
+
 Status has slide switches for lock, sentry, port, frunk/trunk and climate, plus click-to-change values. There is a one-off "Depart by" (time, charge %, cabin temperature). History is local SQLite: drives, charges, efficiency, battery health, learned places, and a yearly km-register export. Location is opt-in; so are OpenStreetMap labels.
 
 Limits: the laptop must be within Bluetooth range (about 10 m). Cloud costs money beyond Tesla's $10/month discount. Tesla's trip history isn't in the API, so history only grows from what the app sees.
@@ -73,6 +75,8 @@ SOCKS: open-source Linux desktop app for Model 3/Y (Bluetooth key, local history
 
 SOCKS is a free Linux desktop app. The name is State Of Charge, Keys & Stats; the acronym came first, so it is what it is.
 
+SOCKS = State Of Charge, Keys & Stats. SoC is the battery term for state of charge, hence the sock with a lightning bolt.
+
 How it works: the app holds its own key, paired with your key card like a phone key, then talks to the car over Bluetooth LE. No Tesla cloud account is needed. The Fleet API is optional, for out of range.
 
 What it does: status and slide switches (lock, sentry, port, frunk/trunk, climate); one-off "Depart by" (time, charge %, cabin temp); local SQLite history (drives, charges, efficiency, battery health, learned places, yearly km-register export). Location and OpenStreetMap labels are opt-in. With the cloud on, it can fetch Supercharger invoice PDFs.
@@ -99,6 +103,8 @@ Show HN: SOCKS, a Linux desktop app for Tesla over Bluetooth, no cloud
 **First comment** (about 195 words)
 
 Hi, author here. I wanted my car's charge state and my own record of drives and charges on a laptop, without a service holding the data or paying for API access to read a battery percentage.
+
+SOCKS = State Of Charge, Keys & Stats. SoC is the battery term for state of charge, hence the sock with a lightning bolt.
 
 Tesla's BLE protocol lets any device act as a key: you generate a key pair, the car shows a prompt, and you tap your key card to authorise the public key. After that the laptop talks to the car directly over Bluetooth LE, with signed commands. SOCKS implements no crypto; it uses Tesla's open source `tesla-fleet-api`. The private key stays in `~/.config/socks/` (0600); revoke it from the car's Locks screen.
 

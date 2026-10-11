@@ -9,6 +9,8 @@ FIRST COMMENT:
 
 Hi, author here. I wanted my car's charge state and my own record of drives and charges on a laptop, without a service holding the data or paying for API access to read a battery percentage.
 
+SOCKS = State Of Charge, Keys & Stats. SoC is the battery term for state of charge, hence the sock with a lightning bolt.
+
 Tesla's BLE protocol lets any device act as a key: you generate a key pair, the car shows a prompt, and you tap your key card to authorise the public key. After that the laptop talks to the car directly over Bluetooth LE, with signed commands. SOCKS implements no crypto; it uses Tesla's open source `tesla-fleet-api`. The private key stays in `~/.config/socks/` (0600); revoke it from the car's Locks screen.
 
 The Fleet API is optional, for remote access; it needs a developer app and a domain, and costs money past Tesla's $10/month discount. The car's own trip history is not available via the API, so history is built only from what the app sees.

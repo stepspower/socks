@@ -9,6 +9,8 @@ BODY:
 
 I built a Linux desktop app for Tesla. It talks to the car over Bluetooth with its own key, paired with your key card, so no Tesla cloud account is needed. The Fleet API is optional, for when you are out of range.
 
+SOCKS = State Of Charge, Keys & Stats. SoC is the battery term for state of charge, hence the sock with a lightning bolt.
+
 Status has slide switches for lock, sentry, port, frunk/trunk and climate, plus click-to-change values. There is a one-off "Depart by" (time, charge %, cabin temperature). History is local SQLite: drives, charges, efficiency, battery health, learned places, and a yearly km-register export. Location is opt-in; so are OpenStreetMap labels.
 
 Limits: the laptop must be within Bluetooth range (about 10 m). Cloud costs money beyond Tesla's $10/month discount. Tesla's trip history isn't in the API, so history only grows from what the app sees.
