@@ -1,0 +1,5 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 stepspower
+# Launcher for the distro packages: puts the bundled Python dependencies first on sys.path.
+exec python3 -c 'import sys; sys.path.insert(0, "@VENDOR@"); from socks.core.cli import main; sys.exit(main())' "$@"

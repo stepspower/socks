@@ -1,0 +1,35 @@
+#!/usr/bin/make -f
+export PYBUILD_NAME=socks
+VENDOR=/usr/lib/socks-tesla/vendor
+D=debian/socks-tesla
+
+%:
+	dh $@ --buildsystem=pybuild
+
+# The bundled dependencies are wheels downloaded at build time, so this package must be built
+# with network access (GitHub release CI), not in the Debian archive.
+override_dh_auto_install:
+	dh_auto_install
+	rm -f $(D)/usr/bin/socks $(D)/usr/bin/socks-cli
+	python3 -m pip install --no-deps --require-hashes --only-binary=:all: --disable-pip-version-check \
+	  --target $(D)$(VENDOR) -r packaging/vendor/requirements.txt
+	rm -rf $(D)$(VENDOR)/bin $(D)$(VENDOR)/*.dist-info/RECORD
+	install -d $(D)/usr/bin
+	sed 's#@VENDOR@#$(VENDOR)#' packaging/wrapper/socks > $(D)/usr/bin/socks
+	sed 's#@VENDOR@#$(VENDOR)#' packaging/wrapper/socks-cli > $(D)/usr/bin/socks-cli
+	chmod 0755 $(D)/usr/bin/socks $(D)/usr/bin/socks-cli
+	install -Dm644 packaging/net.stepspower.Socks.desktop -t $(D)/usr/share/applications
+	install -Dm644 packaging/net.stepspower.Socks.metainfo.xml -t $(D)/usr/share/metainfo
+	install -Dm644 socks/gui/icons/socks.svg \
+	  $(D)/usr/share/icons/hicolor/scalable/apps/net.stepspower.Socks.svg
+	install -Dm644 socks/gui/icons/socks-symbolic.svg \
+	  $(D)/usr/share/icons/hicolor/symbolic/apps/net.stepspower.Socks-symbolic.svg
+	cp -r data/icons/hicolor/. $(D)/usr/share/icons/hicolor/
+
+# Bundled wheels carry their own compiled libraries and bytecode: leave them alone.
+override_dh_strip:
+override_dh_dwz:
+override_dh_shlibdeps:
+override_dh_python3:
+	dh_python3 --no-guessing-deps
+override_dh_auto_test:

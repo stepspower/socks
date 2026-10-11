@@ -1,0 +1,26 @@
+# Maintainer: stepspower <security@stepspower.net>
+# Not in the official repos or the AUR (checked 2026-10-11); required by socks-tesla.
+_name=tesla_fleet_api
+pkgname=python-tesla-fleet-api
+pkgver=1.17.3
+pkgrel=1
+pkgdesc='Python library for the Tesla Fleet API and the vehicle BLE command protocol'
+arch=(any)
+url='https://pypi.org/project/tesla-fleet-api/'
+license=(Apache-2.0)
+depends=(python python-aiohttp python-aiofiles python-aiolimiter python-cryptography
+         'python-protobuf>=6.33.5' python-tesla-protocol python-bleak python-bleak-retry-connector)
+makedepends=(python-build python-installer python-wheel python-setuptools)
+source=("https://files.pythonhosted.org/packages/source/t/tesla-fleet-api/${_name}-${pkgver}.tar.gz")
+sha256sums=('44ae1bbcd2b12579f0488ac87d6d27a0ce143cf1878437f91051cb6c29454c0a')
+
+build() {
+  cd "${_name}-${pkgver}"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "${_name}-${pkgver}"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
+}

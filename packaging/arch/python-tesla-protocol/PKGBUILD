@@ -1,0 +1,23 @@
+# Maintainer: stepspower <security@stepspower.net>
+_name=tesla_protocol
+pkgname=python-tesla-protocol
+pkgver=4.0.0
+pkgrel=1
+pkgdesc='Tesla vehicle protocol buffers for Python (dependency of tesla-fleet-api)'
+arch=(any)
+url='https://pypi.org/project/tesla-protocol/'
+license=(Apache-2.0)
+depends=(python 'python-protobuf>=6.33.5' 'python-googleapis-common-protos>=1.60')
+makedepends=(python-build python-installer python-wheel python-setuptools)
+source=("https://files.pythonhosted.org/packages/source/t/tesla-protocol/${_name}-${pkgver}.tar.gz")
+sha256sums=('4a76f19b89889d0536246126e3d8357501f81932a9685c28176db4e3da9c34a5')
+
+build() {
+  cd "${_name}-${pkgver}"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "${_name}-${pkgver}"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+}

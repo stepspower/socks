@@ -1,0 +1,24 @@
+pkgbase = python-tesla-fleet-api
+	pkgdesc = Python library for the Tesla Fleet API and the vehicle BLE command protocol
+	pkgver = 1.17.3
+	pkgrel = 1
+	url = https://pypi.org/project/tesla-fleet-api/
+	arch = any
+	license = Apache-2.0
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-setuptools
+	depends = python
+	depends = python-aiohttp
+	depends = python-aiofiles
+	depends = python-aiolimiter
+	depends = python-cryptography
+	depends = python-protobuf>=6.33.5
+	depends = python-tesla-protocol
+	depends = python-bleak
+	depends = python-bleak-retry-connector
+	source = https://files.pythonhosted.org/packages/source/t/tesla-fleet-api/tesla_fleet_api-1.17.3.tar.gz
+	sha256sums = 44ae1bbcd2b12579f0488ac87d6d27a0ce143cf1878437f91051cb6c29454c0a
+
+pkgname = python-tesla-fleet-api

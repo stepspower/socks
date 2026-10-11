@@ -10,7 +10,8 @@
   </developer>
   <launchable type="desktop-id">net.stepspower.Socks.desktop</launchable>
   <description>
-    <p>SOCKS (State Of Charge, Keys and Stats) is a lean, fast desktop companion for your Tesla. It talks to the car directly over Bluetooth and, if you choose, through the Tesla Fleet API.</p>
+    <p>SOCKS for your Tesla. SOCKS stands for State Of Charge, Keys and Stats: SoC is what battery engineers call the state of charge, the one number every EV app revolves around, plus the two other things the app does. Hence the sock with a lightning bolt.</p>
+    <p>It is a lean, fast desktop companion for your Tesla. It talks to the car directly over Bluetooth and, if you choose, through the Tesla Fleet API.</p>
     <p>See charge level, range and charging state, lock and unlock, control climate and the charge port, and keep a local history of kilometres driven, charging sessions, efficiency and battery health. Everything is stored on your computer. There is no telemetry.</p>
     <p>Tesla is a trademark of Tesla, Inc. This project is not affiliated with or endorsed by Tesla, Inc.</p>
   </description>

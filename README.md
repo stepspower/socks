@@ -1,5 +1,7 @@
 # SOCKS: State Of Charge, Keys & Stats
 
+**SOCKS for your Tesla.** **SOCKS** = **S**tate **O**f **C**harge, **K**eys & **S**tats. *SoC* is what battery engineers call the state of charge, the one number every EV app revolves around, so the name is the battery term plus the two other things the app does, in the spirit of Tesla naming things Plaid and Ludicrous. Hence the sock with a lightning bolt.
+
 **A lean, local-first Tesla companion for Linux: Bluetooth control, charge status, and a private history of what you drove and charged.**
 
 ![SOCKS status tab](docs/screenshots/status.png)
@@ -52,21 +54,41 @@ use `--fake` (a simulated car and synthetic data).
 
 ## Install
 
-Needs Python 3.13 and BlueZ. Step-by-step with distro package names: [docs/HOWTO.md](docs/HOWTO.md).
+Pick one. Needs a working BlueZ for Bluetooth. Step-by-step with distro package names:
+[docs/HOWTO.md](docs/HOWTO.md).
+
+**Flatpak** (any distro, recommended; Flathub listing pending, for now download `socks.flatpak`
+from the [releases page](https://github.com/stepspower/socks/releases)):
 
 ```bash
-uv tool install socks-tesla     # or: pipx install socks-tesla
+flatpak install --user socks.flatpak
 ```
 
-From source:
+**Per distro** (packages are attached to each GitHub release; they bundle the Python
+dependencies that distros lack, and use your distro's PySide6):
+
+| Distro | Command |
+|---|---|
+| Arch / Manjaro (AUR) | `yay -S socks-tesla` |
+| Fedora 42+ | enable the COPR (`sudo dnf copr enable stepspower/socks`), then `sudo dnf install socks-tesla`; or `sudo dnf install ./socks-tesla-*.rpm` from the release |
+| Debian 13 / Ubuntu 25.04+ | `sudo apt install ./socks-tesla_*.deb` from the release |
+
+Ubuntu 24.04 and Linux Mint 22 ship Python 3.12 and an older PySide6, so the .deb does not
+install there: use the Flatpak (or uv/pipx below, which fetches Python 3.13 itself).
+
+**uv or pipx** (PyPI name `socks-tesla`, Python 3.13):
+
+```bash
+uv tool install socks-tesla --python 3.13     # or: pipx install socks-tesla
+```
+
+**From source:**
 
 ```bash
 git clone https://github.com/stepspower/socks && cd socks
-uv venv --python 3.13 && uv pip install -e ".[dev]"
+uv sync --extra dev
 .venv/bin/socks
 ```
-
-Flatpak (Flathub): coming.
 
 ## Quick start
 

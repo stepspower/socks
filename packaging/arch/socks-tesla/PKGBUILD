@@ -1,0 +1,33 @@
+# Maintainer: stepspower <security@stepspower.net>
+pkgname=socks-tesla
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Tesla companion for Linux: Bluetooth control, charge status, driving and charging history'
+arch=(any)
+url='https://github.com/stepspower/socks'
+license=(GPL-3.0-or-later)
+# python-tesla-fleet-api and python-tesla-protocol are not in the official repos or the AUR yet:
+# build them first from the sibling directories (see docs/RELEASING.md).
+depends=('python>=3.13' pyside6 python-platformdirs python-tesla-fleet-api bluez hicolor-icon-theme)
+makedepends=(python-build python-installer python-wheel python-setuptools)
+checkdepends=(python-pytest python-pytest-asyncio)
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz")
+sha256sums=('SKIP') # run `updpkgsums` once the v0.1.0 tag exists
+
+build() {
+  cd "socks-$pkgver"
+  python -m build --wheel --no-isolation
+}
+
+package() {
+  cd "socks-$pkgver"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 packaging/net.stepspower.Socks.desktop -t "$pkgdir/usr/share/applications"
+  install -Dm644 packaging/net.stepspower.Socks.metainfo.xml -t "$pkgdir/usr/share/metainfo"
+  install -Dm644 socks/gui/icons/socks.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/net.stepspower.Socks.svg"
+  install -Dm644 socks/gui/icons/socks-symbolic.svg \
+    "$pkgdir/usr/share/icons/hicolor/symbolic/apps/net.stepspower.Socks-symbolic.svg"
+  cp -r data/icons/hicolor/. "$pkgdir/usr/share/icons/hicolor/"
+  install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
+}

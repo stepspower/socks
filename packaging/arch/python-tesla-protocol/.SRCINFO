@@ -1,0 +1,18 @@
+pkgbase = python-tesla-protocol
+	pkgdesc = Tesla vehicle protocol buffers for Python (dependency of tesla-fleet-api)
+	pkgver = 4.0.0
+	pkgrel = 1
+	url = https://pypi.org/project/tesla-protocol/
+	arch = any
+	license = Apache-2.0
+	makedepends = python-build
+	makedepends = python-installer
+	makedepends = python-wheel
+	makedepends = python-setuptools
+	depends = python
+	depends = python-protobuf>=6.33.5
+	depends = python-googleapis-common-protos>=1.60
+	source = https://files.pythonhosted.org/packages/source/t/tesla-protocol/tesla_protocol-4.0.0.tar.gz
+	sha256sums = 4a76f19b89889d0536246126e3d8357501f81932a9685c28176db4e3da9c34a5
+
+pkgname = python-tesla-protocol

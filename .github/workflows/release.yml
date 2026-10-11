@@ -1,0 +1,97 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  dist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - name: Build sdist and wheel
+        run: uv build --python 3.13 -o dist
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/*
+
+  deb:
+    runs-on: ubuntu-24.04
+    container: debian:trixie
+    steps:
+      - name: Install build tools
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git build-essential fakeroot \
+            debhelper dh-python pybuild-plugin-pyproject python3-all python3-setuptools python3-pip \
+            desktop-file-utils appstream
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build .deb
+        run: |
+          cp -r packaging/debian debian
+          dpkg-buildpackage -b -us -uc
+          mkdir -p out && cp ../socks-tesla_*.deb out/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: deb
+          path: out/*.deb
+
+  rpm:
+    runs-on: ubuntu-24.04
+    container: fedora:42
+    steps:
+      - name: Install build tools
+        run: dnf install -y rpm-build dnf-plugins-core python3-pip git tar gzip
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build .rpm
+        run: |
+          dnf builddep -y packaging/rpm/socks-tesla.spec
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p ~/rpmbuild/SOURCES
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git archive --format=tar.gz --prefix="socks-${VERSION}/" -o ~/rpmbuild/SOURCES/socks-${VERSION}.tar.gz HEAD
+          rpmbuild -ba packaging/rpm/socks-tesla.spec
+          mkdir -p out && cp ~/rpmbuild/RPMS/*/socks-tesla-*.rpm ~/rpmbuild/SRPMS/*.src.rpm out/
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rpm
+          path: out/*.rpm
+
+  flatpak:
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
+      options: --privileged
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: bilelmoussaoui/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
+        with:
+          bundle: socks.flatpak
+          manifest-path: packaging/flatpak/net.stepspower.Socks.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: flatpak
+          path: socks.flatpak
+
+  release:
+    needs: [dist, deb, rpm, flatpak]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Checksums
+        run: cd artifacts && sha256sum * > SHA256SUMS
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: artifacts/*
+          generate_release_notes: true

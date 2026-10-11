@@ -1,0 +1,37 @@
+Source: socks-tesla
+Section: utils
+Priority: optional
+Maintainer: stepspower <security@stepspower.net>
+Build-Depends: debhelper-compat (= 13),
+ dh-python,
+ pybuild-plugin-pyproject,
+ python3-all (>= 3.13),
+ python3-setuptools (>= 77),
+ python3-pip,
+ desktop-file-utils,
+ appstream
+Standards-Version: 4.7.0
+Homepage: https://github.com/stepspower/socks
+Rules-Requires-Root: no
+
+Package: socks-tesla
+Architecture: any
+Depends: ${python3:Depends},
+ ${misc:Depends},
+ ${shlibs:Depends},
+ python3 (>= 3.13),
+ python3-pyside6.qtcore,
+ python3-pyside6.qtgui,
+ python3-pyside6.qtwidgets,
+ bluez
+Description: Tesla companion: Bluetooth control, charge status and history
+ SOCKS (State Of Charge, Keys and Stats) talks to a Tesla over Bluetooth LE,
+ optionally through the Tesla Fleet API, shows charge status and range, sends
+ everyday commands behind a confirmation gate, and keeps a local history of
+ distance driven, charging sessions, efficiency and battery health.
+ .
+ This package bundles its Python dependencies (tesla-fleet-api, bleak,
+ protobuf, aiohttp, cryptography and friends) under /usr/lib/socks-tesla
+ because they are missing or too old in Debian. PySide6 comes from the distro.
+ .
+ Tesla is a trademark of Tesla, Inc. This project is not affiliated with it.
