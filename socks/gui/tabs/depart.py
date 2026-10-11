@@ -34,11 +34,6 @@ from socks.gui import fmt
 from socks.gui.widgets.inline import EditableValue
 from socks.gui.widgets.status_card import paint_card
 
-
-def tr(text: str) -> str:
-    return QCoreApplication.translate("DepartCard", text)
-
-
 # ---------------------------------------------------------------------- plan
 
 
@@ -102,16 +97,28 @@ def format_steps(lines: list[str]) -> tuple[str, bool]:
             head, _s, reason = rest.partition(": ")
             name, what = _step_name(head)
             if not name:  # plan validation / transport error without a step
-                out.append(tr("Not set: {0}").format(rest))
+                out.append(QCoreApplication.translate("DepartCard", "Not set: {0}").format(rest))
             else:
-                out.append(tr("{0} {1} — failed: {2}").format(name, what, reason))
+                out.append(
+                    QCoreApplication.translate("DepartCard", "{0} {1} — failed: {2}").format(
+                        name, what, reason
+                    )
+                )
             continue
         name, what = _step_name(rest)
         if "already" in what.lower():
             what = what.replace("(already set)", "").strip()
-            out.append(tr("{0} {1} — already set").format(name or rest, what))
+            out.append(
+                QCoreApplication.translate("DepartCard", "{0} {1} — already set").format(
+                    name or rest, what
+                )
+            )
         else:
-            out.append(tr("{0} {1} — ok").format(name or rest, what).strip())
+            out.append(
+                QCoreApplication.translate("DepartCard", "{0} {1} — ok")
+                .format(name or rest, what)
+                .strip()
+            )
     return "\n".join(out), failed
 
 

@@ -8,7 +8,9 @@ from PySide6.QtCore import QEvent, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPalette
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
-from socks.gui.widgets.colors import accent, muted, warn
+from socks.gui.widgets.colors import accent, muted, ok, warn
+
+SIGNAL_BARS = {"strong": 3, "ok": 2, "weak": 1}
 
 
 def card_color(pal: QPalette) -> QColor:
@@ -139,14 +141,22 @@ class Chip(QWidget):
     def text(self) -> str:
         return self._text
 
-    def set_chip(self, text: str, level: str = "normal") -> None:
+    def set_chip(self, text: str, level: str = "normal", signal: str | None = None) -> None:
+        """``signal``: "strong" | "ok" | "weak" draws a 3-bar glyph before the text."""
         self._text, self._level = text, level
+        self._signal = signal if signal in SIGNAL_BARS else None
         self.updateGeometry()
         self.update()
 
+    def signal(self) -> str | None:
+        return getattr(self, "_signal", None)
+
+    def _glyph_w(self) -> int:
+        return 16 if self.signal() else 0
+
     def sizeHint(self) -> QSize:
         fm = self.fontMetrics()
-        return QSize(fm.horizontalAdvance(self._text) + 20, fm.height() + 6)
+        return QSize(fm.horizontalAdvance(self._text) + 20 + self._glyph_w(), fm.height() + 6)
 
     def paintEvent(self, _e: QPaintEvent) -> None:
         pal = self.palette()
@@ -162,6 +172,22 @@ class Chip(QWidget):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(bg)
         p.drawRoundedRect(r, r.height() / 2, r.height() / 2)
+        sig = self.signal()
+        if sig:
+            # 3 rising bars; filled ones coloured by quality, the rest faint
+            filled = SIGNAL_BARS[sig]
+            col = {"strong": ok(pal), "ok": QColor(fg), "weak": warn(pal)}[sig]
+            if sig != "ok":  # keep contrast on the accent pill
+                col = col.lighter(150) if bg.lightness() < 128 else col.darker(110)
+            faint = QColor(fg)
+            faint.setAlphaF(0.35)
+            h = r.height() - 8
+            for i in range(3):
+                bh = h * (i + 1) / 3
+                x = r.left() + 9 + i * 4
+                p.setBrush(col if i < filled else faint)
+                p.drawRect(QRectF(x, r.bottom() - 4 - bh, 3, bh))
+            r = r.adjusted(self._glyph_w(), 0, 0, 0)
         p.setPen(fg)
         p.drawText(r, Qt.AlignmentFlag.AlignCenter, self._text)
         p.end()

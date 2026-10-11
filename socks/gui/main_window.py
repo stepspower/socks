@@ -52,6 +52,7 @@ from socks.gui.location import (
     rename_place,
     set_purpose,
 )
+from socks.gui.retry import is_transport_failure, weak_signal, with_retries
 from socks.gui.tabs.controls import ControlsTab
 from socks.gui.tabs.depart import error_text, format_steps, result_failed
 from socks.gui.tabs.history import HistoryTab
@@ -266,7 +267,12 @@ class MainWindow(QMainWindow):
             if ble_only and not self.ctx.fake and backend.ble is not None:
                 backend = backend.ble
             loc = self._location_enabled()
-            state = await self.bridge.io(backend.read_state(wake=wake, include_location=loc))
+            state = await with_retries(
+                self.bridge,
+                lambda: backend.read_state(wake=wake, include_location=loc),
+                retry=not poll,  # polls: one attempt, don't hammer a weak link
+                on_retry=self._show_retry,
+            )
         except Exception as exc:  # noqa: BLE001 - shown inline, never a modal
             self.trip_watch.on_error(exc)
             await self._record_unavailable(is_asleep(exc))
@@ -279,7 +285,9 @@ class MainWindow(QMainWindow):
                 self._tick_age()
                 return
             log.warning("refresh failed: %s", msg, exc_info=exc if self.ctx.debug else None)
-            self.statusBar().showMessage(self.tr("Refresh failed: {0}").format(msg))
+            self.statusBar().showMessage(
+                self.tr("Refresh failed: {0}").format(msg) + self._weak_hint(exc)
+            )
             return
         finally:
             self.status_tab.set_busy(False)
@@ -290,6 +298,17 @@ class MainWindow(QMainWindow):
         await self._record(state)
         await self._update_location(state)
         await self._maintain_departure()
+
+    def _show_retry(self, attempt: int, attempts: int) -> None:
+        self.statusBar().showMessage(self.tr("retrying ({0}/{1})…").format(attempt, attempts))
+
+    def _weak_hint(self, exc: BaseException) -> str:
+        if not is_transport_failure(exc):
+            return ""
+        rssi = self._last.ble_rssi_dbm if self._last is not None else None
+        if not weak_signal(rssi):
+            return ""
+        return " — " + self.tr("weak Bluetooth signal — move closer to the car or press Refresh")
 
     def _show_state(self, s: Any) -> None:
         self._last = s
@@ -575,9 +594,12 @@ class MainWindow(QMainWindow):
     async def _send(self, cmd: Any, arg: Any, label: str) -> None:
         self.controls_tab.set_busy(cmd)
         try:
-            await self.bridge.io(self._get_backend().send(cmd, arg))
+            backend = self._get_backend()
+            await with_retries(
+                self.bridge, lambda: backend.send(cmd, arg), retry=True, on_retry=self._show_retry
+            )
         except Exception as exc:  # noqa: BLE001 - shown inline, never a modal
-            msg = describe(exc)
+            msg = describe(exc) + self._weak_hint(exc)
             if getattr(exc, "maybe_executed", False):
                 msg += " (the car may have executed it; check before retrying)"
             log.warning("%s failed: %s", label, msg, exc_info=exc if self.ctx.debug else None)

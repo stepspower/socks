@@ -37,6 +37,20 @@ from socks.gui.widgets.status_card import Chip, StatusCard
 STALE_SECONDS = 15 * 60
 
 
+def ble_signal(rssi: int) -> tuple[str, str]:
+    """(signal label strong/ok/weak, rounded distance) from core.ble, or a local fallback."""
+    try:
+        from socks.core.ble import estimate_distance_m, signal_label
+    except ImportError:  # until core ships socks/core/ble.py
+        label = "strong" if rssi >= -65 else "ok" if rssi >= -80 else "weak"
+        dist = 10 ** ((-59 - rssi) / 20)  # log-distance model, 1 m reference −59 dBm, n = 2
+    else:
+        label, dist = signal_label(rssi), estimate_distance_m(rssi)
+    if dist is None:
+        return label, "?"
+    return label, f"{dist:.0f}" if dist >= 2 else f"{dist:.1f}"
+
+
 def osm_url(lat: float, lon: float) -> str:
     return (
         f"https://www.openstreetmap.org/?mlat={lat:.5f}&mlon={lon:.5f}#map=16/{lat:.5f}/{lon:.5f}"
@@ -438,8 +452,16 @@ class StatusTab(QWidget):
         ts = s.ts if s.ts.tzinfo else s.ts.replace(tzinfo=UTC)
         old = (datetime.now(UTC) - ts).total_seconds() > STALE_SECONDS
         src = s.source.value.upper()
-        self.chip.set_chip(f"{src} · {fmt.age(ts)}", "warn" if old else "normal")
-        self.chip.setToolTip(self.tr("Read at {0}").format(fmt.local_time(ts, with_date=True)))
+        text = f"{src} · {fmt.age(ts)}"
+        tip = self.tr("Read at {0}").format(fmt.local_time(ts, with_date=True))
+        rssi = s.ble_rssi_dbm if s.source.value == "ble" else None
+        label = None
+        if rssi is not None:
+            label, dist = ble_signal(rssi)
+            text += " · " + self.tr("{0} dBm · ~{1} m").format(f"{rssi:d}".replace("-", "−"), dist)
+            tip += "\n" + self.tr("Bluetooth signal strength; distance is a rough estimate")
+        self.chip.set_chip(text, "warn" if old else "normal", label)
+        self.chip.setToolTip(tip)
         self.chip.setAccessibleName(self.tr("Data source {0}, {1}").format(src, fmt.age(ts)))
 
     def focus_default(self) -> None:
