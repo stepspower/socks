@@ -49,6 +49,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument(
         "--measure-startup", action="store_true", help="print time to first paint and exit"
     )
+    p.add_argument("--wizard", action="store_true", help="open the setup wizard")
     p.add_argument("--screenshot", metavar="PATH", help=argparse.SUPPRESS)
     p.add_argument("--tab", type=int, default=0, help=argparse.SUPPRESS)
     # Qt's own options (-platform, -style …) are consumed by QApplication.
@@ -137,6 +138,7 @@ def main(argv: list[str] | None = None) -> int:
         settings = d.config.Settings.load()
         cfg_dir = _config_dir(d)
     prefs = QSettings(str(cfg_dir / "gui.ini"), QSettings.Format.IniFormat)
+    extras["config_dir"] = cfg_dir
     ctx = AppContext(d, settings, args.fake, args.debug, icon, handler, prefs, extras)
     win = MainWindow(ctx)
     win.tabs.setCurrentIndex(max(0, min(3, args.tab)))
@@ -195,6 +197,13 @@ def _first_paint(args: argparse.Namespace, win: object) -> None:
     # The first read happens only after the window is on screen. With the cloud
     # preferred we wait for an explicit Refresh (each read costs money).
     settings = win.ctx.settings  # type: ignore[attr-defined]
+    from socks.gui.wizard import needs_setup
+
+    # First run (no VIN or no key) opens the wizard instead of reading. --fake starts
+    # without either, so there it opens only with --wizard.
+    if args.wizard or (not args.fake and needs_setup(settings)):
+        QTimer.singleShot(0, win.open_wizard)  # type: ignore[attr-defined]
+        return
     if args.fake or getattr(settings, "prefer", "ble") == "ble":
         QTimer.singleShot(0, win.first_read)  # type: ignore[attr-defined]
 

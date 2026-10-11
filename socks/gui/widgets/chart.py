@@ -11,10 +11,21 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Sequence
 from datetime import date, datetime
+from pathlib import Path
 
-from PySide6.QtCore import QPointF, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, QPainterPath, QPaintEvent, QPalette, QPen
-from PySide6.QtWidgets import QSizePolicy, QToolTip, QWidget
+from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import (
+    QColor,
+    QContextMenuEvent,
+    QImage,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPaintEvent,
+    QPalette,
+    QPen,
+)
+from PySide6.QtWidgets import QFileDialog, QMenu, QSizePolicy, QToolTip, QWidget
 
 from socks.gui.widgets.colors import accent, muted
 
@@ -39,6 +50,9 @@ def _nice_max(v: float) -> float:
 
 
 class Chart(QWidget):
+    #: (path, success) after a PNG/SVG export
+    saved = Signal(str, bool)
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._kind = "line"
@@ -89,15 +103,17 @@ class Chart(QWidget):
 
     # ---------------------------------------------------------------- geometry
 
-    def _plot_rect(self) -> QRectF:
+    def _plot_rect(self, w: float | None = None, h: float | None = None) -> QRectF:
+        w = self.width() if w is None else w
+        h = self.height() if h is None else h
         fm = self.fontMetrics()
         left = fm.horizontalAdvance(self._yfmt(self._top())) + 12
         top = fm.height() + 8 if self._title else 8
         return QRectF(
             left,
             top,
-            max(10, self.width() - left - 10),
-            max(10, self.height() - top - fm.height() - 12),
+            max(10, w - left - 10),
+            max(10, h - top - fm.height() - 12),
         )
 
     def _top(self) -> float:
@@ -118,22 +134,52 @@ class Chart(QWidget):
     # ------------------------------------------------------------------ paint
 
     def paintEvent(self, _e: QPaintEvent) -> None:
-        pal = self.palette()
         p = QPainter(self)
+        self._paint(p, self.width(), self.height())
+        p.end()
+
+    def save_image(self, path: str, kind: str) -> bool:
+        """Render the chart (same QPainter code) to PNG or SVG at the current size."""
+        w, h = max(self.width(), 480), max(self.height(), 220)
+        bg = self.palette().color(QPalette.ColorRole.Window)
+        if kind == "svg":
+            from PySide6.QtSvg import QSvgGenerator
+
+            gen = QSvgGenerator()
+            gen.setFileName(path)
+            gen.setSize(QSize(w, h))
+            gen.setViewBox(QRectF(0, 0, w, h))
+            gen.setTitle(self._title or "SOCKS chart")
+            gen.setDescription("Exported from SOCKS")
+            p = QPainter(gen)
+            p.fillRect(QRectF(0, 0, w, h), bg)
+            self._paint(p, w, h)
+            return p.end()
+        scale = 2
+        img = QImage(w * scale, h * scale, QImage.Format.Format_ARGB32)
+        img.fill(bg)
+        p = QPainter(img)
+        p.scale(scale, scale)
+        self._paint(p, w, h)
+        p.end()
+        return img.save(path, "PNG")
+
+    def _paint(self, p: QPainter, width: float, height: float) -> None:
+        pal = self.palette()
+        p.setFont(self.font())
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         fm = self.fontMetrics()
         if self._title:
             p.setPen(pal.color(QPalette.ColorRole.WindowText))
             p.drawText(
-                QRectF(0, 0, self.width(), fm.height() + 4),
+                QRectF(0, 0, width, fm.height() + 4),
                 Qt.AlignmentFlag.AlignHCenter,
                 self._title,
             )
-        r = self._plot_rect()
+        r = self._plot_rect(width, height)
         if not self._pts:
             p.setPen(muted(pal))
             p.drawText(r, Qt.AlignmentFlag.AlignCenter, "No data yet")
-            p.end()
             return
 
         grid = QColor(pal.color(QPalette.ColorRole.Mid))
@@ -186,7 +232,23 @@ class Chart(QWidget):
             p.fillPath(fill, area)
             p.setPen(QPen(col, 2))
             p.drawPath(path)
-        p.end()
+
+    # ----------------------------------------------------------- context menu
+
+    def contextMenuEvent(self, e: QContextMenuEvent) -> None:
+        menu = QMenu(self)
+        menu.addAction("Save as &PNG…", lambda: self.save_dialog("png"))
+        menu.addAction("Save as &SVG…", lambda: self.save_dialog("svg"))
+        menu.exec(e.globalPos())
+
+    def save_dialog(self, kind: str) -> None:
+        name = (self._title or "chart").split(" (")[0].lower().replace(" ", "-")
+        start = str(Path.home() / f"socks-{name}.{kind}")
+        flt = "PNG image (*.png)" if kind == "png" else "SVG image (*.svg)"
+        path, _f = QFileDialog.getSaveFileName(self, f"Save chart as {kind.upper()}", start, flt)
+        if path:
+            ok = self.save_image(path, kind)
+            self.saved.emit(path, ok)
 
     # ------------------------------------------------------------------ hover
 

@@ -163,6 +163,7 @@ class HistoryData:
     soc: list[tuple[datetime, int]] = field(default_factory=list)
     health: Any = None
     nerd: dict[str, str] = field(default_factory=dict)
+    drives: list[Any] = field(default_factory=list)
 
 
 def open_db(path: Path) -> Any:
@@ -181,6 +182,13 @@ def _call(fn: Any, *args: Any, **kw: Any) -> Any:
     return fn(*args, **{k: v for k, v in kw.items() if k in params})
 
 
+def _drives(db: Any, vin: str, since: datetime | None) -> list[Any]:
+    trips = _try("socks.history.trips")
+    if db is None or trips is None or not hasattr(trips, "drives"):
+        return []
+    return list(trips.drives(db, vin, since))[::-1]  # newest first
+
+
 def load_history(
     path: Path | None, vin: str, since: datetime | None, days: int, tariff: float, units: str
 ) -> HistoryData:
@@ -197,6 +205,7 @@ def load_history(
             soc=list(st.soc_series(db, vin, since)),
             health=st.battery_health(db, vin),
             nerd=dict(_call(nerd_fn, db, vin, units_=units)) if nerd_fn else {},
+            drives=_drives(db, vin, since),
         )
     finally:
         close = getattr(db, "close", None)

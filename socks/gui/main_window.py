@@ -24,6 +24,7 @@ from PySide6.QtCore import QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QFileDialog,
     QMainWindow,
     QMenu,
     QSplitter,
@@ -128,7 +129,11 @@ class MainWindow(QMainWindow):
         self.status_tab.refresh_requested.connect(lambda: self.refresh())
         self.controls_tab.command_requested.connect(self._on_command)
         self.history_tab.reload_requested.connect(self.reload_history)
+        self.history_tab.export_requested.connect(self._export_history)
+        for chart in (self.history_tab.soc_chart, self.history_tab.km_chart):
+            chart.saved.connect(self._chart_saved)
         self.settings_tab.save_requested.connect(self._save_settings)
+        self.settings_tab.wizard_requested.connect(self.open_wizard)
         self._poll_note = ""
         self.settings_tab.load(ctx.settings, self._close_to_tray(), self._poll_in_background())
         self._apply_units()
@@ -363,6 +368,44 @@ class MainWindow(QMainWindow):
         self.history_tab.show_data(data, note)
         self._history_dirty = False
 
+    def _export_history(self, item: Any) -> None:
+        from socks.gui.history_export import default_filename, ensure_suffix, run_export
+
+        if not self._vin or self.ctx.deps.history_db is None:
+            self.history_tab.note.setText("Nothing to export yet.")
+            return
+        days = self.history_tab.period_days()
+        since = datetime.now(UTC) - timedelta(days=days) if days else None
+        year = datetime.now().year
+        name = default_filename(item, since, None, year)
+        flt = "JSON (*.json)" if item.fmt == "json" else "CSV (*.csv)"
+        path, _f = QFileDialog.getSaveFileName(
+            self, f"Export {item.label}", str(Path.home() / name), flt
+        )
+        if not path:
+            return
+        path = ensure_suffix(path, item.fmt)
+
+        async def go() -> None:
+            self.history_tab.note.setText(f"Exporting {item.label}…")
+            try:
+                db_path = await self._ensure_history()
+                n = await self.bridge.run_sync(
+                    run_export, db_path, self._vin, item, path, since, None, self._units(), year
+                )
+            except Exception as exc:  # noqa: BLE001 - inline, never modal
+                msg = describe(exc)
+                log.warning("export failed: %s", msg, exc_info=exc if self.ctx.debug else None)
+                self.history_tab.note.setText(f"Export failed: {msg}")
+                return
+            self.history_tab.note.setText(f"Exported {n} rows to {path}")
+            log.info("exported %s (%d rows)", item.label, n)
+
+        self.bridge.spawn(self.history_tab.export_btn, go(), "export")
+
+    def _chart_saved(self, path: str, ok: bool) -> None:
+        self.history_tab.note.setText(f"Chart saved to {path}" if ok else f"Could not save {path}")
+
     # ----------------------------------------------------------- commands
 
     def _on_command(self, cmd: Any, arg: Any) -> None:
@@ -435,6 +478,41 @@ class MainWindow(QMainWindow):
         self._apply_poll()
         self.settings_tab.show_result(f"Saved at {datetime.now().strftime('%H:%M:%S')}.", True)
         log.info("settings saved")
+
+    # -------------------------------------------------------------- wizard
+
+    def open_wizard(self) -> None:
+        from socks.gui.setup_services import FakeServices, RealServices
+        from socks.gui.wizard import SetupWizard
+
+        if getattr(self, "_wizard", None) is not None:
+            self._wizard.raise_()
+            return
+        key_dest = Path(self.ctx.extras.get("config_dir", Path.home())) / "private_key.pem"
+        if self.ctx.fake:
+            services: Any = FakeServices(key_dest, self._get_backend)
+        else:
+            services = RealServices(key_dest)
+        wiz = SetupWizard(self, self.bridge, services, self.ctx.settings, self._units())
+        wiz.applied.connect(self._wizard_applied)
+        wiz.finished.connect(lambda _r: setattr(self, "_wizard", None))
+        wiz.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self._wizard = wiz
+        wiz.open()
+
+    def _wizard_applied(self, wiz: Any) -> None:
+        s = self.ctx.settings
+        s.vin = wiz.vin
+        s.key_path = wiz.key_path
+        s.cloud_enabled = wiz.cloud_enabled
+        s.client_id = wiz.client_id
+        self.settings_tab.load(s, self._close_to_tray(), self._poll_in_background())
+        self._save_settings()
+        log.info("setup wizard finished")
+        if not self.ctx.fake:
+            self._vin = s.vin
+            self._history_dirty = True
+        self.first_read()
 
     # ---------------------------------------------------- log / tray / quit
 

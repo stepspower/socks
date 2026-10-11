@@ -61,6 +61,7 @@ def min_poll_seconds(settings: Any, cloud_enabled: bool) -> int:
 class SettingsTab(QWidget):
     #: emitted after the Settings object was updated from the form
     save_requested = Signal()
+    wizard_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -137,6 +138,9 @@ class SettingsTab(QWidget):
 
         self.close_to_tray = QCheckBox("Closing the window keeps SOCKS running in the system tray")
 
+        self.setup_btn = QPushButton("Set &up…")
+        self.setup_btn.setToolTip("Run the setup wizard: VIN, key, pairing, cloud")
+        self.setup_btn.clicked.connect(self.wizard_requested)
         self.save_btn = QPushButton("Save")
         self.save_btn.setShortcut(QKeySequence.StandardKey.Save)
         self.save_btn.setToolTip("Save settings (Ctrl+S)")
@@ -163,6 +167,7 @@ class SettingsTab(QWidget):
         form.addRow("", self.close_to_tray)
 
         bottom = QHBoxLayout()
+        bottom.addWidget(self.setup_btn)
         bottom.addWidget(self.result, 1)
         bottom.addWidget(self.save_btn)
 

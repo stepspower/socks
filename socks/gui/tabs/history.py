@@ -23,10 +23,12 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMenu,
     QPushButton,
     QScrollArea,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -80,8 +82,24 @@ def xy(obj: Any) -> tuple[date | datetime, float] | None:
     return (x, y) if x is not None and y is not None else None
 
 
+def _readonly_table(name: str) -> QTableWidget:
+    t = QTableWidget(0, 0)
+    t.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+    t.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+    t.verticalHeader().setVisible(False)
+    t.setMinimumHeight(180)
+    t.setAccessibleName(name)
+    t.setTabKeyNavigation(False)
+    return t
+
+
+DRIVE_COLS = ("Date", "Start", "End", "Distance", "Duration", "Avg speed", "Start SoC", "End SoC")
+
+
 class HistoryTab(QWidget):
     reload_requested = Signal()
+    #: an ExportItem chosen from the Export… menu
+    export_requested = Signal(object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -102,6 +120,12 @@ class HistoryTab(QWidget):
         head.addWidget(QLabel("&Period:", buddy=self.period))
         head.addWidget(self.period)
         head.addWidget(self.note, 1)
+        self.export_btn = QPushButton("E&xport…")
+        self.export_btn.setToolTip("Export drives, charges, snapshots or charts")
+        self.export_menu = QMenu(self)
+        self.export_btn.setMenu(self.export_menu)
+        self.export_menu.aboutToShow.connect(self._build_export_menu)
+        head.addWidget(self.export_btn)
         head.addWidget(self.reload_btn)
 
         self.cards = [StatusCard("") for _ in range(4)]
@@ -119,15 +143,11 @@ class HistoryTab(QWidget):
         self.health.setWordWrap(True)
         self.health.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
-        self.table = QTableWidget(0, 0)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setMinimumHeight(180)
-        self.table.setAccessibleName("Charge sessions")
-        self.table.setTabKeyNavigation(False)
-        sess_box = QGroupBox("Charge sessions")
-        QVBoxLayout(sess_box).addWidget(self.table)
+        self.table = _readonly_table("Charge sessions")
+        self.drives_table = _readonly_table("Drives")
+        sess_box = QTabWidget()
+        sess_box.addTab(self.drives_table, "Drives")
+        sess_box.addTab(self.table, "Charges")
 
         self.nerd = QFormLayout()
         nerd_box = QGroupBox("Nerd stats")
@@ -209,6 +229,7 @@ class HistoryTab(QWidget):
 
         self._fill_health(data.health)
         self._fill_sessions(data.sessions)
+        self._fill_drives(getattr(data, "drives", []))
 
         while self.nerd.rowCount():
             self.nerd.removeRow(0)
@@ -238,6 +259,53 @@ class HistoryTab(QWidget):
             else:
                 parts.append(f"{fmt.humanize(n).lower()}: {self._fmt(n, v)}")
         self.health.setText("Battery health: " + " · ".join(parts))
+
+    def _build_export_menu(self) -> None:
+        from socks.gui.history_export import export_items
+
+        m = self.export_menu
+        m.clear()
+        for item in export_items(date.today().year):
+            if item.kind == "mileage":
+                m.addSeparator()
+            m.addAction(item.label, lambda i=item: self.export_requested.emit(i))
+        m.addSeparator()
+        for chart, name in ((self.soc_chart, "State of charge"), (self.km_chart, "Distance")):
+            for kind in ("png", "svg"):
+                m.addAction(
+                    f"{name} chart ({kind.upper()})…", lambda c=chart, k=kind: c.save_dialog(k)
+                )
+
+    def _fill_drives(self, drives: list[Any]) -> None:
+        from socks.gui.history_export import drive_rows
+
+        u = self._units
+        rows = drive_rows(drives)
+        t = self.drives_table
+        t.clear()
+        t.setColumnCount(len(DRIVE_COLS))
+        t.setHorizontalHeaderLabels(list(DRIVE_COLS))
+        t.setRowCount(len(rows))
+        for r, d in enumerate(rows):
+            soc = ["–" if x is None else f"{x} %" for x in (d["start_soc"], d["end_soc"])]
+            cells = [
+                d["date"],
+                d["start"],
+                d["end"],
+                fmt.dist(d["km"], u, 1),
+                fmt.minutes(d["minutes"]),
+                fmt.speed(d["avg_kmh"], u),
+                *soc,
+            ]
+            for c, text in enumerate(cells):
+                item = QTableWidgetItem(text)
+                if c >= 3:
+                    item.setTextAlignment(
+                        Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+                    )
+                t.setItem(r, c, item)
+        t.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        t.horizontalHeader().setStretchLastSection(True)
 
     def _fill_sessions(self, sessions: list[Any]) -> None:
         rows = [[(n, v) for n, v in fields_of(s) if n not in SKIP_COLS] for s in sessions]

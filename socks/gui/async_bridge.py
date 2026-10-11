@@ -160,6 +160,10 @@ class AsyncBridge(QObject):
         elif exc is not None:
             log.error("%s failed: %s", task.name, describe(exc), exc_info=exc)
 
+    def cancel_owner(self, owner: QObject) -> None:
+        """Cancel every task tied to ``owner``."""
+        self._cancel_key(id(owner))
+
     def _cancel_key(self, key: int) -> None:
         for t in list(self._tasks.pop(key, ())):
             t.cancel()
