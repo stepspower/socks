@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import db as dbm
-from . import stats
+from . import places, stats
 
 if TYPE_CHECKING:
     from socks.core.model import VehicleState
@@ -37,6 +37,9 @@ CHARGE_GAP = timedelta(minutes=60)
 ODO_EPSILON_KM = 0.05
 MIN_SOC_FOR_RANGE_AT_100 = 20
 MIN_LEARNED_SAMPLES = 3
+MOVE_THRESHOLD_M = 25.0
+DRIVE_START_WINDOW_S = 600.0
+RETRO_START_WINDOW_S = 24 * 3600.0
 
 _TRACKED = (
     "soc",
@@ -57,8 +60,8 @@ _TRACKED = (
 _INSERT_SNAPSHOT = (
     "INSERT OR IGNORE INTO snapshot (vin, ts, source, soc, usable_soc, charge_limit, "
     "charging, charger_power_kw, charge_energy_added_kwh, rated_range_km, odometer_km, "
-    "shift, speed_kmh, inside_temp_c, outside_temp_c, locked, plugged_in) "
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "shift, speed_kmh, inside_temp_c, outside_temp_c, locked, plugged_in, lat, lon) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 
@@ -71,6 +74,11 @@ class _Seen:
 
 def _b(v: bool | None) -> int | None:
     return None if v is None else int(v)
+
+
+def _pos(s: VehicleState) -> tuple[float | None, float | None]:
+    lat, lon = getattr(s, "latitude", None), getattr(s, "longitude", None)
+    return (lat, lon) if lat is not None and lon is not None else (None, None)
 
 
 def _values(s: VehicleState) -> dict[str, object]:
@@ -124,10 +132,12 @@ class Recorder:
                     self._insert_snapshot(state, ts)
                 return
             self._charge(state, ts, seen)
-            self._drive(state, ts, seen)
             if self._should_snapshot(state, ts):
                 self._insert_snapshot(state, ts)
             self._track_range(state)
+            self._drive(state, ts, seen)
+            if _pos(state)[0] is not None:
+                places.fill_drive_ends(self.conn, vin, self._open_id("drive", vin), ts)
         self._seen[vin] = _Seen(
             ts,
             state.odometer_km if state.odometer_km is not None else (seen.odo if seen else None),
@@ -161,7 +171,7 @@ class Recorder:
         dbm.execute(
             self.conn,
             _INSERT_SNAPSHOT,
-            (s.vin, dbm.iso(ts), s.source.value, *(vals[c] for c in _TRACKED)),
+            (s.vin, dbm.iso(ts), s.source.value, *(vals[c] for c in _TRACKED), *_pos(s)),
         )
 
     def _should_snapshot(self, s: VehicleState, ts: datetime) -> bool:
@@ -169,6 +179,12 @@ class Recorder:
             self.conn, "SELECT * FROM snapshot WHERE vin = ? ORDER BY ts DESC LIMIT 1", (s.vin,)
         )
         if last is None or ts - dbm.parse_ts(last["ts"]) >= SNAPSHOT_MAX_AGE:
+            return True
+        lat, lon = _pos(s)
+        if lat is not None and (
+            last["lat"] is None
+            or places.haversine_m(lat, lon, last["lat"], last["lon"]) > MOVE_THRESHOLD_M
+        ):
             return True
         return any(last[k] != v for k, v in _values(s).items())
 
@@ -281,13 +297,16 @@ class Recorder:
                 return
             if odo_up and seen is not None:
                 start = (dbm.iso(seen.ts), last_odo, seen.soc)
+                pos = places.position_at_or_before(self.conn, vin, seen.ts, RETRO_START_WINDOW_S)
             else:
                 start = (dbm.iso(ts), odo, s.soc)
+                pos = places.position_at_or_before(self.conn, vin, ts, DRIVE_START_WINDOW_S)
+            lat0, lon0 = pos or (None, None)
             cur = dbm.execute(
                 self.conn,
                 "INSERT INTO drive (vin, start_ts, end_ts, start_odo_km, end_odo_km, "
-                "start_soc, end_soc) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (vin, start[0], dbm.iso(ts), start[1], odo, start[2], s.soc),
+                "start_soc, end_soc, start_lat, start_lon) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (vin, start[0], dbm.iso(ts), start[1], odo, start[2], s.soc, lat0, lon0),
             )
             self._set_open("drive", vin, int(cur.lastrowid or 0))
             return

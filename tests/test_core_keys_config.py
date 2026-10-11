@@ -225,3 +225,13 @@ def test_settings_invalid_vin_ignored(tmp_path: Path) -> None:
     assert Settings.load(f).vin == ""
     f.write_text('vin = "5yj3e7eb0kf000001"\n')
     assert Settings.load(f).vin == "5YJ3E7EB0KF000001"
+
+
+def test_new_settings_defaults_and_trip_interval_floor(tmp_path: Path) -> None:
+    s = Settings()
+    assert s.location_enabled is True
+    assert s.trip_watch_enabled is False and s.trip_watch_interval_seconds == 600
+    f = tmp_path / "s.toml"
+    f.write_text("trip_watch_interval_seconds = 30\nlocation_enabled = false\n")
+    loaded = Settings.load(f)
+    assert loaded.trip_watch_interval_seconds == 300 and loaded.location_enabled is False

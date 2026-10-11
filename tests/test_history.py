@@ -336,7 +336,7 @@ def test_migration_from_v1_preserves_rows(tmp_path):
     con.commit()
     con.close()
     c = dbm.open(p)
-    assert dbm.get_meta(c, "schema_version") == "2"
+    assert dbm.get_meta(c, "schema_version") == str(dbm.SCHEMA_VERSION)
     (d,) = trips.drives(c, VIN)
     assert (d.start_odo_km, d.end_odo_km, d.purpose, d.start_label) == (1000, 1020, None, None)
     assert dbm.scalar(c, "SELECT COUNT(*) FROM snapshot") == 1
@@ -433,7 +433,11 @@ def test_export_json(rec, tmp_path):
     assert export.export_json(rec.conn, VIN, "drives", out, tz=UTC) == 3
     assert out.stat().st_mode & 0o777 == 0o600
     doc = json.loads(out.read_text(encoding="utf-8"))
-    assert doc["vin"] == VIN and doc["units"] == "metric" and doc["schema_version"] == 2
+    assert (
+        doc["vin"] == VIN
+        and doc["units"] == "metric"
+        and doc["schema_version"] == dbm.SCHEMA_VERSION
+    )
     assert doc["exported_at"] and len(doc["rows"]) == 3
     assert doc["rows"][0]["km"] == 20.0
 

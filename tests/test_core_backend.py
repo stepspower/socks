@@ -233,7 +233,15 @@ def _protobuf_state() -> dict[str, Any]:
         vehicleLockState=vcsec_pb2.VEHICLELOCKSTATE_LOCKED,
         vehicleSleepStatus=vcsec_pb2.VEHICLE_SLEEP_STATUS_AWAKE,
     )
-    return {"charge": cs, "drive": ds, "climate": cl, "closures": clo, "status": vs}
+    loc = vehicle_pb2.LocationState(latitude=52.1, longitude=5.1, heading=270, gps_as_of=1791720000)
+    return {
+        "charge": cs,
+        "drive": ds,
+        "climate": cl,
+        "closures": clo,
+        "status": vs,
+        "location": loc,
+    }
 
 
 class FakeBleVehicle:
@@ -288,6 +296,9 @@ class FakeBleVehicle:
     async def closures_state(self) -> Any:
         return await self._read("closures")
 
+    async def location_state(self) -> Any:
+        return await self._read("location")
+
     def __getattr__(self, name: str) -> Any:
         # Any command method (door_lock, set_charge_limit, ...): record and answer OK.
         async def command(*args: Any) -> dict[str, Any]:
@@ -337,7 +348,10 @@ async def test_ble_read_state_from_protobuf(key_path: Path) -> None:
         "drive_state",
         "climate_state",
         "closures_state",
+        "location_state",
     }
+    assert (s.latitude, s.longitude, s.heading) == (pytest.approx(52.1), pytest.approx(5.1), 270)
+    assert s.gps_as_of == datetime.fromtimestamp(1791720000, UTC)
     await ble.close()
     assert "disconnect" in vehicle.calls
 
@@ -646,7 +660,7 @@ async def test_ble_awake_read_disables_library_wake(key_path: Path) -> None:
 
 
 class AsleepBackend(FakeBackend):
-    async def read_state(self, wake: bool = False) -> Any:
+    async def read_state(self, wake: bool = False, include_location: bool = True) -> Any:
         if wake:
             return await super().read_state(wake=True)
         raise NotAvailable("Bluetooth: car is asleep", kind=ASLEEP)
@@ -706,3 +720,71 @@ async def test_ble_pair(key_path: Path) -> None:
     unreachable.find_error = ValueError("not found")
     with pytest.raises(NotAvailable):
         await _ble(key_path, unreachable).pair()
+
+
+async def test_ble_location_optional_and_skippable(key_path: Path) -> None:
+    vehicle = FakeBleVehicle()
+    vehicle.fail_reads = {"location"}
+    s = await _ble(key_path, vehicle).read_state()
+    assert s.soc == 55 and s.latitude is None and s.gps_as_of is None
+    vehicle = FakeBleVehicle()
+    s = await _ble(key_path, vehicle).read_state(include_location=False)
+    assert "location_state" not in s.raw and s.latitude is None
+
+
+def test_location_parsing_rules() -> None:
+    native = {
+        "location_state": {
+            "latitude": 1.0,
+            "longitude": 2.0,
+            "nativeLatitude": 52.2,
+            "nativeLongitude": 5.2,
+            "gpsAsOf": "1791720000",
+        }
+    }
+    s = parse_ble_payload(VIN, native, TS)
+    assert (s.latitude, s.longitude) == (52.2, 5.2) and s.gps_as_of is not None
+    zero = parse_ble_payload(VIN, {"location_state": {"heading": 10}}, TS)
+    assert zero.latitude is None and zero.heading is None
+    bogus = parse_ble_payload(VIN, {"location_state": {"latitude": 99, "longitude": 5}}, TS)
+    assert bogus.latitude is None
+    cloud = dict(CLOUD_PAYLOAD["response"])
+    cloud["drive_state"] = {
+        **cloud["drive_state"],
+        "latitude": 52.3,
+        "longitude": 5.3,
+        "heading": 180,
+        "gps_as_of": 1791720000,
+    }
+    c = parse_cloud_payload(VIN, {"response": cloud}, TS)
+    assert (c.latitude, c.longitude, c.heading) == (52.3, 5.3, 180)
+    assert parse_cloud_payload(VIN, CLOUD_PAYLOAD, TS).latitude is None  # no scope
+
+
+async def test_cloud_location_endpoint_only_when_asked(key_path: Path) -> None:
+    seen: list[list[str]] = []
+
+    class Spy(FakeCloudVehicle):
+        async def vehicle_data(self, endpoints: list[str]) -> Any:
+            seen.append(endpoints)
+            return self.data
+
+    vehicle = Spy()
+    await _cloud(key_path, vehicle).read_state()
+    await _cloud(key_path, vehicle).read_state(include_location=False)
+    assert "location_data" in seen[0] and "location_data" not in seen[1]
+
+
+def test_redaction_strips_state_location() -> None:
+    from socks.core.model import state_to_dict
+    from socks.fleet.redact import redact_location
+
+    s = parse_cloud_payload(
+        VIN,
+        {"drive_state": {"latitude": 52.3, "longitude": 5.3, "heading": 1, "gps_as_of": 1}},
+        TS,
+    )
+    d = redact_location(state_to_dict(s))
+    for key in ("latitude", "longitude", "heading", "gps_as_of"):
+        assert key not in d
+    assert "latitude" not in str(d["raw"])

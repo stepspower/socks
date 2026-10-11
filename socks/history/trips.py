@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, tzinfo
 
 from . import db as dbm
+from . import places
 
-PURPOSES = ("business", "private", "commute")
+PURPOSES = dbm.PURPOSES
 MIN_TRIP_KM = 0.05  # moves shorter than this (driveway shuffles) are not trips
 MAX_TEXT = 500
 
@@ -69,11 +70,20 @@ def set_drive_purpose(
     with dbm.transaction(db):
         cur = dbm.execute(
             db,
-            "UPDATE drive SET purpose = ?, note = COALESCE(?, note) WHERE id = ?",
-            (purpose, _clean(note), drive_id),
+            "UPDATE drive SET purpose = ?, purpose_source = ?, note = COALESCE(?, note) "
+            "WHERE id = ?",
+            (purpose, "user" if purpose else None, _clean(note), drive_id),
         )
         if cur.rowcount == 0:
             raise LookupError(f"no drive with id {drive_id}")
+        if purpose:  # remember it for the destination place
+            row = dbm.query_one(
+                db, "SELECT vin, end_lat, end_lon FROM drive WHERE id = ?", (drive_id,)
+            )
+            if row and row["end_lat"] is not None:
+                place = places.place_at(db, row["vin"], row["end_lat"], row["end_lon"])
+                if place:
+                    places.set_place_purpose(db, place.id, purpose)
 
 
 def set_drive_labels(
@@ -87,7 +97,7 @@ def set_drive_labels(
         cur = dbm.execute(
             db,
             "UPDATE drive SET start_label = COALESCE(?, start_label), "
-            "end_label = COALESCE(?, end_label) WHERE id = ?",
+            "end_label = COALESCE(?, end_label), label_source = 'user' WHERE id = ?",
             (_clean(start_label), _clean(end_label), drive_id),
         )
         if cur.rowcount == 0:

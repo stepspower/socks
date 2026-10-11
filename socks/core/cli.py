@@ -45,7 +45,8 @@ def _parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--config", type=Path, help="settings file (default: XDG config dir)")
     sub = p.add_subparsers(dest="action", required=True)
-    sub.add_parser("status", help="show the car's state as a table")
+    st = sub.add_parser("status", help="show the car's state as a table")
+    st.add_argument("--with-location", action="store_true", help="also show the GPS position")
     j = sub.add_parser("json", help="print the full VehicleState as JSON")
     j.add_argument("--no-raw", action="store_true", help="omit the raw payload")
     j.add_argument(
@@ -122,7 +123,9 @@ async def _run(args: argparse.Namespace) -> int:
             await backend.send(cmd, arg)
             print(f"ok: {info.label} via {_source_label(backend)}")
             return EXIT_OK
-        state = await backend.read_state(wake=True)  # explicit user request: may wake (BLE)
+        # Explicit user request: may wake (BLE only). Location only fetched when asked for.
+        want_location = bool(args.with_location and settings.location_enabled)
+        state = await backend.read_state(wake=True, include_location=want_location)
         if args.action == "json":
             data = state_to_dict(state, include_raw=not args.no_raw)
             if not args.with_location:
@@ -131,7 +134,13 @@ async def _run(args: argparse.Namespace) -> int:
                 data = redact_location(data)
             print(json.dumps(data, indent=2, default=str, ensure_ascii=False))
         else:
-            print(format_status(state, imperial=settings.units == "imperial"))
+            print(
+                format_status(
+                    state,
+                    imperial=settings.units == "imperial",
+                    with_location=args.with_location,
+                )
+            )
         return EXIT_OK
     except CommandError as e:
         print(f"socks-cli: {e}", file=sys.stderr)
@@ -200,7 +209,9 @@ def _list_commands() -> int:
 # ---------------------------------------------------------------- formatting
 
 
-def format_status(state: VehicleState, *, imperial: bool = False) -> str:
+def format_status(
+    state: VehicleState, *, imperial: bool = False, with_location: bool = False
+) -> str:
     """Human-readable two-column table."""
 
     def dist(km: float | None) -> str:
@@ -254,6 +265,16 @@ def format_status(state: VehicleState, *, imperial: bool = False) -> str:
         ("Locked", yes(state.locked)),
         ("Sentry", yes(state.sentry_on)),
     ]
+    if with_location:
+        if state.latitude is not None and state.longitude is not None:
+            loc = f"{state.latitude:.5f}, {state.longitude:.5f}"
+            if state.heading is not None:
+                loc += f" heading {state.heading}°"
+            if state.gps_as_of is not None:
+                loc += f" (fix {when(state.gps_as_of)})"
+        else:
+            loc = "-"
+        rows.append(("Location", loc))
     if state.doors_open:
         rows.append(("Open doors", ", ".join(state.doors_open)))
     if state.windows_open:

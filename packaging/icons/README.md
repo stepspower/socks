@@ -1,9 +1,16 @@
 # Icons
 
-The single source of truth is `data/icons/socks.svg` (owned by the GUI worker). The Flatpak
-installs it as `hicolor/scalable/apps/net.stepspower.Socks.svg`, which is all Flathub requires.
+Sources in `data/icons/` (owned by the GUI worker):
 
-Optional raster exports, only if a store asks for them: 128x128 and 256x256 PNG
-(`rsvg-convert -w 128 socks.svg -o socks-128.png`). Flathub shows 128x128 minimum.
-Keep the artwork square, no text, readable at 16 px. The icon name everywhere is
-`net.stepspower.Socks`.
+- `socks.svg` - app icon (red sock with white bolt). Installed as `hicolor/scalable/apps/net.stepspower.Socks.svg`.
+- `socks-tray.svg` - red rounded square with a white bolt-S; the small-size glyph.
+- `socks-symbolic.svg` - white-on-transparent shape only, for tray/symbolic use on dark panels.
+  Installed as `hicolor/symbolic/apps/net.stepspower.Socks-symbolic.svg`.
+- `hicolor/<N>x<N>/apps/net.stepspower.Socks.png` - N = 16, 24, 32, 48, 64, 128, 256, 512.
+  16 and 24 are rendered from `socks-tray.svg` (the sock does not read that small); the rest
+  from `socks.svg`.
+
+The Flatpak copies the whole `data/icons/hicolor` tree to `/app/share/icons/`, so the desktop
+file's `Icon=net.stepspower.Socks` resolves. Regenerate PNGs with ImageMagick:
+`convert -background none -density $((N*4)) SRC.svg -resize NxN OUT.png`.
+Artwork: square, no text, no Tesla marks. Candidate comparison sheet: `docs/screenshots/icon-candidates.png`.

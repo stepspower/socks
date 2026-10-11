@@ -64,4 +64,8 @@ class VehicleState:
     sentry_on: bool | None = None
     car_name: str | None = None
     firmware: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    heading: int | None = None
+    gps_as_of: datetime | None = None
     raw: dict = field(default_factory=dict, compare=False)

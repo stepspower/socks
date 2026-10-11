@@ -78,6 +78,11 @@ class VehicleState:
     # misc
     car_name: str | None = None
     firmware: str | None = None
+    # location (sensitive: redact before display/export unless the user asked for it)
+    latitude: float | None = None
+    longitude: float | None = None
+    heading: int | None = None  # degrees, 0 = north
+    gps_as_of: datetime | None = None  # UTC, when the car took the fix
     raw: dict = field(default_factory=dict, compare=False, repr=False)  # payload, never persisted
 
 
@@ -128,6 +133,7 @@ def state_from_dict(data: dict[str, Any]) -> VehicleState:
     kwargs["charging"] = _enum_or(ChargingState, kwargs["charging"], ChargingState.UNKNOWN)
     kwargs["shift"] = _enum_or(ShiftState, kwargs["shift"], ShiftState.UNKNOWN)
     kwargs["scheduled_charging_start"] = dt(kwargs["scheduled_charging_start"])
+    kwargs["gps_as_of"] = dt(kwargs["gps_as_of"])
     kwargs["doors_open"] = tuple(kwargs["doors_open"] or ())
     kwargs["windows_open"] = tuple(kwargs["windows_open"] or ())
     kwargs["raw"] = dict(kwargs["raw"] or {})

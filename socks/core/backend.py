@@ -69,9 +69,12 @@ class Backend(Protocol):
 
     async def available(self) -> bool: ...
 
-    async def read_state(self, wake: bool = False) -> VehicleState:
-        """Read the car. ``wake=False`` (polls, background reads) must never wake a sleeping
-        car; ``wake=True`` (user pressed Refresh) may wake it where that is free (BLE)."""
+    async def read_state(self, wake: bool = False, include_location: bool = True) -> VehicleState:
+        """Read the car. ``include_location=False`` skips the GPS fix.
+
+        ``wake=False`` (polls, background reads) must never wake a sleeping car;
+        ``wake=True`` (user pressed Refresh) may wake it where that is free (BLE).
+        """
         ...
 
     async def send(self, cmd: Command, arg: float | int | None = None) -> None: ...
@@ -278,6 +281,28 @@ def _charge_fields(charge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _location_fields(d: dict[str, Any], *, prefer_native: bool = False) -> dict[str, Any]:
+    """latitude/longitude/heading/gps_as_of from a BLE location_state or REST drive_state.
+
+    BLE: native_latitude/native_longitude win when present. (0, 0) means "no fix" -> None.
+    """
+    lat = lon = None
+    if prefer_native:
+        lat, lon = _num(_get(d, "native_latitude")), _num(_get(d, "native_longitude"))
+    if lat is None or lon is None:
+        lat, lon = _num(_get(d, "latitude")), _num(_get(d, "longitude"))
+    if lat is None or lon is None or (lat == 0 and lon == 0):
+        lat = lon = None
+    elif not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        lat = lon = None
+    return {
+        "latitude": lat,
+        "longitude": lon,
+        "heading": _int(_get(d, "heading")) if lat is not None else None,
+        "gps_as_of": _epoch(_get(d, "gps_as_of")) if lat is not None else None,
+    }
+
+
 def parse_ble_payload(vin: str, payload: dict[str, Any], ts: datetime) -> VehicleState:
     """Map the BLE payload to a VehicleState.
 
@@ -290,6 +315,7 @@ def parse_ble_payload(vin: str, payload: dict[str, Any], ts: datetime) -> Vehicl
     climate = _section(payload, "climate_state")
     closures = _section(payload, "closures_state")
     vcsec = _section(payload, "vehicle_status")
+    location = _section(payload, "location_state")
 
     odo = _num(_get(drive, "odometer_in_hundredths_of_a_mile"))
     speed = _num(_get(drive, "speed_float"))
@@ -326,6 +352,7 @@ def parse_ble_payload(vin: str, payload: dict[str, Any], ts: datetime) -> Vehicl
         sentry_on=None if sentry is None else sentry != "Off",
         car_name=None,
         firmware=None,
+        **_location_fields(location, prefer_native=True),
         raw=payload,
     )
 
@@ -363,6 +390,7 @@ def parse_cloud_payload(vin: str, payload: dict[str, Any], ts: datetime) -> Vehi
         sentry_on=_bool(_get(vstate, "sentry_mode")),
         car_name=name if isinstance(name, str) and name else None,
         firmware=firmware,
+        **_location_fields(drive),
         raw=payload,
     )
 
@@ -515,7 +543,7 @@ class BleBackend:
             raise NotAvailable(f"Bluetooth: cannot connect ({_describe(e)})") from None
         return vehicle
 
-    async def read_state(self, wake: bool = False) -> VehicleState:
+    async def read_state(self, wake: bool = False, include_location: bool = True) -> VehicleState:
         """Read over BLE. Without ``wake`` a sleeping car is left asleep: NotAvailable with
         ``kind == ASLEEP`` (the VCSEC status read used to find out does not wake it).
 
@@ -526,11 +554,11 @@ class BleBackend:
             vehicle = await self._connected()
             vehicle.wake_if_asleep = wake
             try:
-                return await self._read(vehicle, wake)
+                return await self._read(vehicle, wake, include_location)
             finally:
                 vehicle.wake_if_asleep = True  # commands may wake (the user asked for them)
 
-    async def _read(self, vehicle: Any, wake: bool) -> VehicleState:
+    async def _read(self, vehicle: Any, wake: bool, include_location: bool) -> VehicleState:
         payload: dict[str, Any] = {}
         with _guard("Bluetooth read"):
             async with asyncio.timeout(self.command_timeout):
@@ -548,7 +576,10 @@ class BleBackend:
                     await vehicle.wake_up(wait=True, timeout=self.wake_timeout)
             async with asyncio.timeout(self.command_timeout):
                 payload["charge_state"] = _to_dict(await vehicle.charge_state())
-        for name in ("drive_state", "climate_state", "closures_state"):
+        optional = ["drive_state", "climate_state", "closures_state"]
+        if include_location:
+            optional.append("location_state")  # failure here never fails the read
+        for name in optional:
             try:
                 with _guard(f"Bluetooth {name}"):
                     async with asyncio.timeout(self.command_timeout):
@@ -734,21 +765,22 @@ class CloudBackend:
                 raise NotAvailable(f"cloud: {e}") from None
         return self._vehicle
 
-    async def read_state(self, wake: bool = False) -> VehicleState:
+    async def read_state(self, wake: bool = False, include_location: bool = True) -> VehicleState:
         """Cloud reads never wake the car (a wake costs money), whatever ``wake`` says."""
         del wake
         vehicle = self._get_vehicle()
         with _guard("cloud read"):
             async with asyncio.timeout(self.command_timeout):
-                data = await vehicle.vehicle_data(
-                    endpoints=[
-                        "charge_state",
-                        "climate_state",
-                        "closures_state",
-                        "drive_state",
-                        "vehicle_state",
-                    ]
-                )
+                endpoints = [
+                    "charge_state",
+                    "climate_state",
+                    "closures_state",
+                    "drive_state",
+                    "vehicle_state",
+                ]
+                if include_location:  # needs the vehicle_location scope; absent -> None
+                    endpoints.append("location_data")
+                data = await vehicle.vehicle_data(endpoints=endpoints)
         if not isinstance(data, dict):
             raise CommandError("cloud read: unexpected reply")
         return parse_cloud_payload(self.vin, data, self._clock())
@@ -838,12 +870,12 @@ class Router(Backend):
                 return True
         return False
 
-    async def read_state(self, wake: bool = False) -> VehicleState:
+    async def read_state(self, wake: bool = False, include_location: bool = True) -> VehicleState:
         """Read via the first working backend. A car reported asleep is final (no paid cloud
         fallback that could not read a sleeping car anyway)."""
 
         async def op(b: Backend) -> VehicleState:
-            return await b.read_state(wake=wake)
+            return await b.read_state(wake=wake, include_location=include_location)
 
         return await self._run(op, failover_on_maybe=True)
 

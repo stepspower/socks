@@ -17,7 +17,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+PURPOSES = ("business", "private", "commute")
+PLACE_KINDS = ("home", "work", "other")
 DEFAULT_PACK_KWH = 80.0  # Model 3 Long Range (NCA) usable pack; used until learned
 
 
@@ -101,6 +103,45 @@ SCHEMA_V2 = (
 )
 
 
+# v3: GPS on snapshots, places, geocode cache, provenance of purposes/labels.
+SCHEMA_V3 = (
+    "ALTER TABLE snapshot ADD COLUMN lat REAL",
+    "ALTER TABLE snapshot ADD COLUMN lon REAL",
+    "ALTER TABLE drive ADD COLUMN purpose_source TEXT "
+    "CHECK (purpose_source IS NULL OR purpose_source IN ('user', 'rule'))",
+    "ALTER TABLE drive ADD COLUMN label_source TEXT "
+    "CHECK (label_source IS NULL OR label_source IN ('user', 'auto'))",
+    "UPDATE drive SET purpose_source = 'user' WHERE purpose IS NOT NULL",
+    "UPDATE drive SET label_source = 'user' WHERE start_label IS NOT NULL OR end_label IS NOT NULL",
+    """
+    CREATE TABLE place (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vin TEXT NOT NULL,
+        name TEXT NOT NULL DEFAULT '',
+        lat REAL NOT NULL,
+        lon REAL NOT NULL,
+        radius_m REAL NOT NULL DEFAULT 150,
+        kind TEXT NOT NULL DEFAULT 'other' CHECK (kind IN ('home', 'work', 'other')),
+        visits INTEGER NOT NULL DEFAULT 0,
+        created_ts TEXT NOT NULL,
+        default_purpose TEXT
+            CHECK (default_purpose IS NULL OR default_purpose IN
+                   ('business', 'private', 'commute'))
+    )
+    """,
+    "CREATE INDEX ix_place_vin ON place (vin)",
+    """
+    CREATE TABLE geocode (
+        lat_r REAL NOT NULL,
+        lon_r REAL NOT NULL,
+        label TEXT NOT NULL,
+        ts TEXT NOT NULL,
+        PRIMARY KEY (lat_r, lon_r)
+    )
+    """,
+)
+
+
 def iso(dt: datetime) -> str:
     """UTC text form used for every stored timestamp (naive input is taken as UTC)."""
     if dt.tzinfo is None:
@@ -156,7 +197,7 @@ def _migrate(conn: sqlite3.Connection) -> None:
         current = int(row["value"]) if row else 0
     if current > SCHEMA_VERSION:
         raise DbError(f"history DB schema {current} is newer than supported {SCHEMA_VERSION}")
-    steps = ((1, SCHEMA_V1), (2, SCHEMA_V2))
+    steps = ((1, SCHEMA_V1), (2, SCHEMA_V2), (3, SCHEMA_V3))
     if current >= SCHEMA_VERSION:
         return
     with transaction(conn):

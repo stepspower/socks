@@ -126,3 +126,14 @@ def test_key_import_with_vin_flag(tmp_path: Path) -> None:
     assert main(["key", "import", str(src), "--vin", "lrw3e7ejxtc899247"]) == EXIT_OK
     assert Settings.load().vin == "LRW3E7EJXTC899247"
     assert main(["key", "import", str(src), "--vin", "nope"]) == EXIT_FAIL
+
+
+def test_status_location_only_with_flag(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--fake", "status"]) == EXIT_OK
+    assert "Location" not in capsys.readouterr().out
+    assert main(["--fake", "status", "--with-location"]) == EXIT_OK
+    assert "Location      52.00000, 5.00000" in capsys.readouterr().out
+    assert main(["--fake", "json"]) == EXIT_OK
+    assert "latitude" not in capsys.readouterr().out
+    assert main(["--fake", "json", "--with-location"]) == EXIT_OK
+    assert '"latitude": 52.0' in capsys.readouterr().out

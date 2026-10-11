@@ -25,6 +25,7 @@ SOURCES = ("ble", "cloud")
 REGIONS = ("eu", "na", "cn")
 MIN_POLL_BLE = 60  # seconds, polling over Bluetooth only
 MIN_POLL_CLOUD = 600  # seconds, when the (paid) cloud is enabled
+MIN_TRIP_WATCH_INTERVAL = 300  # seconds between cloud polls while a trip is watched
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,9 @@ class Settings:
     poll_seconds: int = 0  # 0 = off, else >= min_poll_seconds() (60 s; 600 s with cloud)
     tariff_eur_per_kwh: float = 0.0
     currency: str = "EUR"
+    location_enabled: bool = True  # read the GPS fix (shown only where the user opts in)
+    trip_watch_enabled: bool = False  # cloud-poll while the car is away (costs money)
+    trip_watch_interval_seconds: int = 600  # >= MIN_TRIP_WATCH_INTERVAL
 
     @staticmethod
     def paths() -> AppPaths:
@@ -114,6 +118,13 @@ class Settings:
         if 0 < self.poll_seconds < floor:
             log.warning("settings: poll_seconds %d raised to %d", self.poll_seconds, floor)
             self.poll_seconds = floor
+        if self.trip_watch_interval_seconds < MIN_TRIP_WATCH_INTERVAL:
+            log.warning(
+                "settings: trip_watch_interval_seconds %d raised to %d",
+                self.trip_watch_interval_seconds,
+                MIN_TRIP_WATCH_INTERVAL,
+            )
+            self.trip_watch_interval_seconds = MIN_TRIP_WATCH_INTERVAL
 
     def save(self, path: Path | None = None) -> None:
         """Write the settings file atomically (0600, dir 0700)."""

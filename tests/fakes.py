@@ -22,6 +22,7 @@ from socks.core.model import ChargingState, ShiftState, Source, VehicleState
 FAKE_VIN = "5YJ3E7EB0KF000001"  # syntactically valid, not a real car
 FAKE_START = datetime(2026, 10, 11, 7, 0, tzinfo=UTC)
 FAKE_STEP = timedelta(minutes=1)
+FAKE_HOME = (52.0, 5.0)  # synthetic coordinates (a field in the Netherlands)
 PACK_KWH = 75.0  # used only to make energy numbers plausible
 
 
@@ -59,6 +60,10 @@ def make_state(**overrides: Any) -> VehicleState:
         sentry_on=False,
         car_name="Fake Model 3",
         firmware="2026.32.5",
+        latitude=FAKE_HOME[0],
+        longitude=FAKE_HOME[1],
+        heading=90,
+        gps_as_of=FAKE_START,
         raw={"fake": True},
     )
     return replace(base, **overrides)
@@ -96,6 +101,9 @@ def fake_sequence(
             usable_soc=soc - 1,
             rated_range_km=_range_km(soc),
             inside_temp_c=20.0,
+            latitude=round(FAKE_HOME[0] + i * 0.009, 4),  # ~1 km north per step
+            heading=0,
+            gps_as_of=start + step * len(states),
         )
     # 3. parked again, locked
     emit(shift=ShiftState.P, speed_kmh=None, power_kw=0.0)
@@ -163,6 +171,7 @@ class FakeBackend:
         self.sent: list[tuple[Command, float | int | None]] = []
         self.reads = 0
         self.last_wake: bool | None = None
+        self.last_include_location: bool | None = None
         self.closed = False
         self.paired: list[str] = []
         self.pair_result = True
@@ -170,8 +179,9 @@ class FakeBackend:
     async def available(self) -> bool:
         return self.available_flag
 
-    async def read_state(self, wake: bool = False) -> VehicleState:
+    async def read_state(self, wake: bool = False, include_location: bool = True) -> VehicleState:
         self.last_wake = wake
+        self.last_include_location = include_location
         if self.delay:
             await asyncio.sleep(self.delay)
         if not self.available_flag:
@@ -186,6 +196,10 @@ class FakeBackend:
         self._index += 1
         base = script if self._current is None else self._merge(self._current, script)
         self._current = replace(base, ts=ts, source=self.name)
+        if not include_location:
+            return replace(
+                self._current, latitude=None, longitude=None, heading=None, gps_as_of=None
+            )
         return self._current
 
     @staticmethod
