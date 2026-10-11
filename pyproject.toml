@@ -49,6 +49,9 @@ socks = "socks.gui.app:main"
 [tool.setuptools.dynamic]
 version = { attr = "socks.__version__" }
 
+[tool.setuptools.package-data]
+"socks.gui" = ["icons/*.svg"]
+
 [tool.setuptools.packages.find]
 include = ["socks*"]
 

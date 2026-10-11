@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
         if not QSystemTrayIcon.isSystemTrayAvailable():
             log.debug("no system tray available")
             return
-        tray = QSystemTrayIcon(self.ctx.icon, self)
+        tray = QSystemTrayIcon(self.ctx.extras.get("tray_icon") or self.ctx.icon, self)
         menu = QMenu(self)
         menu.addAction("Show SOCKS", self._show_from_tray)
         menu.addAction("Refresh", lambda: self.refresh())
@@ -494,6 +494,7 @@ class MainWindow(QMainWindow):
         else:
             services = RealServices(key_dest)
         wiz = SetupWizard(self, self.bridge, services, self.ctx.settings, self._units())
+        wiz.setWindowIcon(self.ctx.icon)
         wiz.applied.connect(self._wizard_applied)
         wiz.finished.connect(lambda _r: setattr(self, "_wizard", None))
         wiz.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

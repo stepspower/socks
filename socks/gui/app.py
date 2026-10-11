@@ -84,19 +84,31 @@ def _setup_logging(debug: bool) -> logging.Handler:
     return handler
 
 
-def icon_path() -> Path | None:
+def icon_path(name: str = "socks.svg") -> Path | None:
+    """Source checkout: data/icons/<name>; installed: socks/gui/icons/<name> if packaged."""
     here = Path(__file__).resolve()
-    for cand in (here.parents[2] / "data" / "icons" / "socks.svg", here.parent / "socks.svg"):
+    for cand in (here.parents[2] / "data" / "icons" / name, here.parent / "icons" / name):
         if cand.is_file():
             return cand
     return None
+
+
+def load_icons() -> tuple[object, object]:
+    """(window icon = the sock, tray icon = S-bolt glyph, falling back to the sock)."""
+    from PySide6.QtGui import QIcon
+
+    win = icon_path("socks.svg")
+    window = QIcon(str(win)) if win else QIcon.fromTheme(APP_ID)
+    tray_p = icon_path("socks-tray.svg")
+    tray = QIcon(str(tray_p)) if tray_p else window
+    return window, tray
 
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
 
     from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer
-    from PySide6.QtGui import QGuiApplication, QIcon
+    from PySide6.QtGui import QGuiApplication
     from PySide6.QtWidgets import QApplication
 
     QGuiApplication.setHighDpiScaleFactorRoundingPolicy(
@@ -115,8 +127,7 @@ def main(argv: list[str] | None = None) -> int:
     app.setQuitOnLastWindowClosed(False)  # the window decides: tray or quit
 
     handler = _setup_logging(args.debug)
-    ip = icon_path()
-    icon = QIcon(str(ip)) if ip else QIcon.fromTheme(APP_ID)
+    icon, tray_icon = load_icons()
     app.setWindowIcon(icon)
 
     from socks.gui._deps import deps
@@ -139,6 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg_dir = _config_dir(d)
     prefs = QSettings(str(cfg_dir / "gui.ini"), QSettings.Format.IniFormat)
     extras["config_dir"] = cfg_dir
+    extras["tray_icon"] = tray_icon
     ctx = AppContext(d, settings, args.fake, args.debug, icon, handler, prefs, extras)
     win = MainWindow(ctx)
     win.tabs.setCurrentIndex(max(0, min(3, args.tab)))

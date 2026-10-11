@@ -1,6 +1,6 @@
 # Icons
 
-Sources in `data/icons/` (owned by the GUI worker):
+SVG sources in `socks/gui/icons/` (shipped in the wheel; owned by the GUI worker), PNG sizes in `data/icons/hicolor/`:
 
 - `socks.svg` - app icon (red sock with white bolt). Installed as `hicolor/scalable/apps/net.stepspower.Socks.svg`.
 - `socks-tray.svg` - red rounded square with a white bolt-S; the small-size glyph.

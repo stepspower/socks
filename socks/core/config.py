@@ -77,6 +77,7 @@ class Settings:
     location_enabled: bool = True  # read the GPS fix (shown only where the user opts in)
     trip_watch_enabled: bool = False  # cloud-poll while the car is away (costs money)
     trip_watch_interval_seconds: int = 600  # >= MIN_TRIP_WATCH_INTERVAL
+    geocode_enabled: bool = False  # opt-in: sends coordinates to openstreetmap.org
 
     @staticmethod
     def paths() -> AppPaths:
