@@ -161,3 +161,19 @@ def test_status_charging_start_editor(qapp: object) -> None:
     assert got == [(Command.SET_SCHEDULED_CHARGING, 1380), (Command.SET_SCHEDULED_CHARGING, None)]
     tab.update_state(make_state(scheduled_charging_start=None))
     assert ed.display._plain == "starts: off"
+
+
+def test_charging_card_does_not_repeat_the_limit(qapp: object) -> None:
+    from socks.gui.tabs.status import StatusTab
+
+    tab = StatusTab()
+    tab.set_commands(COMMANDS)
+    tab.update_state(make_state(plugged_in=True, charging=ChargingState.STOPPED, charge_limit=75))
+    assert "75" not in tab.charge_card._detail.text()  # only the editable "Limit 75 %" line
+    assert tab._editors["set_charge_limit"].display._plain == "Limit 75 %"
+    tab.update_state(
+        make_state(plugged_in=True, charging=ChargingState.CHARGING, charge_limit=75,
+                   minutes_to_limit=35, charger_voltage=230, charger_current_a=16)
+    )  # fmt: skip
+    detail = tab.charge_card._detail.text()
+    assert "35 min to limit" in detail and "230 V × 16 A" in detail and "75" not in detail

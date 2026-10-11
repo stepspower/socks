@@ -418,8 +418,11 @@ class StatusTab(QWidget):
             value, detail = self.tr("Unplugged"), ""
         elif is_charging:
             value = f"{state_text} · {fmt.power(s.charger_power_kw)}"
+            # the limit itself is the editable "Limit …" line below: don't repeat it here
             bits = [
-                f"{fmt.minutes(s.minutes_to_limit)} to {s.charge_limit} %" if s.charge_limit else ""
+                self.tr("{0} to limit").format(fmt.minutes(s.minutes_to_limit))
+                if s.minutes_to_limit is not None
+                else ""
             ]
             if s.charger_voltage and s.charger_current_a:
                 bits.append(f"{s.charger_voltage} V × {s.charger_current_a} A")
@@ -429,7 +432,9 @@ class StatusTab(QWidget):
         else:
             value = self.tr("Plugged in · {0}").format(state_text) if s.plugged_in else state_text
             detail = (
-                self.tr("limit {0} %").format(s.charge_limit) if s.charge_limit is not None else ""
+                self.tr("limit {0} %").format(s.charge_limit)
+                if s.charge_limit is not None and "set_charge_limit" not in self._editors
+                else ""
             )
             if (
                 s.scheduled_charging_start is not None

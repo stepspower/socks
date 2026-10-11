@@ -1621,82 +1621,87 @@ Fingeravtrykk {2}</translation>
         <translation>Ikke tilkoblet</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="430"/>
+        <location filename="../tabs/status.py" line="423"/>
+        <source>{0} to limit</source>
+        <translation>{0} til grense</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="433"/>
         <source>Plugged in · {0}</source>
         <translation>Tilkoblet · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="432"/>
+        <location filename="../tabs/status.py" line="435"/>
         <source>limit {0} %</source>
         <translation>grense {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="438"/>
+        <location filename="../tabs/status.py" line="443"/>
         <source> · starts {0}</source>
         <translation> · starter {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="449"/>
+        <location filename="../tabs/status.py" line="454"/>
         <source>{0} inside</source>
         <translation>{0} inne</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="450"/>
+        <location filename="../tabs/status.py" line="455"/>
         <source>{0} outside{1}</source>
         <translation>{0} ute{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="454"/>
+        <location filename="../tabs/status.py" line="459"/>
         <source>Locked</source>
         <translation>Låst</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="455"/>
+        <location filename="../tabs/status.py" line="460"/>
         <source>UNLOCKED</source>
         <translation>ULÅST</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="456"/>
+        <location filename="../tabs/status.py" line="461"/>
         <source>Lock state unknown</source>
         <translation>Låsestatus ukjent</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="460"/>
+        <location filename="../tabs/status.py" line="465"/>
         <source>open: {0}</source>
         <translation>åpen: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="462"/>
+        <location filename="../tabs/status.py" line="467"/>
         <source>windows: {0}</source>
         <translation>vinduer: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="471"/>
+        <location filename="../tabs/status.py" line="476"/>
         <source>Shift {0}</source>
         <translation>Gir {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="474"/>
+        <location filename="../tabs/status.py" line="479"/>
         <source>firmware {0}</source>
         <translation>fastvare {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="487"/>
+        <location filename="../tabs/status.py" line="492"/>
         <source>Read at {0}</source>
         <translation>Lest kl. {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="492"/>
+        <location filename="../tabs/status.py" line="497"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="493"/>
+        <location filename="../tabs/status.py" line="498"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Bluetooth-signalstyrke; avstanden er et grovt anslag</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="496"/>
+        <location filename="../tabs/status.py" line="501"/>
         <source>Data source {0}, {1}</source>
         <translation>Datakilde {0}, {1}</translation>
     </message>
