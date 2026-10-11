@@ -67,3 +67,11 @@ temperatures), not raw API payloads, tokens or keys.
 - [ ] Flatpak permissions match the manifest list and nothing more.
 - [ ] Release artifacts built from a clean tag; no keys, tokens or databases in the repo or
       sdist (`git ls-files`, inspect the built wheel).
+
+## `socks-cli fleet charging --after-download` (FLEET)
+
+The `--after-download CMD` option executes a command the user typed (or configured) themselves,
+once, after new invoice PDFs were saved. It is split with `shlex.split` and run with
+`subprocess.run(argv + files, shell=False)` - no shell, so file names (which come from
+server-provided site names, slugged to `[a-z0-9-]`) cannot inject commands. SOCKS never runs a
+command it received from the network, and the GUI does not expose this option.

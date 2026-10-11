@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 stepspower
-"""`socks-cli fleet login|register|status|logout` handlers.
+"""`socks-cli fleet login|register|status|charging|logout` handlers.
 
 Worker CORE wires these into ``socks.core.cli``::
 
@@ -159,6 +159,87 @@ def fleet_logout(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_hook(cmd: str, files: list[Path]) -> int:
+    """Run the user's own command once with the new files as arguments. No shell."""
+    import shlex
+    import subprocess
+
+    argv = shlex.split(cmd)
+    if not argv:
+        return 0
+    try:
+        done = subprocess.run(  # noqa: S603 - user-configured argv, shell=False
+            [*argv, *map(str, files)], shell=False, check=False, timeout=600
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"after-download command failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 1
+    if done.returncode:
+        print(f"after-download command exited with {done.returncode}", file=sys.stderr)
+    return done.returncode
+
+
+def fleet_charging(args: argparse.Namespace) -> int:
+    from datetime import date
+
+    from socks.fleet import charging, oauth
+
+    settings = _settings(args)
+
+    def day(name: str) -> date | None:
+        value = getattr(args, name, None)
+        if not value:
+            return None
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            raise SystemExit(f"--{name}: expected YYYY-MM-DD, got {value!r}") from None
+
+    since, until = day("since"), day("until")
+    download = getattr(args, "download", None)
+    hook = getattr(args, "after_download", None)
+    csv_path = getattr(args, "csv", None)
+    stats = charging.RequestStats()
+
+    async def go() -> tuple[list[charging.ChargingSession], list[Path]]:
+        sessions = await charging.charging_history(settings, since=since, until=until, stats=stats)
+        new: list[Path] = []
+        if download:
+            new = await charging.download_invoices(
+                settings,
+                sessions,
+                Path(download),
+                stats=stats,
+                overwrite=bool(getattr(args, "overwrite", False)),
+            )
+        return sessions, new
+
+    try:
+        sessions, new = asyncio.run(go())
+    except (oauth.OAuthError, charging.ChargingError) as exc:
+        print(f"charging history failed: {exc}", file=sys.stderr)
+        print(f"Fleet API requests made: {stats.total}", file=sys.stderr)
+        return 1
+    for x in sessions:
+        when = x.start.strftime("%Y-%m-%d %H:%M") if x.start else "?"
+        kwh = f"{x.energy_kwh:7.1f} kWh" if x.energy_kwh is not None else "      ? kWh"
+        cost = f"{x.cost:8.2f} {x.currency}" if x.cost is not None else "       ?"
+        print(f"{when}  {kwh}  {cost}  {x.site}  invoices: {len(x.invoice_ids)}")
+    total_kwh = sum(x.energy_kwh or 0 for x in sessions)
+    print(f"{len(sessions)} sessions, {total_kwh:.1f} kWh")
+    if csv_path:
+        print(f"Summary CSV: {charging.write_summary_csv(sessions, Path(csv_path))}")
+    if download:
+        print(f"{len(new)} new invoice PDF(s) in {Path(download).expanduser()}")
+    print(
+        f"Fleet API requests made: {stats.total} "
+        f"({stats.history_pages} history pages, {stats.invoices} invoices)"
+    )
+    if hook and new:
+        return _run_hook(hook, new)
+    return 0
+
+
 def add_fleet_parser(subparsers: Any) -> argparse.ArgumentParser:
     """Attach ``fleet`` to an existing ``add_subparsers()`` object."""
     p = subparsers.add_parser("fleet", help="Tesla Fleet API (cloud) setup")
@@ -197,6 +278,20 @@ def add_fleet_parser(subparsers: Any) -> argparse.ArgumentParser:
     sp.add_argument("--domain", default=None)
     sp.add_argument("--public-key", default=None)
     sp.set_defaults(func=fleet_status)
+
+    sp = sub.add_parser("charging", help="Supercharger history and invoice PDFs")
+    common(sp)
+    sp.add_argument("--since", metavar="YYYY-MM-DD", help="first day (inclusive)")
+    sp.add_argument("--until", metavar="YYYY-MM-DD", help="last day (inclusive)")
+    sp.add_argument("--download", metavar="DIR", help="save new invoice PDFs here")
+    sp.add_argument("--overwrite", action="store_true", help="re-download existing PDFs")
+    sp.add_argument("--csv", metavar="FILE", help="write a summary CSV")
+    sp.add_argument(
+        "--after-download",
+        metavar="CMD",
+        help="run CMD once with the new PDF paths appended as arguments (no shell)",
+    )
+    sp.set_defaults(func=fleet_charging)
 
     sp = sub.add_parser("logout", help="delete stored tokens")
     sp.set_defaults(func=fleet_logout)

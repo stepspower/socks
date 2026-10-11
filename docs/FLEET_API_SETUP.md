@@ -41,3 +41,13 @@ developer.tesla.com on 2026-10-11; portal labels change, so follow the meaning i
     if Tesla rejects that, rerun and paste the secret. If all three ports are busy, close
     the program holding them (or register another port and pass `--port`).
 11. Check: `socks-cli fleet status`. Then enable *Cloud* in Settings. Keep polling off.
+
+## Charging history and invoices (optional)
+
+Uses scope `vehicle_charging_cmds` (already requested); Tesla lists no pricing category for
+these endpoints ("not charged"). `socks-cli fleet charging --since 2026-01-01 --download
+~/Documents/tesla-invoices --csv ~/Documents/tesla-invoices/summary.csv` lists sessions, saves
+new invoice PDFs as `YYYY-MM-DD_<site>_<id>.pdf` (0600; existing files are skipped) and prints
+how many API requests it made. `--after-download "CMD ARGS"` runs your command once with the
+new PDF paths appended (split like a shell, but no shell is used), e.g. a script that mails
+them via `sendmail`.
