@@ -41,7 +41,9 @@ uv tool install socks-tesla --python 3.13
 (`pipx install socks-tesla` also works if pipx already runs Python 3.13.) This gives you two
 programs: `socks` (the window) and `socks-cli` (the command line).
 
-Try it with no car first: `socks --fake`.
+Alternatives: the Flatpak bundle from the GitHub releases page (`flatpak install --user
+socks.flatpak`, Flathub listing submitted but not yet live), or the `.deb`, `.rpm` or wheel from
+the same page. Try it with no car first: `socks --fake`.
 
 ## 3. Find your VIN
 
@@ -115,10 +117,45 @@ when the car parks or SOCKS quits. Notes:
 - If your system refuses the inhibitor (polkit policy), SOCKS shows a one-line note and
   continues without it.
 
-## 8. Units, tariff, backup
+When the laptop was asleep for the whole drive, SOCKS has no Bluetooth track. If the cloud and
+**Follow trips via cloud while the car is away** are on, it records one cloud position every
+10 minutes (never waking the car; this costs data reads, see section 9). Without the cloud the
+drive is reconstructed from the odometer and state of charge only.
+
+### Status tab: switches, click-to-change and Depart by
+
+- Click a value (charge limit, target temperature, charging amps) to change it in place.
+- Switches for lock, climate, charge port, frunk, trunk and sentry act on release. The risky
+  direction (unlock, frunk/trunk, sentry off) needs a full slide or holding Enter for about a
+  second, replacing the typed challenge on this tab. The Controls tab keeps typed challenges.
+- **Depart by...** (or `socks-cli depart 07:30 --limit 90 --temp 21`, `--cancel` to clear)
+  sets a one-off departure: the car charges to the chosen % and warms the cabin so both are
+  ready at that time. The car does the timing, so SOCKS can be closed. It is cleared
+  automatically once done.
+
+### Location, places and the mileage register
+
+1. **Location** is off by default. Turn it on in Settings ("Read and show the car's location");
+   positions stay on this computer. The Status tab then shows a Location card with "Open in
+   map" (openstreetmap.org in your browser) and Copy.
+2. **Place names** come from your own drives first: SOCKS learns places from drive start and
+   end points (History > Places; double-click or F2 to rename). Optional online lookup is a
+   separate Settings switch, **off by default**; when on it sends rounded coordinates to
+   openstreetmap.org (Nominatim).
+3. Drives are labelled automatically (for example Home to Work). Click the Purpose cell of a
+   drive to cycle none, business, private, commute; **Rebuild labels** relearns places.
+4. **History > Export... > Mileage register YYYY (CSV)** writes a CSV with one row per trip (date, times,
+   odometer start/end, km, purpose, places) for a yearly register, the shape used for the Dutch
+   *rittenregistratie*. **Disclaimer:** this is a convenience export only. You are responsible
+   for the register being complete and correct (it must cover every trip of the year and carry
+   accurate places) and for complying with the tax rules. SOCKS does not verify compliance.
+
+## 8. Units, language, tariff, backup
 
 - Units: Settings > Units, metric (km, kWh, °C) or imperial. Stored values stay metric;
   only the display changes.
+- Language: Settings > Language (English, Nederlands, Cestina, Deutsch, Norsk bokmal, Svenska).
+  Translations are machine-drafted; corrections welcome, see [TRANSLATING.md](TRANSLATING.md).
 - Tariff: set your price per kWh to get charging cost on the History tab.
 - Backup: history is one file, `~/.local/share/socks/history.sqlite`. Copy it while SOCKS is
   closed (or use `sqlite3 history.sqlite ".backup backup.sqlite"`). Settings, key and tokens
@@ -129,6 +166,11 @@ when the car parks or SOCKS quits. Notes:
 See [FLEET_API_SETUP.md](FLEET_API_SETUP.md). Commands: `socks-cli fleet login`,
 `socks-cli fleet register`, `socks-cli fleet status`, `socks-cli fleet logout`.
 Prices: data $0.002, command $0.001, wake $0.02, with a $10 monthly discount.
+
+**Charging invoices:** `socks-cli fleet charging --since 2026-01-01 --download ~/Invoices --csv
+charging.csv` lists your Supercharger sessions, saves new invoice PDFs and writes a summary CSV.
+`--after-download CMD` runs a command once with the new PDF paths appended (no shell). Per Tesla's
+pricing spec these endpoints are not charged.
 
 ## 10. Uninstall and revoke
 

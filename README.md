@@ -19,26 +19,50 @@
 
 ## Features
 
-**Status:** state of charge, range, charging, temperatures, locks and closures, odometer.
+**Status.** State of charge, range, charging, temperatures, locks and closures, odometer, and a
+Location card (opt-in; open in OpenStreetMap or copy). Values are clickable to change them, and
+risky switches (unlock, frunk, trunk, sentry off) need a full slide or a held Enter instead of a
+typed challenge.
 
-**Controls:** lock/unlock, climate and temperature, charge start/stop, charge limit, charge port,
-flash/honk, frunk/trunk, sentry, wake. Every command asks for confirmation; dangerous ones
-(unlock, frunk/trunk, sentry off) make you type the first letters of the action.
+**Depart by.** Pick a time, a charge % and a cabin temperature once; the car does the timing and
+the schedule clears itself afterwards. Also `socks-cli depart 07:30 --limit 90 --temp 21`.
+
+![Status tab](docs/screenshots/status.png)
+
+**Controls.** Lock/unlock, climate, charging, charge port, flash/honk, frunk/trunk, sentry, wake.
+Every command is confirmed; dangerous ones keep a typed challenge here.
 
 ![Controls tab](docs/screenshots/controls.png)
 
-![Confirmation dialog](docs/screenshots/confirm.png)
-
-**History:** distance per day, charge sessions and cost (set your tariff), consumption,
-state-of-charge curve, battery health trend, plus some nerd stats. Metric by default,
+**History.** Distance per day, charge sessions and cost (set your tariff), consumption,
+state-of-charge curve, battery health, per-drive profiles and GPX export. Metric by default,
 imperial switchable.
 
 ![History tab](docs/screenshots/history.png)
 
-**Settings:** VIN, units, Bluetooth/cloud preference, polling, tariff. The screenshots above
-use `--fake` (a simulated car and synthetic data).
+**Places and mileage register.** SOCKS learns places from where your drives start and end,
+labels drives automatically, and lets you set the purpose (business, private, commute) in one click.
+**Export > Mileage register (CSV)** writes a yearly km CSV in the layout of a Dutch
+*rittenregistratie*. It is a convenience export only: you are responsible for the register being
+complete and correct and for complying with the tax rules; SOCKS does not verify compliance.
+Reverse geocoding (place names) is off by default; turning it on sends coordinates to
+openstreetmap.org.
+
+**Charging invoices.** `socks-cli fleet charging --download DIR --csv summary.csv` fetches your
+Supercharger history and invoice PDFs through the Fleet API. Tesla does not charge for these
+endpoints (per their pricing spec).
+
+**Drive mode (bonus).** While the car is in gear, SOCKS reads it every 15 s over Bluetooth and
+records a detailed track. There is an option to keep the computer awake with the lid closed.
+The honest caveat: the laptop must already be awake when the drive starts. Otherwise, if
+trip watch and the cloud are on, away trips get one cloud position per 10 minutes.
+
+**Languages.** English, plus Dutch, Czech, German, Norwegian Bokmal and Swedish. The translations
+are machine-drafted and welcome review: see [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
 ![Settings tab](docs/screenshots/settings.png)
+
+The screenshots use `--fake` (a simulated car and synthetic data).
 
 ## Requirements
 
@@ -55,10 +79,10 @@ use `--fake` (a simulated car and synthetic data).
 ## Install
 
 Pick one. Needs a working BlueZ for Bluetooth. Step-by-step with distro package names:
-[docs/HOWTO.md](docs/HOWTO.md).
+[docs/HOWTO.md](docs/HOWTO.md). Deb, rpm and wheel files are also on the releases page.
 
-**Flatpak** (any distro, recommended; Flathub listing pending, for now download `socks.flatpak`
-from the [releases page](https://github.com/stepspower/socks/releases)):
+**Flatpak** (any distro, recommended). Flathub: submitted, not yet listed. For now download
+`socks.flatpak` from the [releases page](https://github.com/stepspower/socks/releases):
 
 ```bash
 flatpak install --user socks.flatpak
@@ -121,9 +145,11 @@ polling is off by default, so most people pay nothing.
 - No telemetry. The only network traffic is to Tesla endpoints you enabled (cloud is off by default).
 - Private key and tokens live in `$XDG_CONFIG_HOME/socks/` (directory 0700, files 0600), never
   logged and never in the database. History is a local SQLite file in `$XDG_DATA_HOME/socks/`.
-- All state-changing commands go through one confirmation gate.
-- See [docs/SECURITY.md](docs/SECURITY.md) (threat model, reporting) and the
-  [security audit](docs/AUDIT-2026-10-11.md).
+- All state-changing commands go through one confirmation gate (slide switch or typed challenge).
+- Location, geocoding, cloud and trip watch are all off until you turn them on.
+- See [docs/SECURITY.md](docs/SECURITY.md) (threat model, reporting). An in-project security
+  review by a separate reviewer was done before release; the report is
+  [docs/AUDIT-2026-10-11.md](docs/AUDIT-2026-10-11.md). It is not a third-party audit.
 
 ## Troubleshooting
 

@@ -51,7 +51,8 @@ jobs:
       - name: Build .rpm
         run: |
           dnf builddep -y packaging/rpm/socks-tesla.spec
-          VERSION="${GITHUB_REF_NAME#v}"
+          # name the tarball after the spec, not the tag (rc tags look like v0.1.0-rc2)
+          VERSION=$(sed -n 's/^Version: *//p' packaging/rpm/socks-tesla.spec)
           mkdir -p ~/rpmbuild/SOURCES
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git archive --format=tar.gz --prefix="socks-${VERSION}/" -o ~/rpmbuild/SOURCES/socks-${VERSION}.tar.gz HEAD
