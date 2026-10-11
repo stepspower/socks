@@ -672,3 +672,37 @@ def test_fake_backend_only_from_checkout(monkeypatch: pytest.MonkeyPatch, tmp_pa
     monkeypatch.setattr(socks, "__file__", str(pkg / "__init__.py"))
     with pytest.raises(RuntimeError, match="source checkout"):
         fake_backend()
+
+
+class PairingVehicle(FakeBleVehicle):
+    def __init__(self, error: BaseException | None = None) -> None:
+        super().__init__()
+        self.pair_error = error
+        self.pair_calls: list[tuple[int, int, float]] = []
+
+    async def pair(self, role: int, form: int, timeout: float) -> None:
+        self.pair_calls.append((role, form, timeout))
+        if self.pair_error is not None:
+            raise self.pair_error
+
+
+async def test_ble_pair(key_path: Path) -> None:
+    from tesla_fleet_api.exceptions import BluetoothTimeout, WhitelistOperationNoPermissionToAdd
+    from tesla_protocol.command.keys_pb2 import Role
+    from tesla_protocol.command.vcsec_pb2 import KeyFormFactor
+
+    vehicle = PairingVehicle()
+    assert await _ble(key_path, vehicle).pair() is True
+    assert vehicle.pair_calls == [(Role.ROLE_DRIVER, KeyFormFactor.KEY_FORM_FACTOR_CLOUD_KEY, 60.0)]
+    assert await _ble(key_path, vehicle).pair("owner", 5) is True
+    assert vehicle.pair_calls[-1][0] == Role.ROLE_OWNER
+    assert await _ble(key_path, PairingVehicle(BluetoothTimeout())).pair() is False
+    with pytest.raises(CommandError) as exc:
+        await _ble(key_path, PairingVehicle(WhitelistOperationNoPermissionToAdd())).pair()
+    assert not isinstance(exc.value, NotAvailable)
+    with pytest.raises(CommandError, match="role"):
+        await _ble(key_path, vehicle).pair("service")
+    unreachable = PairingVehicle()
+    unreachable.find_error = ValueError("not found")
+    with pytest.raises(NotAvailable):
+        await _ble(key_path, unreachable).pair()

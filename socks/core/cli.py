@@ -62,8 +62,12 @@ def _parser() -> argparse.ArgumentParser:
     ki = ksub.add_parser("import", help="import an existing, already paired P-256 key")
     ki.add_argument("path", nargs="?", type=Path)
     ki.add_argument("--force", action="store_true", help="replace a different existing key")
+    ki.add_argument("--vin", help="the car's VIN (default: the vin file next to the key)")
     ksub.add_parser("generate", help="create a key if none exists (pair it with the car)")
     ksub.add_parser("public", help="print the public key PEM and fingerprint")
+    kp = ksub.add_parser("pair", help="ask the car (over Bluetooth) to accept this key")
+    kp.add_argument("--role", choices=("driver", "owner"), default="driver")
+    kp.add_argument("--vin", help="the car's VIN (default: from settings)")
     try:
         from socks.fleet.cli import add_fleet_parser
     except ImportError:  # build without fleet support
@@ -274,11 +278,17 @@ def _key(args: argparse.Namespace) -> int:
             key = keys.import_private_key(src, dest, overwrite=args.force)
             settings.key_path = dest
             msg = f"imported key from {src} -> {dest}"
-            if not settings.vin:
-                vin = keys.read_vin_file(src.parent / "vin")
-                if vin:
-                    settings.vin = vin
-                    msg += f"; VIN {vin}"
+            vin = None
+            if args.vin:
+                vin = keys.validate_vin(args.vin)
+            elif not settings.vin:
+                for vin_file in (src.parent / "vin", keys.tesla_control_dir() / "vin"):
+                    vin = keys.read_vin_file(vin_file)
+                    if vin:
+                        break
+            if vin:
+                settings.vin = vin
+                msg += f"; VIN {vin}"
             settings.save(path)
             print(f"{msg}\nfingerprint {keys.public_key_fingerprint(key)}")
         elif args.key_action == "generate":
@@ -289,14 +299,59 @@ def _key(args: argparse.Namespace) -> int:
             )
             if created:
                 print("Pair it with the car (key card) before it can send commands.")
+        elif args.key_action == "pair":
+            return asyncio.run(_key_pair(args, settings))
         else:
             key = keys.load_private_key(settings.key_path)
             sys.stdout.write(keys.public_key_pem(key).decode("ascii"))
             print(f"fingerprint {keys.public_key_fingerprint(key)}")
-    except keys.KeyFileError as e:
+    except (keys.KeyFileError, ValueError) as e:
         print(f"socks-cli: {e}", file=sys.stderr)
         return EXIT_FAIL
     return EXIT_OK
+
+
+async def _key_pair(args: argparse.Namespace, settings: Any) -> int:
+    """Send the BLE add-key request and wait for the key-card confirmation."""
+    from socks.core import backend as be
+    from socks.core import keys
+
+    vin = keys.validate_vin(args.vin or settings.vin) if (args.vin or settings.vin) else ""
+    if not vin:
+        print(
+            "socks-cli: no VIN; pass --vin or run 'socks-cli key import --vin ...'", file=sys.stderr
+        )
+        return EXIT_FAIL
+    if args.fake:
+        ble: Any = be.fake_backend(start=None, vin=vin)
+    else:
+        if not Path(settings.key_path).is_file():
+            print(
+                "socks-cli: no key yet; run 'socks-cli key import' or 'socks-cli key generate'",
+                file=sys.stderr,
+            )
+            return EXIT_FAIL
+        ble = be.BleBackend(vin, Path(settings.key_path))
+    timeout = be.PAIR_TIMEOUT
+    print(
+        f"Sending add-key request (role {args.role}, cloud_key) to {vin} over Bluetooth...\n"
+        f"Tap your key card on the centre console to confirm (waiting up to {timeout:g} s)."
+    )
+    try:
+        confirmed = await ble.pair(args.role, timeout)
+    except be.CommandError as e:
+        print(f"socks-cli: pairing failed: {e}", file=sys.stderr)
+        return EXIT_FAIL
+    finally:
+        await ble.close()
+    if confirmed:
+        print("Key accepted by the car.")
+        return EXIT_OK
+    print(
+        "No confirmation received. Check the car's Locks screen: if the key is listed, "
+        "pairing worked; otherwise run 'socks-cli key pair' again."
+    )
+    return EXIT_FAIL
 
 
 # ---------------------------------------------------------------- fleet

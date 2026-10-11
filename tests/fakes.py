@@ -164,6 +164,8 @@ class FakeBackend:
         self.reads = 0
         self.last_wake: bool | None = None
         self.closed = False
+        self.paired: list[str] = []
+        self.pair_result = True
 
     async def available(self) -> bool:
         return self.available_flag
@@ -251,6 +253,13 @@ class FakeBackend:
             case Command.FLASH_LIGHTS | Command.HONK | Command.WAKE:
                 pass
         self._current = replace(s, **changes)
+
+    async def pair(self, role: str = "driver", timeout: float = 60.0) -> bool:
+        """Simulate the BLE add-key request; ``pair_result`` decides the outcome."""
+        if not self.available_flag:
+            raise NotAvailable(f"fake {self.name.value}: offline")
+        self.paired.append(role)
+        return self.pair_result
 
     async def close(self) -> None:
         self.closed = True

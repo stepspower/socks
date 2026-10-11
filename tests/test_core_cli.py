@@ -102,3 +102,27 @@ def test_json_redacts_location_by_default(
 def test_sentry_off_needs_yes(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--fake", "cmd", "sentry_off"]) == EXIT_REFUSED
     assert main(["--fake", "cmd", "set_temp", "inf"]) == EXIT_FAIL
+
+
+def test_key_pair_fake(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["--fake", "key", "pair", "--vin", "LRW3E7EJXTC899247"]) == EXIT_OK
+    out = capsys.readouterr().out
+    assert "Tap your key card" in out and "role driver" in out and "accepted" in out
+    assert main(["--fake", "key", "pair"]) == EXIT_FAIL  # no VIN anywhere
+    assert "--vin" in capsys.readouterr().err
+    assert main(["--fake", "key", "pair", "--vin", "BADVIN"]) == EXIT_FAIL
+    assert main(["key", "pair", "--vin", "LRW3E7EJXTC899247"]) == EXIT_FAIL  # no key yet
+    assert "key import" in capsys.readouterr().err
+
+
+def test_key_import_with_vin_flag(tmp_path: Path) -> None:
+    src = tmp_path / "elsewhere" / "k.pem"
+    keys.write_private_key(keys.generate_private_key(), src)
+    tesla = tmp_path / "config" / "tesla"
+    tesla.mkdir(parents=True)
+    (tesla / "vin").write_text("5YJ3E7EB0KF000001\n")
+    assert main(["key", "import", str(src)]) == EXIT_OK  # falls back to ~/.config/tesla/vin
+    assert Settings.load().vin == "5YJ3E7EB0KF000001"
+    assert main(["key", "import", str(src), "--vin", "lrw3e7ejxtc899247"]) == EXIT_OK
+    assert Settings.load().vin == "LRW3E7EJXTC899247"
+    assert main(["key", "import", str(src), "--vin", "nope"]) == EXIT_FAIL

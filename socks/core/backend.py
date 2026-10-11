@@ -36,6 +36,8 @@ log = logging.getLogger(__name__)
 BLE_CONNECT_TIMEOUT = 20.0
 COMMAND_TIMEOUT = 15.0
 WAKE_TIMEOUT = 30.0
+PAIR_TIMEOUT = 60.0
+PAIR_ROLES = ("driver", "owner")
 
 TokenProvider = Callable[[], Awaitable[str | None]]
 
@@ -554,6 +556,40 @@ class BleBackend:
             except CommandError as e:
                 log.debug("optional BLE read failed: %s", e)
         return parse_ble_payload(self.vin, payload, self._clock())
+
+    async def pair(self, role: str = "driver", timeout: float = PAIR_TIMEOUT) -> bool:
+        """Send the BLE add-key request for this backend's key (form factor cloud_key).
+
+        Same as ``tesla-control -ble add-key-request public_key.pem <role> cloud_key``. The
+        user must tap a key card on the centre console. Returns True once the car confirms
+        (reply or whitelist probe), False if nothing confirmed within ``timeout`` (approval
+        may still be pending: check the car's Locks screen). Raises CommandError if the car
+        rejects the request, NotAvailable if the car cannot be reached. The request is
+        written once and never re-sent (that would prompt again).
+        """
+        if role not in PAIR_ROLES:
+            raise CommandError(f"role must be one of {', '.join(PAIR_ROLES)}")
+        async with self._lock:
+            vehicle = await self._connected()
+            from tesla_protocol.command.keys_pb2 import Role
+            from tesla_protocol.command.vcsec_pb2 import KeyFormFactor
+
+            try:
+                with _guard("Bluetooth pairing"):
+                    try:
+                        async with asyncio.timeout(timeout + 10):
+                            await vehicle.pair(
+                                role=Role.ROLE_OWNER if role == "owner" else Role.ROLE_DRIVER,
+                                form=KeyFormFactor.KEY_FORM_FACTOR_CLOUD_KEY,
+                                timeout=timeout,
+                            )
+                    except TimeoutError:
+                        return False  # not confirmed in time; may still be pending
+            except CommandError as e:
+                if e.kind == "BluetoothTimeout":  # library: neither reply nor probe confirmed
+                    return False
+                raise
+            return True
 
     async def send(self, cmd: Command, arg: float | int | None = None) -> None:
         try:
