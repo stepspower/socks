@@ -121,3 +121,8 @@ https://github.com/stepspower/socks/releases/tag/v0.1.0
 SOCKS (State Of Charge, Keys & Stats): open-source Linux desktop app for Tesla. Bluetooth key, no cloud account needed, local history, no telemetry. GPL-3.0+. Testers welcome: https://github.com/stepspower/socks #Linux #Tesla #OpenSource
 
 (The trademark line does not fit in 280 characters; put "Tesla is a trademark of Tesla, Inc.; not affiliated." in a reply or the profile bio.)
+
+## Posted (2026-10-11)
+
+- r/teslamotors, r/linux, r/linuxapps — posted by the owner.
+- TMC, Show HN, Mastodon/X — not posted (no accounts); texts kept here for later.
