@@ -1,0 +1,37 @@
+# environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# build output
+build/
+dist/
+*.egg-info/
+.flatpak-builder/
+flatpak-build/
+repo/
+
+# user data must never be committed
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.pem
+*.key
+tokens*.json
+*token*.json
+*.env
+.env*
+
+# editors
+.idea/
+.vscode/
+*.swp
+
+# Screenshots are kept on purpose (docs/screenshots, docs/screenshot-dev.png).

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "socks-tesla"
+dynamic = ["version"]
+description = "SOCKS: Tesla companion for Linux with Bluetooth control, charge status and driving/charging history"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "stepspower" }]
+keywords = ["tesla", "bluetooth", "ble", "fleet-api", "qt", "linux"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Utilities",
+]
+# Exactly these three, per PLAN section 1. Do not add runtime dependencies.
+dependencies = [
+    "tesla-fleet-api>=1.17",
+    "PySide6-Essentials>=6.8",
+    "platformdirs>=4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+    "pip-audit",
+    "bandit",
+]
+
+[project.urls]
+Homepage = "https://github.com/stepspower/socks"
+Issues = "https://github.com/stepspower/socks/issues"
+
+[project.scripts]
+socks-cli = "socks.core.cli:main"
+
+[project.gui-scripts]
+socks = "socks.gui.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "socks.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["socks*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

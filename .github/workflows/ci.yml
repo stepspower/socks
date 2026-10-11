@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Python 3.13 and project
+        run: |
+          uv python install 3.13
+          uv venv --python 3.13 .venv
+          uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: Qt runtime libraries (offscreen tests)
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libxkbcommon0 libdbus-1-3 libfontconfig1 libgl1
+      - name: ruff check
+        run: .venv/bin/ruff check --config ruff.toml .
+      - name: ruff format
+        run: .venv/bin/ruff format --config ruff.toml --check .
+      - name: pytest
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: .venv/bin/pytest -q
+
+  security:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: |
+          uv python install 3.13
+          uv venv --python 3.13 .venv
+          uv pip install --python .venv/bin/python -e ".[dev]"
+      - name: pip-audit
+        run: .venv/bin/pip-audit
+      - name: bandit
+        run: .venv/bin/bandit -r socks -ll
+
+  appstream:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y desktop-file-utils appstream
+      - name: desktop file
+        run: desktop-file-validate packaging/net.stepspower.Socks.desktop
+      - name: metainfo
+        # screenshots are placeholders until the first release, so skip the network fetch
+        run: appstreamcli validate --no-net packaging/net.stepspower.Socks.metainfo.xml

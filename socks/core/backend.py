@@ -1,0 +1,863 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 stepspower
+"""Backends that read the car and send commands: BLE, Fleet API (cloud) and a Router.
+
+All protocol work goes through ``tesla-fleet-api`` (imported lazily, it is heavy):
+
+* BLE:   ``tesla_fleet_api.tesla.bluetooth.TeslaBluetooth`` -> ``.vehicles.create(vin, key=...)``
+         returns ``tesla_fleet_api.tesla.vehicle.bluetooth.VehicleBluetooth``.
+* Cloud: ``tesla_fleet_api.tesla.fleet.TeslaFleetApi`` -> ``.vehicles.createSigned(vin)``
+         returns ``tesla_fleet_api.tesla.vehicle.signed.VehicleSigned`` (signed commands).
+
+Tesla reports distances in miles: they are converted to km here, at the boundary. Payload
+parsers are pure functions over dicts and tolerate missing keys (-> None, never a crash).
+
+Note: ``tesla_fleet_api.exceptions.TeslaFleetError`` derives from ``BaseException``, not
+``Exception``; every library call is therefore wrapped by :func:`_guard`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import logging
+import time
+from collections.abc import Awaitable, Callable, Iterator
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any, Protocol
+
+from socks.core.commands import Command, validate_arg
+from socks.core.keys import KeyFileError, is_valid_vin, load_private_key
+from socks.core.model import KM_PER_MILE, ChargingState, ShiftState, Source, VehicleState
+
+log = logging.getLogger(__name__)
+
+BLE_CONNECT_TIMEOUT = 20.0
+COMMAND_TIMEOUT = 15.0
+WAKE_TIMEOUT = 30.0
+
+TokenProvider = Callable[[], Awaitable[str | None]]
+
+
+class CommandError(Exception):
+    """A read or command failed. The message is human-readable and free of secrets.
+
+    ``maybe_executed`` is True when a *command* was handed to the car but its outcome is
+    unknown (lost ack). Such a command must not be retried on another transport.
+    """
+
+    def __init__(
+        self, message: str, *, maybe_executed: bool = False, kind: str | None = None
+    ) -> None:
+        super().__init__(message)
+        self.maybe_executed = maybe_executed
+        self.kind = kind  # class name of the underlying library error, if any
+
+
+class NotAvailable(CommandError):
+    """The backend cannot reach the car at all (not configured, out of range, offline...)."""
+
+
+class Backend(Protocol):
+    name: Source
+
+    async def available(self) -> bool: ...
+
+    async def read_state(self) -> VehicleState: ...
+
+    async def send(self, cmd: Command, arg: float | int | None = None) -> None: ...
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
+# ======================================================================= payload parsing
+
+
+def _camel(name: str) -> str:
+    head, *rest = name.split("_")
+    return head + "".join(p[:1].upper() + p[1:] for p in rest)
+
+
+def _get(d: Any, name: str) -> Any:
+    """``d[name]`` trying snake_case then camelCase (protobuf JSON); None if absent."""
+    if not isinstance(d, dict):
+        return None
+    if name in d:
+        return d[name]
+    return d.get(_camel(name))
+
+
+def _section(payload: dict[str, Any], name: str) -> dict[str, Any]:
+    value = _get(payload, name)
+    return value if isinstance(value, dict) else {}
+
+
+def _num(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    if isinstance(value, int | float):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return None
+    return None
+
+
+def _int(value: Any) -> int | None:
+    n = _num(value)
+    return None if n is None else int(round(n))
+
+
+def _bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    return None
+
+
+def _miles(value: Any, ndigits: int = 1) -> float | None:
+    n = _num(value)
+    return None if n is None else round(n * KM_PER_MILE, ndigits)
+
+
+def _variant(value: Any) -> str | None:
+    """Name of a protobuf oneof-of-Void (``{"Stopped": {}}``) or a plain REST string."""
+    if isinstance(value, str):
+        return value or None
+    if isinstance(value, dict) and value:
+        return next(iter(value))
+    return None
+
+
+def _charging(value: Any) -> ChargingState:
+    name = _variant(value)
+    try:
+        return ChargingState(name)
+    except ValueError:
+        return ChargingState.UNKNOWN
+
+
+def _shift(value: Any) -> ShiftState:
+    name = _variant(value)
+    try:
+        return ShiftState(name)
+    except ValueError:
+        return ShiftState.UNKNOWN
+
+
+def _plugged_in(cable: Any, charging: ChargingState) -> bool | None:
+    name = _variant(cable)
+    if name is not None:
+        return name not in ("SNA", "<invalid>", "None", "none")
+    if charging is ChargingState.DISCONNECTED:
+        return False
+    if charging is ChargingState.UNKNOWN:
+        return None
+    return True
+
+
+def _epoch(value: Any) -> datetime | None:
+    """Epoch seconds or milliseconds (tesla-control prints ms) -> aware UTC datetime."""
+    n = _num(value)
+    if not n or n <= 0:
+        return None
+    if n > 1e11:
+        n /= 1000.0
+    try:
+        return datetime.fromtimestamp(n, UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def _scheduled_start(charge: dict[str, Any]) -> datetime | None:
+    if _bool(_get(charge, "scheduled_charging_pending")) is False:
+        return None
+    return _epoch(_get(charge, "scheduled_charging_start_time"))
+
+
+def _minutes_to_limit(charge: dict[str, Any]) -> int | None:
+    for name in ("minutes_to_charge_limit", "minutes_to_full_charge"):
+        value = _int(_get(charge, name))
+        if value is not None:
+            return value
+    hours = _num(_get(charge, "time_to_full_charge"))  # REST: hours, float
+    return None if hours is None else int(round(hours * 60))
+
+
+def _named(flags: Iterator[tuple[str, Any]]) -> tuple[str, ...]:
+    return tuple(name for name, value in flags if value)
+
+
+# Left = driver side: assumes a left-hand-drive car (Tesla's APIs say driver/passenger).
+_BLE_DOORS = (
+    ("front_left", "door_open_driver_front"),
+    ("front_right", "door_open_passenger_front"),
+    ("rear_left", "door_open_driver_rear"),
+    ("rear_right", "door_open_passenger_rear"),
+    ("frunk", "door_open_trunk_front"),
+    ("trunk", "door_open_trunk_rear"),
+)
+_BLE_WINDOWS = (
+    ("front_left", "window_open_driver_front"),
+    ("front_right", "window_open_passenger_front"),
+    ("rear_left", "window_open_driver_rear"),
+    ("rear_right", "window_open_passenger_rear"),
+)
+_VCSEC_DOORS = (
+    ("front_left", "frontDriverDoor"),
+    ("front_right", "frontPassengerDoor"),
+    ("rear_left", "rearDriverDoor"),
+    ("rear_right", "rearPassengerDoor"),
+    ("frunk", "frontTrunk"),
+    ("trunk", "rearTrunk"),
+)
+_REST_DOORS = (
+    ("front_left", "df"),
+    ("front_right", "pf"),
+    ("rear_left", "dr"),
+    ("rear_right", "pr"),
+    ("frunk", "ft"),
+    ("trunk", "rt"),
+)
+_REST_WINDOWS = (
+    ("front_left", "fd_window"),
+    ("front_right", "fp_window"),
+    ("rear_left", "rd_window"),
+    ("rear_right", "rp_window"),
+)
+_VCSEC_OPEN = {
+    "CLOSURESTATE_OPEN",
+    "CLOSURESTATE_AJAR",
+    "CLOSURESTATE_OPENING",
+    "CLOSURESTATE_CLOSING",
+    "CLOSURESTATE_FAILED_UNLATCH",
+}
+
+
+def _vcsec_locked(vcsec: dict[str, Any]) -> bool | None:
+    lock = _get(vcsec, "vehicleLockState")
+    if lock in ("VEHICLELOCKSTATE_LOCKED", "VEHICLELOCKSTATE_INTERNAL_LOCKED"):
+        return True
+    if lock in ("VEHICLELOCKSTATE_UNLOCKED", "VEHICLELOCKSTATE_SELECTIVE_UNLOCKED"):
+        return False
+    return None
+
+
+def _charge_fields(charge: dict[str, Any]) -> dict[str, Any]:
+    """Fields common to the BLE (protobuf JSON) and REST charge_state shapes."""
+    charging = _charging(_get(charge, "charging_state")) if charge else ChargingState.UNKNOWN
+    return {
+        "soc": _int(_get(charge, "battery_level")),
+        "usable_soc": _int(_get(charge, "usable_battery_level")),
+        "charge_limit": _int(_get(charge, "charge_limit_soc")),
+        "charging": charging,
+        "charger_power_kw": _num(_get(charge, "charger_power")),
+        "charger_voltage": _int(_get(charge, "charger_voltage")),
+        "charger_current_a": _int(_get(charge, "charger_actual_current")),
+        "charge_energy_added_kwh": _num(_get(charge, "charge_energy_added")),
+        "minutes_to_limit": _minutes_to_limit(charge),
+        "rated_range_km": _miles(_get(charge, "battery_range")),
+        "ideal_range_km": _miles(_get(charge, "ideal_battery_range")),
+        "plugged_in": _plugged_in(_get(charge, "conn_charge_cable"), charging),
+        "charge_port_open": _bool(_get(charge, "charge_port_door_open")),
+        "scheduled_charging_start": _scheduled_start(charge),
+    }
+
+
+def parse_ble_payload(vin: str, payload: dict[str, Any], ts: datetime) -> VehicleState:
+    """Map the BLE payload to a VehicleState.
+
+    ``payload`` holds protobuf JSON dicts (snake_case from ``MessageToDict`` or camelCase from
+    ``tesla-control``): ``charge_state``, ``drive_state``, ``climate_state``,
+    ``closures_state`` (CarServer) and ``vehicle_status`` (VCSEC). Any may be missing.
+    """
+    charge = _section(payload, "charge_state")
+    drive = _section(payload, "drive_state")
+    climate = _section(payload, "climate_state")
+    closures = _section(payload, "closures_state")
+    vcsec = _section(payload, "vehicle_status")
+
+    odo = _num(_get(drive, "odometer_in_hundredths_of_a_mile"))
+    speed = _num(_get(drive, "speed_float"))
+    if speed is None:
+        speed = _num(_get(drive, "speed"))
+
+    if closures:
+        doors = _named((n, _bool(_get(closures, k))) for n, k in _BLE_DOORS)
+        locked = _bool(_get(closures, "locked"))
+    else:
+        cs = _section(vcsec, "closureStatuses")
+        doors = _named((n, _get(cs, k) in _VCSEC_OPEN) for n, k in _VCSEC_DOORS)
+        locked = None
+    if locked is None:
+        locked = _vcsec_locked(vcsec)
+    sentry = _variant(_get(closures, "sentry_mode_state"))
+
+    return VehicleState(
+        ts=ts,
+        source=Source.BLE,
+        vin=vin,
+        **_charge_fields(charge),
+        odometer_km=None if odo is None else round(odo / 100.0 * KM_PER_MILE, 2),
+        shift=_shift(_get(drive, "shift_state")),
+        speed_kmh=None if speed is None else round(speed * KM_PER_MILE, 1),
+        power_kw=_num(_get(drive, "power")),
+        inside_temp_c=_num(_get(climate, "inside_temp_celsius")),
+        outside_temp_c=_num(_get(climate, "outside_temp_celsius")),
+        climate_on=_bool(_get(climate, "is_climate_on")),
+        target_temp_c=_num(_get(climate, "driver_temp_setting")),
+        locked=locked,
+        doors_open=doors,
+        windows_open=_named((n, _bool(_get(closures, k))) for n, k in _BLE_WINDOWS),
+        sentry_on=None if sentry is None else sentry != "Off",
+        car_name=None,
+        firmware=None,
+        raw=payload,
+    )
+
+
+def parse_cloud_payload(vin: str, payload: dict[str, Any], ts: datetime) -> VehicleState:
+    """Map a Fleet API ``vehicle_data`` REST response (``{"response": {...}}`` or bare)."""
+    data = payload.get("response", payload) if isinstance(payload, dict) else {}
+    if not isinstance(data, dict):
+        data = {}
+    charge = _section(data, "charge_state")
+    drive = _section(data, "drive_state")
+    climate = _section(data, "climate_state")
+    vstate = _section(data, "vehicle_state")
+
+    version = _get(vstate, "car_version")
+    firmware = version.split()[0] if isinstance(version, str) and version.strip() else None
+    name = _get(vstate, "vehicle_name") or _get(data, "display_name")
+
+    return VehicleState(
+        ts=ts,
+        source=Source.CLOUD,
+        vin=vin,
+        **_charge_fields(charge),
+        odometer_km=_miles(_get(vstate, "odometer"), 2),
+        shift=_shift(_get(drive, "shift_state")),
+        speed_kmh=_miles(_get(drive, "speed")),
+        power_kw=_num(_get(drive, "power")),
+        inside_temp_c=_num(_get(climate, "inside_temp")),
+        outside_temp_c=_num(_get(climate, "outside_temp")),
+        climate_on=_bool(_get(climate, "is_climate_on")),
+        target_temp_c=_num(_get(climate, "driver_temp_setting")),
+        locked=_bool(_get(vstate, "locked")),
+        doors_open=_named((n, _get(vstate, k)) for n, k in _REST_DOORS),
+        windows_open=_named((n, _get(vstate, k)) for n, k in _REST_WINDOWS),
+        sentry_on=_bool(_get(vstate, "sentry_mode")),
+        car_name=name if isinstance(name, str) and name else None,
+        firmware=firmware,
+        raw=payload,
+    )
+
+
+# ======================================================================= shared helpers
+
+
+def _describe(exc: BaseException) -> str:
+    """Short, secret-free description of a library exception (never its ``data``)."""
+    msg = getattr(exc, "message", None) or str(exc) or type(exc).__name__
+    return f"{type(exc).__name__}: {str(msg)[:200]}"
+
+
+def _wrappable(exc: BaseException) -> bool:
+    """Ordinary errors plus tesla-fleet-api's (``TeslaFleetError`` is a BaseException);
+    never CancelledError, KeyboardInterrupt or SystemExit."""
+    if isinstance(exc, Exception):
+        return True
+    return any(c.__module__.startswith("tesla_fleet_api") for c in type(exc).__mro__)
+
+
+def _check_result(result: Any) -> None:
+    """Raise if a command reply says ``result: false``."""
+    resp = result.get("response", result) if isinstance(result, dict) else None
+    if isinstance(resp, dict) and resp.get("result") is False:
+        reason = str(resp.get("reason") or "no reason given")[:200]
+        raise CommandError(f"car refused the command: {reason}")
+
+
+async def _dispatch(
+    vehicle: Any, cmd: Command, arg: float | int | None, wake_timeout: float
+) -> Any:
+    """Call the tesla-fleet-api method for ``cmd`` (identical on BLE and signed cloud)."""
+    match cmd:
+        case Command.LOCK:
+            return await vehicle.door_lock()
+        case Command.UNLOCK:
+            return await vehicle.door_unlock()
+        case Command.CLIMATE_ON:
+            return await vehicle.auto_conditioning_start()
+        case Command.CLIMATE_OFF:
+            return await vehicle.auto_conditioning_stop()
+        case Command.SET_TEMP:
+            assert arg is not None  # noqa: S101 - validate_arg guarantees it
+            return await vehicle.set_temps(float(arg), float(arg))
+        case Command.CHARGE_START:
+            return await vehicle.charge_start()
+        case Command.CHARGE_STOP:
+            return await vehicle.charge_stop()
+        case Command.SET_CHARGE_LIMIT:
+            assert arg is not None  # noqa: S101
+            return await vehicle.set_charge_limit(int(arg))
+        case Command.CHARGE_PORT_OPEN:
+            return await vehicle.charge_port_door_open()
+        case Command.CHARGE_PORT_CLOSE:
+            return await vehicle.charge_port_door_close()
+        case Command.FLASH_LIGHTS:
+            return await vehicle.flash_lights()
+        case Command.HONK:
+            return await vehicle.honk_horn()
+        case Command.FRUNK:
+            return await vehicle.actuate_trunk("front")
+        case Command.TRUNK:
+            return await vehicle.actuate_trunk("rear")
+        case Command.SENTRY_ON:
+            return await vehicle.set_sentry_mode(True)
+        case Command.SENTRY_OFF:
+            return await vehicle.set_sentry_mode(False)
+        case Command.WAKE:
+            return await vehicle.wake_up(wait=True, timeout=wake_timeout)
+    raise CommandError(f"unsupported command {cmd.value}")  # pragma: no cover
+
+
+def _timeout_for(cmd: Command, command_timeout: float, wake_timeout: float) -> float:
+    return wake_timeout + 5 if cmd is Command.WAKE else command_timeout
+
+
+# ======================================================================= BLE
+
+
+class BleBackend:
+    """Talks to the car directly over Bluetooth LE (BlueZ via bleak; no cloud, no cost).
+
+    The GATT link is opened lazily and kept until :meth:`close`; library keepalive is off so
+    the car can still go to sleep. ``vehicle_factory`` exists for tests only.
+    """
+
+    name = Source.BLE
+
+    def __init__(
+        self,
+        vin: str,
+        key_path: Path,
+        *,
+        connect_timeout: float = BLE_CONNECT_TIMEOUT,
+        command_timeout: float = COMMAND_TIMEOUT,
+        wake_timeout: float = WAKE_TIMEOUT,
+        vehicle_factory: Callable[[], Any] | None = None,
+        clock: Callable[[], datetime] = _utcnow,
+    ) -> None:
+        self.vin = vin
+        self.key_path = key_path
+        self.connect_timeout = connect_timeout
+        self.command_timeout = command_timeout
+        self.wake_timeout = wake_timeout
+        self._factory = vehicle_factory or self._make_vehicle
+        self._clock = clock
+        self._vehicle: Any = None
+        self._lock = asyncio.Lock()
+
+    async def available(self) -> bool:
+        """Cheap check (no radio): VIN and key are configured."""
+        return is_valid_vin(self.vin) and self.key_path.is_file()
+
+    def _make_vehicle(self) -> Any:
+        from tesla_fleet_api.tesla.bluetooth import TeslaBluetooth
+
+        key = load_private_key(self.key_path)
+        return TeslaBluetooth().vehicles.create(
+            self.vin,
+            key=key,
+            keepalive_interval=None,
+            raise_unconfirmed=True,
+            wake_if_asleep=True,
+        )
+
+    async def _connected(self) -> Any:
+        if not await self.available():
+            raise NotAvailable("Bluetooth: VIN or key not configured")
+        try:
+            if self._vehicle is None:
+                self._vehicle = self._factory()
+            vehicle = self._vehicle
+            async with asyncio.timeout(self.connect_timeout):
+                if vehicle.get_device() is None:
+                    await vehicle.find_vehicle()
+                await vehicle.connect_if_needed()
+        except KeyFileError as e:
+            raise NotAvailable(f"Bluetooth: {e}") from None
+        except TimeoutError:
+            raise NotAvailable(
+                f"Bluetooth: car not reachable within {self.connect_timeout:g} s "
+                "(out of range, or Bluetooth off?)"
+            ) from None
+        except BaseException as e:
+            if not _wrappable(e):
+                raise
+            if isinstance(e, ValueError):  # find_vehicle: no advertisement seen
+                raise NotAvailable("Bluetooth: car not found nearby") from None
+            raise NotAvailable(f"Bluetooth: cannot connect ({_describe(e)})") from None
+        return vehicle
+
+    async def read_state(self) -> VehicleState:
+        async with self._lock:
+            vehicle = await self._connected()
+            payload: dict[str, Any] = {}
+            with _guard("Bluetooth read"):
+                async with asyncio.timeout(self.command_timeout):
+                    status = await vehicle.vehicle_state()
+                payload["vehicle_status"] = _to_dict(status, all_fields=True)
+                if payload["vehicle_status"].get("vehicleSleepStatus") == (
+                    "VEHICLE_SLEEP_STATUS_ASLEEP"
+                ):
+                    async with asyncio.timeout(self.wake_timeout + 5):
+                        await vehicle.wake_up(wait=True, timeout=self.wake_timeout)
+                async with asyncio.timeout(self.command_timeout):
+                    payload["charge_state"] = _to_dict(await vehicle.charge_state())
+            for name in ("drive_state", "climate_state", "closures_state"):
+                try:
+                    with _guard(f"Bluetooth {name}"):
+                        async with asyncio.timeout(self.command_timeout):
+                            payload[name] = _to_dict(await getattr(vehicle, name)())
+                except CommandError as e:
+                    log.debug("optional BLE read failed: %s", e)
+            return parse_ble_payload(self.vin, payload, self._clock())
+
+    async def send(self, cmd: Command, arg: float | int | None = None) -> None:
+        try:
+            arg = validate_arg(cmd, arg)
+        except ValueError as e:
+            raise CommandError(str(e)) from None
+        async with self._lock:
+            vehicle = await self._connected()
+            with _guard(f"Bluetooth {cmd.value}", command=True):
+                async with asyncio.timeout(
+                    _timeout_for(cmd, self.command_timeout, self.wake_timeout)
+                ):
+                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout)
+            _check_result(result)
+
+    async def close(self) -> None:
+        vehicle, self._vehicle = self._vehicle, None
+        if vehicle is None:
+            return
+        try:
+            async with asyncio.timeout(5):
+                await vehicle.disconnect()
+        except BaseException as e:
+            if not _wrappable(e):
+                raise
+            log.debug("BLE disconnect failed: %s", _describe(e))
+
+
+def _to_dict(message: Any, *, all_fields: bool = False) -> dict[str, Any]:
+    """Protobuf message -> dict (snake_case); plain dicts pass through (tests)."""
+    if isinstance(message, dict):
+        return message
+    if message is None:
+        return {}
+    from google.protobuf.json_format import MessageToDict
+
+    return MessageToDict(
+        message,
+        preserving_proto_field_name=True,
+        always_print_fields_with_no_presence=all_fields,
+    )
+
+
+@contextlib.contextmanager
+def _guard(what: str, *, command: bool = False) -> Iterator[None]:
+    """Turn library/timeout errors into CommandError with a secret-free message.
+
+    For commands, anything after the request may have left the laptop is flagged
+    ``maybe_executed`` so the Router will not replay it on another transport.
+    """
+    try:
+        yield
+    except CommandError:
+        raise
+    except TimeoutError:
+        raise CommandError(
+            f"{what}: no answer in time" + (" (the car may still have done it)" if command else ""),
+            maybe_executed=command,
+        ) from None
+    except BaseException as e:
+        if not _wrappable(e):
+            raise  # CancelledError, KeyboardInterrupt, SystemExit
+        kind = type(e).__name__
+        if kind in _NOT_DELIVERED:
+            raise NotAvailable(f"{what}: {_describe(e)}", kind=kind) from None
+        maybe = command and kind not in _PROVABLY_NOT_EXECUTED
+        raise CommandError(f"{what}: {_describe(e)}", maybe_executed=maybe, kind=kind) from None
+
+
+# Library errors meaning the request provably never reached the car.
+_NOT_DELIVERED = frozenset(
+    {
+        "BluetoothTransportError",
+        "VehicleOffline",
+        "MissingToken",
+        "InvalidToken",
+        "KeyFileError",
+        "OAuthError",  # socks.fleet: not logged in / refresh failed
+    }
+)
+# Library errors meaning a command reached the car but provably did not take effect
+# (or was rejected before signing): safe to try on another transport.
+_PROVABLY_NOT_EXECUTED = frozenset({"BluetoothCommandFailed", "SigningDisabled", "ValueError"})
+
+
+# ======================================================================= cloud
+
+
+class CloudBackend:
+    """Tesla Fleet API with signed commands. Every call costs money (see Settings tab).
+
+    Reads never wake the car (a wake costs $0.02): an asleep car is reported NotAvailable.
+    Commands that need the infotainment computer wake it first when the car is asleep.
+    ``token_provider`` returns a fresh access token (owned by ``socks.fleet``).
+    """
+
+    name = Source.CLOUD
+
+    def __init__(
+        self,
+        vin: str,
+        key_path: Path,
+        token_provider: TokenProvider,
+        *,
+        region: str = "eu",
+        command_timeout: float = COMMAND_TIMEOUT,
+        wake_timeout: float = WAKE_TIMEOUT,
+        vehicle_factory: Callable[[], Any] | None = None,
+        clock: Callable[[], datetime] = _utcnow,
+    ) -> None:
+        self.vin = vin
+        self.key_path = key_path
+        self.region = region
+        self.command_timeout = command_timeout
+        self.wake_timeout = wake_timeout
+        self._token = token_provider
+        self._factory = vehicle_factory or self._make_vehicle
+        self._clock = clock
+        self._vehicle: Any = None
+        self._session: Any = None
+
+    async def available(self) -> bool:
+        return is_valid_vin(self.vin) and self.key_path.is_file()
+
+    def _make_vehicle(self) -> Any:
+        import aiohttp
+        from tesla_fleet_api.tesla.fleet import TeslaFleetApi
+
+        key = load_private_key(self.key_path)
+        self._session = aiohttp.ClientSession()
+        api = TeslaFleetApi(self._session, access_token=self._token, region=self.region)  # type: ignore[arg-type]
+        api.private_key = key
+        return api.vehicles.createSigned(self.vin)
+
+    def _get_vehicle(self) -> Any:
+        if not is_valid_vin(self.vin):
+            raise NotAvailable("cloud: VIN not configured")
+        if self._vehicle is None:
+            try:
+                self._vehicle = self._factory()
+            except KeyFileError as e:
+                raise NotAvailable(f"cloud: {e}") from None
+        return self._vehicle
+
+    async def read_state(self) -> VehicleState:
+        vehicle = self._get_vehicle()
+        with _guard("cloud read"):
+            async with asyncio.timeout(self.command_timeout):
+                data = await vehicle.vehicle_data(
+                    endpoints=[
+                        "charge_state",
+                        "climate_state",
+                        "closures_state",
+                        "drive_state",
+                        "vehicle_state",
+                    ]
+                )
+        if not isinstance(data, dict):
+            raise CommandError("cloud read: unexpected reply")
+        return parse_cloud_payload(self.vin, data, self._clock())
+
+    async def send(self, cmd: Command, arg: float | int | None = None) -> None:
+        try:
+            arg = validate_arg(cmd, arg)
+        except ValueError as e:
+            raise CommandError(str(e)) from None
+        vehicle = self._get_vehicle()
+        timeout = _timeout_for(cmd, self.command_timeout, self.wake_timeout)
+        try:
+            with _guard(f"cloud {cmd.value}", command=True):
+                async with asyncio.timeout(timeout):
+                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout)
+        except NotAvailable as e:
+            # VehicleOffline: the command never reached the car (cloud commands, VCSEC ones
+            # included, need the car online), so wake it and retry once.
+            if e.kind != "VehicleOffline" or cmd is Command.WAKE:
+                raise
+            with _guard("cloud wake"):
+                async with asyncio.timeout(self.wake_timeout + 5):
+                    await vehicle.wake_up(wait=True, timeout=self.wake_timeout)
+            with _guard(f"cloud {cmd.value}", command=True):
+                async with asyncio.timeout(timeout):
+                    result = await _dispatch(vehicle, cmd, arg, self.wake_timeout)
+        _check_result(result)
+
+    async def close(self) -> None:
+        session, self._session = self._session, None
+        self._vehicle = None
+        if session is not None:
+            await session.close()
+
+
+# ======================================================================= router
+
+
+class Router(Backend):
+    """BLE first, cloud as fallback (or the other way round with ``prefer``).
+
+    * Reads fall over on any failure.
+    * Commands fall over only when the first transport provably did not deliver them
+      (``maybe_executed`` False), so a command is never executed twice.
+    * Remembers the last successful source (``last_source``, also ``name``). When the
+      preferred backend failed less than ``retry_preferred_after`` seconds ago and the
+      other one worked, the other one is tried first (avoids a 20 s BLE scan on every poll
+      while away from the car); after that the preferred one gets another chance.
+    * Raises NotAvailable with every backend's reason when none works.
+    """
+
+    def __init__(
+        self,
+        ble: Backend | None,
+        cloud: Backend | None,
+        prefer: Source = Source.BLE,
+        *,
+        retry_preferred_after: float = 120.0,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.ble = ble
+        self.cloud = cloud
+        self.prefer = prefer
+        self.retry_preferred_after = retry_preferred_after
+        self._monotonic = monotonic
+        self.last_source: Source | None = None
+        self.last_error: str | None = None
+        self._failed_at: dict[Source, float] = {}
+
+    @property  # type: ignore[override]
+    def name(self) -> Source:
+        return self.last_source or self.prefer
+
+    def backends(self) -> list[Backend]:
+        """Backends in the order the next operation will try them."""
+        pair = [self.ble, self.cloud] if self.prefer is Source.BLE else [self.cloud, self.ble]
+        order = [b for b in pair if b is not None]
+        if len(order) == 2 and self.last_source is order[1].name:
+            failed = self._failed_at.get(order[0].name)
+            if failed is not None and self._monotonic() - failed < self.retry_preferred_after:
+                order.reverse()
+        return order
+
+    async def available(self) -> bool:
+        for backend in self.backends():
+            if await backend.available():
+                return True
+        return False
+
+    async def read_state(self) -> VehicleState:
+        async def op(b: Backend) -> VehicleState:
+            return await b.read_state()
+
+        return await self._run(op, failover_on_maybe=True)
+
+    async def send(self, cmd: Command, arg: float | int | None = None) -> None:
+        try:
+            arg = validate_arg(cmd, arg)
+        except ValueError as e:
+            raise CommandError(str(e)) from None
+
+        async def op(b: Backend) -> None:
+            await b.send(cmd, arg)
+
+        await self._run(op, failover_on_maybe=False)
+
+    async def _run[T](self, op: Callable[[Backend], Awaitable[T]], *, failover_on_maybe: bool) -> T:
+        reasons: list[str] = []
+        for backend in self.backends():
+            label = "Bluetooth" if backend.name is Source.BLE else "cloud"
+            if not await backend.available():
+                reasons.append(f"{label}: not set up (VIN or key missing)")
+                continue
+            try:
+                result = await op(backend)
+            except CommandError as e:
+                self._failed_at[backend.name] = self._monotonic()
+                self.last_error = str(e)
+                if e.maybe_executed and not failover_on_maybe:
+                    raise
+                reasons.append(
+                    str(e) if str(e).lower().startswith(label.lower()) else f"{label}: {e}"
+                )
+                continue
+            self.last_source = backend.name
+            self.last_error = None
+            self._failed_at.pop(backend.name, None)
+            return result
+        if not reasons:
+            reasons.append("no backend configured (set a VIN and key, or enable the cloud)")
+        message = "car not reachable. " + "; ".join(reasons)
+        self.last_error = message
+        raise NotAvailable(message)
+
+    async def close(self) -> None:
+        for backend in (self.ble, self.cloud):
+            closer = getattr(backend, "close", None)
+            if closer is not None:
+                await closer()
+
+
+# ======================================================================= factories
+
+
+def build_router(settings: Any, token_provider: TokenProvider | None = None) -> Router:
+    """Router from Settings. The cloud backend exists only if enabled *and* a token provider
+    (from ``socks.fleet``) is given."""
+    ble = BleBackend(settings.vin, Path(settings.key_path))
+    cloud = None
+    if settings.cloud_enabled and token_provider is not None:
+        cloud = CloudBackend(
+            settings.vin, Path(settings.key_path), token_provider, region=settings.region
+        )
+    prefer = Source.CLOUD if settings.prefer == "cloud" else Source.BLE
+    return Router(ble, cloud, prefer)
+
+
+def fake_backend(**kwargs: Any) -> Backend:
+    """``tests.fakes.FakeBackend`` for ``--fake`` runs (source checkout only)."""
+    try:
+        from tests.fakes import FakeBackend  # type: ignore[import-not-found]
+    except ImportError:
+        import importlib.util
+        import sys
+
+        path = Path(__file__).resolve().parents[2] / "tests" / "fakes.py"
+        spec = importlib.util.spec_from_file_location("socks_test_fakes", path)
+        if spec is None or spec.loader is None or not path.is_file():
+            raise RuntimeError("--fake needs a source checkout (tests/fakes.py)") from None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules["socks_test_fakes"] = module
+        spec.loader.exec_module(module)
+        FakeBackend = module.FakeBackend  # noqa: N806
+    return FakeBackend(**kwargs)

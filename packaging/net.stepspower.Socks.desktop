@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=SOCKS
+GenericName=Tesla Companion
+Comment=Tesla companion: Bluetooth control, charge status, driving and charging history
+Exec=socks
+Icon=net.stepspower.Socks
+Terminal=false
+Categories=Utility;Qt;
+Keywords=Tesla;car;vehicle;charging;battery;bluetooth;EV;
+StartupNotify=true
+StartupWMClass=socks

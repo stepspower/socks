@@ -1,0 +1,16 @@
+line-length = 100
+target-version = "py313"
+extend-exclude = [".venv"]
+
+[lint]
+# E/F pyflakes+pycodestyle, I isort, UP pyupgrade, B bugbear, S bandit subset
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[lint.per-file-ignores]
+# asserts, fixed fake credentials/keys and tmp paths are normal in tests
+"tests/**" = ["S101", "S105", "S106", "S108", "S311"]
+# packaging helper talks to PyPI over fixed https URLs
+"packaging/**" = ["S310"]
+
+[format]
+quote-style = "double"

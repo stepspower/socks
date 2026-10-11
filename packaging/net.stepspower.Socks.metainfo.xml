@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.stepspower.Socks</id>
+  <name>SOCKS</name>
+  <summary>Tesla companion for Linux: Bluetooth control, charge status, driving and charging history</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <developer id="net.stepspower">
+    <name>stepspower</name>
+  </developer>
+  <launchable type="desktop-id">net.stepspower.Socks.desktop</launchable>
+  <description>
+    <p>SOCKS (State Of Charge, Keys and Stats) is a lean, fast desktop companion for your Tesla. It talks to the car directly over Bluetooth and, if you choose, through the Tesla Fleet API.</p>
+    <p>See charge level, range and charging state, lock and unlock, control climate and the charge port, and keep a local history of kilometres driven, charging sessions, efficiency and battery health. Everything is stored on your computer. There is no telemetry.</p>
+    <p>Tesla is a trademark of Tesla, Inc. This project is not affiliated with or endorsed by Tesla, Inc.</p>
+  </description>
+  <categories>
+    <category>Utility</category>
+  </categories>
+  <keywords>
+    <keyword>Tesla</keyword>
+    <keyword>Bluetooth</keyword>
+    <keyword>Charging</keyword>
+  </keywords>
+  <url type="homepage">https://github.com/stepspower/socks</url>
+  <url type="bugtracker">https://github.com/stepspower/socks/issues</url>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Status tab (placeholder)</caption>
+      <image>https://raw.githubusercontent.com/stepspower/socks/main/docs/screenshots/status.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">768</display_length>
+  </requires>
+  <provides>
+    <binary>socks</binary>
+  </provides>
+  <releases>
+    <release version="0.1.0" date="2026-10-15">
+      <description>
+        <p>First public release.</p>
+      </description>
+    </release>
+  </releases>
+</component>
