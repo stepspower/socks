@@ -145,6 +145,9 @@ def main(argv: list[str] | None = None) -> int:
         settings = Settings.load()
         cfg_dir = paths().config
     prefs = QSettings(str(cfg_dir / "gui.ini"), QSettings.Format.IniFormat)
+    from socks.gui import i18n
+
+    extras["language"] = i18n.install(app, str(prefs.value("language", "auto")))
     extras["config_dir"] = cfg_dir
     extras["redact_location"] = bool(args.screenshot)  # never put coordinates in images
     extras["tray_icon"] = tray_icon
@@ -170,6 +173,9 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(3500, lambda: _screenshot(win, args.screenshot))
 
     app.aboutToQuit.connect(win.quit_app)
+    from socks.gui.async_bridge import shutdown_all
+
+    app.aboutToQuit.connect(shutdown_all)  # safety net: no I/O thread outlives the app
 
     # Ctrl+C in a terminal: let Python see the signal now and then, quit cleanly.
     signal.signal(signal.SIGINT, lambda *_a: QTimer.singleShot(0, win.quit_app))

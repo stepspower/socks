@@ -56,6 +56,9 @@ class StatusCard(QFrame):
         self.layout().addWidget(row)
         return row
 
+    def value_text(self) -> str:
+        return self._value.text()
+
     def set_title(self, title: str) -> None:
         self._title.setText(title)
         self.setAccessibleName(title)

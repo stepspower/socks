@@ -24,6 +24,7 @@ import asyncio
 import concurrent.futures
 import logging
 import threading
+import weakref
 from collections.abc import Awaitable, Callable, Coroutine, Generator
 from typing import Any, TypeVar
 
@@ -31,6 +32,13 @@ from PySide6.QtCore import QObject, Qt, Signal
 
 T = TypeVar("T")
 log = logging.getLogger("socks.gui")
+_LIVE: weakref.WeakSet[AsyncBridge] = weakref.WeakSet()
+
+
+def shutdown_all() -> None:
+    """Stop every live bridge's I/O thread (tests, and app exit as a safety net)."""
+    for bridge in list(_LIVE):
+        bridge.shutdown()
 
 
 class IoAwaitable[T]:
@@ -120,6 +128,7 @@ class AsyncBridge(QObject):
         self._tasks: dict[int, set[GuiTask]] = {}
         self._by_future: dict[concurrent.futures.Future[Any], GuiTask] = {}
         self._closed = False
+        _LIVE.add(self)
         # Always queued, also when the future completes on the GUI thread itself.
         self._resume.connect(self._on_resume, Qt.ConnectionType.QueuedConnection)
 

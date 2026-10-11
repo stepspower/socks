@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QDoubleSpinBox,
@@ -28,8 +28,16 @@ from PySide6.QtWidgets import (
 )
 
 from socks.gui import fmt
+from socks.gui.labels import command_label
 from socks.gui.widgets.colors import ok, warn
 
+_GROUP_NAMES = (
+    QT_TRANSLATE_NOOP("ControlsTab", "Security"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Climate"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Charging"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Other"),
+    QT_TRANSLATE_NOOP("ControlsTab", "More"),
+)
 GROUPS: dict[str, tuple[str, ...]] = {
     "Security": ("lock", "unlock", "sentry_on", "sentry_off"),
     "Climate": ("climate_on", "climate_off", "set_temp"),
@@ -59,23 +67,23 @@ class ControlsTab(QWidget):
         self._arg_widgets: dict[Any, Any] = {}
         self._arg_off: dict[Any, QCheckBox] = {}
         self.result = QLabel(
-            "Every command asks for confirmation before anything is sent to the car."
+            self.tr("Every command asks for confirmation before anything is sent to the car.")
         )
         self.result.setWordWrap(True)
         self.result.setTextFormat(Qt.TextFormat.PlainText)  # may hold the car's refusal reason
         self.result.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.result.setAccessibleName("Last command result")
+        self.result.setAccessibleName(self.tr("Last command result"))
 
         self.temp = QDoubleSpinBox()
         self.temp.setDecimals(1)
         self.temp.setSingleStep(0.5)
-        self.temp.setAccessibleName("Target temperature")
+        self.temp.setAccessibleName(self.tr("Target temperature"))
         self.limit = QSlider(Qt.Orientation.Horizontal)
         self.limit.setRange(50, 100)
         self.limit.setSingleStep(1)
         self.limit.setPageStep(5)
         self.limit.setValue(80)
-        self.limit.setAccessibleName("Charge limit")
+        self.limit.setAccessibleName(self.tr("Charge limit"))
         self.limit_label = QLabel("80 %")
         self.limit_label.setMinimumWidth(
             self.limit_label.fontMetrics().horizontalAdvance("100 %") + 4
@@ -94,7 +102,7 @@ class ControlsTab(QWidget):
         if leftovers:
             groups["More"] = leftovers
         for gi, (title, names) in enumerate(groups.items()):
-            box = QGroupBox(title)
+            box = QGroupBox(QCoreApplication.translate("ControlsTab", title))
             bl = QVBoxLayout(box)
             for name in names:
                 cmd = by_value.get(name)
@@ -102,10 +110,10 @@ class ControlsTab(QWidget):
                     continue
                 info = commands[cmd]
                 placed.add(cmd)
-                btn = QPushButton(info.label + ("…" if info.dangerous else ""))
-                btn.setAccessibleName(info.label)
+                btn = QPushButton(command_label(info) + ("…" if info.dangerous else ""))
+                btn.setAccessibleName(command_label(info))
                 if info.dangerous:
-                    btn.setToolTip("Requires typed confirmation")
+                    btn.setToolTip(self.tr("Requires typed confirmation"))
                 btn.clicked.connect(lambda _c=False, c=cmd: self._request(c))
                 self._buttons[cmd] = btn
                 if info.arg == "temp_c":
@@ -124,7 +132,7 @@ class ControlsTab(QWidget):
                     row = QHBoxLayout()
                     row.addWidget(ed)
                     if info.arg == "minutes_after_midnight":
-                        off = QCheckBox("Off")
+                        off = QCheckBox(self.tr("Off"))
                         off.toggled.connect(lambda on, e=ed: e.setEnabled(not on))
                         self._arg_off[cmd] = off
                         row.addWidget(off)
@@ -167,22 +175,26 @@ class ControlsTab(QWidget):
         else:
             w = QTimeEdit()
             w.setDisplayFormat("HH:mm")
-        w.setAccessibleName(f"{info.label} value")
+        w.setAccessibleName(self.tr("{0} value").format(command_label(info)))
         self._arg_widgets[cmd] = w
         return w
 
     def describe_arg(self, cmd: Any, arg: float | int | None) -> str:
         info = self._commands[cmd]
         if info.arg == "temp_c" and arg is not None:
-            return f"Target: {fmt.temp(float(arg), self._units)}"
+            return self.tr("Target: {0}").format(fmt.temp(float(arg), self._units))
         if info.arg == "percent" and arg is not None:
-            return f"Charge limit: {arg} %"
+            return self.tr("Charge limit: {0} %").format(arg)
         if info.arg == "amps" and arg is not None:
-            return f"Charging current: {arg} A"
+            return self.tr("Charging current: {0} A").format(arg)
         if info.arg == "minutes_after_midnight":
             from socks.gui.inline_logic import hhmm
 
-            return f"Time: {hhmm(arg)}" if arg is not None else "Turn the schedule off"
+            return (
+                self.tr("Time: {0}").format(hhmm(arg))
+                if arg is not None
+                else self.tr("Turn it off")
+            )
         return ""
 
     def set_units(self, units: str) -> None:
@@ -211,10 +223,10 @@ class ControlsTab(QWidget):
         for c, b in self._buttons.items():
             b.setEnabled(cmd is None)
             if c == cmd:
-                b.setText(f"{self._commands[c].label} — sending…")
+                b.setText(self.tr("{0} — sending…").format(command_label(self._commands[c])))
             else:
                 info = self._commands[c]
-                b.setText(info.label + ("…" if info.dangerous else ""))
+                b.setText(command_label(info) + ("…" if info.dangerous else ""))
 
     def show_result(self, text: str, success: bool) -> None:
         pal = self.result.palette()

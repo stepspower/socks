@@ -86,7 +86,7 @@ class ToggleChip(EditableValue):
 
     def set_state(self, text: str, action: str) -> None:
         self.setText(text)
-        self.setToolTip(f"Click to {action}")
+        self.setToolTip(self.tr("Click to {0}").format(action))
 
 
 class _Keys(QObject):
@@ -131,15 +131,15 @@ class InlineEdit(QWidget):
         else:
             self.editor = QTimeEdit()
             self.editor.setDisplayFormat("HH:mm")
-            self.off = QCheckBox("Off")
+            self.off = QCheckBox(self.tr("Off"))
             self.off.toggled.connect(lambda on: self.editor.setEnabled(not on))
         self.ok = QToolButton()
         self.ok.setText("✓")
-        self.ok.setToolTip("Apply (Enter)")
+        self.ok.setToolTip(self.tr("Apply (Enter)"))
         self.ok.clicked.connect(self._commit)
         self.cancel = QToolButton()
         self.cancel.setText("✗")
-        self.cancel.setToolTip("Cancel (Esc)")
+        self.cancel.setToolTip(self.tr("Cancel (Esc)"))
         self.cancel.clicked.connect(self.stop)
         self._keys = _Keys(self._commit, self.stop)
         lay = QHBoxLayout(self)

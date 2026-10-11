@@ -17,7 +17,7 @@ class PollSpinBox(QSpinBox):
         self.setRange(0, MAX_POLL_SECONDS)
         self.setSingleStep(60)
         self.setSuffix(" s")
-        self.setSpecialValueText("Off")
+        self.setSpecialValueText(self.tr("Off"))
 
     def minimum_on(self) -> int:
         return self._min

@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QSettings, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -33,11 +33,16 @@ from PySide6.QtWidgets import (
     QToolButton,
 )
 
+from socks.core import depart
 from socks.core.commands import COMMANDS
 from socks.core.config import paths
 from socks.core.model import Source
 from socks.gui import fmt
 from socks.gui.async_bridge import AsyncBridge, describe
+from socks.gui.drive_mode import DRIVE_POLL_SECONDS, DriveMode, SleepInhibitor
+from socks.gui.history_io import drive_detail
+from socks.gui.history_io import export_gpx as history_export_gpx
+from socks.gui.labels import command_label
 from socks.gui.location import (
     GeocodeGate,
     TripWatch,
@@ -48,6 +53,7 @@ from socks.gui.location import (
     set_purpose,
 )
 from socks.gui.tabs.controls import ControlsTab
+from socks.gui.tabs.depart import result_failed
 from socks.gui.tabs.history import HistoryTab
 from socks.gui.tabs.settings import SettingsTab
 from socks.gui.tabs.status import StatusTab
@@ -90,7 +96,7 @@ class MainWindow(QMainWindow):
         self._wizard: Any = None
 
         # Qt appends the application display name ("— SOCKS").
-        self.setWindowTitle("fake car" if ctx.fake else "")
+        self.setWindowTitle(self.tr("fake car") if ctx.fake else "")
         self.setWindowIcon(ctx.icon)
         self.resize(980, 700)
 
@@ -122,18 +128,22 @@ class MainWindow(QMainWindow):
 
         sb = self.statusBar()
         self.log_btn = QToolButton()
-        self.log_btn.setText("Log")
+        self.log_btn.setText(self.tr("Log"))
         self.log_btn.setCheckable(True)
-        self.log_btn.setToolTip("Show the application log (Ctrl+L)")
+        self.log_btn.setToolTip(self.tr("Show the application log (Ctrl+L)"))
         self.log_btn.toggled.connect(self.log_view.setVisible)
-        self.log_btn.toggled.connect(lambda on: on and self.log_btn.setText("Log"))
+        self.log_btn.toggled.connect(lambda on: on and self.log_btn.setText(self.tr("Log")))
         sb.addPermanentWidget(self.log_btn)
-        sb.showMessage("Starting…")
+        sb.showMessage(self.tr("Starting…"))
 
         self._actions()
         self.status_tab.refresh_requested.connect(lambda: self.refresh())
         self.status_tab.set_commands(commands)
         self.status_tab.command_requested.connect(self._on_command)
+        self.status_tab.confirmed_command_requested.connect(self._on_slide_command)
+        self.status_tab.depart.set_plan(ctx.settings.depart_plan)
+        self.status_tab.depart.arm_requested.connect(self._arm_departure)
+        self.status_tab.depart.disarm_requested.connect(self._disarm_departure)
         self.controls_tab.command_requested.connect(self._on_command)
         self.history_tab.reload_requested.connect(self.reload_history)
         self.history_tab.export_requested.connect(self._export_history)
@@ -141,10 +151,17 @@ class MainWindow(QMainWindow):
             chart.saved.connect(self._chart_saved)
         self.settings_tab.save_requested.connect(self._save_settings)
         self.settings_tab.wizard_requested.connect(self.open_wizard)
+        self.settings_tab.awake.setChecked(self._awake_wanted())
+        self.settings_tab.set_language(
+            str(ctx.gui_prefs.value("language", "auto")), str(ctx.extras.get("language", "en"))
+        )
         self._poll_note = ""
         self.settings_tab.load(ctx.settings, self._close_to_tray(), self._poll_in_background())
         self._apply_units()
 
+        self.drive_mode = DriveMode()
+        self.inhibitor = SleepInhibitor()
+        self._inhibit_refused = False
         self.age_timer = QTimer(self)
         self.age_timer.setInterval(10_000)
         self.age_timer.timeout.connect(self._tick_age)
@@ -160,7 +177,16 @@ class MainWindow(QMainWindow):
         self.trip_chip = QLabel("")
         self.trip_chip.hide()
         self.statusBar().addPermanentWidget(self.trip_chip)
+        self.drive_chip = QLabel(self.tr("driving — {0} s").format(DRIVE_POLL_SECONDS))
+        self.drive_chip.hide()
+        self.awake_chip = QLabel(self.tr("awake lock"))
+        self.awake_chip.setToolTip(self.tr("This computer will not sleep while the car is driving"))
+        self.awake_chip.hide()
+        self.statusBar().addPermanentWidget(self.drive_chip)
+        self.statusBar().addPermanentWidget(self.awake_chip)
         self.history_tab.purpose_requested.connect(self._set_purpose)
+        self.history_tab.drive_selected.connect(self._load_drive_profile)
+        self.history_tab.gpx_requested.connect(self._export_gpx)
         self.history_tab.place_edited.connect(self._rename_place)
         self.history_tab.rebuild_requested.connect(self._rebuild_labels)
 
@@ -183,7 +209,11 @@ class MainWindow(QMainWindow):
         act("Toggle log", "Ctrl+L", self.log_btn.toggle)
         act("Quit", QKeySequence.StandardKey.Quit, self.quit_app)
         for i in range(4):
-            act(f"Tab {i + 1}", f"Ctrl+{i + 1}", lambda _c=False, i=i: self.tabs.setCurrentIndex(i))
+            act(
+                QCoreApplication.translate("MainWindow", "Tab {0}").format(i + 1),
+                QCoreApplication.translate("MainWindow", "Ctrl+{0}").format(i + 1),
+                lambda _c=False, i=i: self.tabs.setCurrentIndex(i),
+            )
 
     def _setup_tray(self) -> None:
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -191,12 +221,12 @@ class MainWindow(QMainWindow):
             return
         tray = QSystemTrayIcon(self.ctx.extras.get("tray_icon") or self.ctx.icon, self)
         menu = QMenu(self)
-        menu.addAction("Show SOCKS", self._show_from_tray)
-        menu.addAction("Refresh", lambda: self.refresh())
+        menu.addAction(self.tr("Show SOCKS"), self._show_from_tray)
+        menu.addAction(self.tr("Refresh"), lambda: self.refresh())
         menu.addSeparator()
-        menu.addAction("Quit", self.quit_app)
+        menu.addAction(self.tr("Quit"), self.quit_app)
         tray.setContextMenu(menu)
-        tray.setToolTip("SOCKS")
+        tray.setToolTip(self.tr("SOCKS"))
         tray.activated.connect(self._tray_activated)
         tray.show()
         self.tray = tray
@@ -240,22 +270,27 @@ class MainWindow(QMainWindow):
             state = await self.bridge.io(backend.read_state(wake=wake, include_location=loc))
         except Exception as exc:  # noqa: BLE001 - shown inline, never a modal
             self.trip_watch.on_error(exc)
+            await self._record_unavailable(is_asleep(exc))
             msg = describe(exc)
             if poll and is_asleep(exc):
-                self._poll_note = f"car asleep — poll at {datetime.now():%H:%M} skipped"
+                self._poll_note = self.tr("car asleep — poll at {0:%H:%M} skipped").format(
+                    datetime.now()
+                )
                 log.info("poll skipped: car asleep (not woken)")
                 self._tick_age()
                 return
             log.warning("refresh failed: %s", msg, exc_info=exc if self.ctx.debug else None)
-            self.statusBar().showMessage(f"Refresh failed: {msg}")
+            self.statusBar().showMessage(self.tr("Refresh failed: {0}").format(msg))
             return
         finally:
             self.status_tab.set_busy(False)
         self._poll_note = ""
         self.trip_watch.on_state(state)
+        self._drive_mode_update(state)
         self._show_state(state)
         await self._record(state)
         await self._update_location(state)
+        await self._maintain_departure()
 
     def _show_state(self, s: Any) -> None:
         self._last = s
@@ -269,7 +304,7 @@ class MainWindow(QMainWindow):
             soc = "–" if s.soc is None else f"{s.soc} %"
             rng = fmt.dist(s.rated_range_km, self._units())
             name = html.escape(s.car_name or "car")  # tooltips may render rich text
-            self.tray.setToolTip(f"SOCKS — {name}: {soc} · {rng}")
+            self.tray.setToolTip(self.tr("SOCKS — {0}: {1} · {2}").format(name, soc, rng))
 
     def _tick_age(self) -> None:
         s = self._last
@@ -277,20 +312,63 @@ class MainWindow(QMainWindow):
             return
         self.status_tab.update_age()
         src = s.source.value.upper()
-        msg = f"Last update {fmt.local_time(s.ts)} ({fmt.age(s.ts)}) via {src}"
+        msg = self.tr("Last update {0} ({1}) via {2}").format(
+            fmt.local_time(s.ts), fmt.age(s.ts), src
+        )
         if self._poll_note:
             msg += f" · {self._poll_note}"
         self.statusBar().showMessage(msg)
 
     def _poll(self) -> None:
+        if self.drive_mode.active:  # free BLE reads of a car that is awake anyway
+            self.refresh(wake=False, ble_only=True, poll=True)
+            return
         if not self.isVisible() and not self._poll_in_background():
             return  # hidden in the tray: poll only if the user opted in
         self.refresh(wake=False, poll=True)
+
+    def _drive_mode_update(self, state: Any) -> None:
+        if self.drive_mode.on_state(state):
+            on = self.drive_mode.active
+            self.drive_chip.setVisible(on)
+            log.info("drive mode %s", "on (15 s BLE polling)" if on else "off")
+            self._apply_poll()
+            self._update_awake()
+
+    def _awake_wanted(self) -> bool:
+        return bool(self.ctx.gui_prefs.value("awake_while_driving", False, type=bool))
+
+    def _update_awake(self) -> None:
+        if self.drive_mode.active and self._awake_wanted() and not self.ctx.fake:
+            if not self.inhibitor.held and not self.inhibitor.acquire():
+                if not self._inhibit_refused:
+                    self._inhibit_refused = True
+                    self.statusBar().showMessage(
+                        self.tr("Could not keep the computer awake: {0}").format(
+                            self.inhibitor.error
+                        ),
+                        15000,
+                    )
+        elif self.inhibitor.held:
+            self.inhibitor.release()
+        self.awake_chip.setVisible(self.inhibitor.held)
+
+    async def _record_unavailable(self, asleep: bool) -> None:
+        if self._recorder is None or not self._vin:
+            return
+        try:
+            await self.bridge.run_sync(
+                self._recorder.record_unavailable, self._vin, datetime.now(UTC), asleep
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.debug("recording unavailability failed: %s", describe(exc))
 
     def _poll_in_background(self) -> bool:
         return bool(self.ctx.gui_prefs.value("poll_in_background", False, type=bool))
 
     def _poll_seconds(self) -> int:
+        if self.drive_mode.active:
+            return DRIVE_POLL_SECONDS
         s = self.ctx.settings
         n = s.poll_seconds
         if self.ctx.fake:
@@ -368,7 +446,9 @@ class MainWindow(QMainWindow):
 
     async def _reload_history(self) -> None:
         if not self._vin:
-            self.history_tab.note.setText("Set a VIN in Settings (or refresh once) to see history.")
+            self.history_tab.note.setText(
+                self.tr("Set a VIN in Settings (or refresh once) to see history.")
+            )
             return
         self.history_tab.set_busy(True)
         try:
@@ -385,7 +465,7 @@ class MainWindow(QMainWindow):
             msg = describe(exc)
             log.warning("loading history failed: %s", msg, exc_info=exc if self.ctx.debug else None)
             self.history_tab.set_busy(False)
-            self.history_tab.note.setText(f"Could not load history: {msg}")
+            self.history_tab.note.setText(self.tr("Could not load history: {0}").format(msg))
             return
         self.history_tab.set_busy(False)
         note = "synthetic data (fake mode)" if self.ctx.fake else ""
@@ -396,7 +476,7 @@ class MainWindow(QMainWindow):
         from socks.gui.history_export import default_filename, ensure_suffix, run_export
 
         if not self._vin:
-            self.history_tab.note.setText("Nothing to export yet.")
+            self.history_tab.note.setText(self.tr("Nothing to export yet."))
             return
         days = self.history_tab.period_days()
         since = datetime.now(UTC) - timedelta(days=days) if days else None
@@ -404,14 +484,16 @@ class MainWindow(QMainWindow):
         name = default_filename(item, since, None, year)
         flt = "JSON (*.json)" if item.fmt == "json" else "CSV (*.csv)"
         path, _f = QFileDialog.getSaveFileName(
-            self, f"Export {item.label}", str(Path.home() / name), flt
+            self, self.tr("Export {0}").format(item.label), str(Path.home() / name), flt
         )
         if not path:
             return
         path = ensure_suffix(path, item.fmt)
 
         async def go() -> None:
-            self.history_tab.note.setText(f"Exporting {item.label}…")
+            self.history_tab.note.setText(
+                QCoreApplication.translate("MainWindow", "Exporting {0}…").format(item.label)
+            )
             try:
                 db_path = await self._ensure_history()
                 n = await self.bridge.run_sync(
@@ -420,34 +502,94 @@ class MainWindow(QMainWindow):
             except Exception as exc:  # noqa: BLE001 - inline, never modal
                 msg = describe(exc)
                 log.warning("export failed: %s", msg, exc_info=exc if self.ctx.debug else None)
-                self.history_tab.note.setText(f"Export failed: {msg}")
+                self.history_tab.note.setText(
+                    QCoreApplication.translate("MainWindow", "Export failed: {0}").format(msg)
+                )
                 return
-            self.history_tab.note.setText(f"Exported {n} rows to {path}")
+            self.history_tab.note.setText(
+                QCoreApplication.translate("MainWindow", "Exported {0} rows to {1}").format(n, path)
+            )
             log.info("exported %s (%d rows)", item.label, n)
 
         self.bridge.spawn(self.history_tab.export_btn, go(), "export")
 
+    def _load_drive_profile(self, drive_id: int) -> None:
+        async def go() -> None:
+            try:
+                path = await self._ensure_history()
+                points, has_gpx = await self.bridge.run_sync(drive_detail, path, drive_id)
+            except Exception as exc:  # noqa: BLE001 - inline
+                self.history_tab.profile_note.setText(describe(exc))
+                return
+            self.history_tab.show_profile(drive_id, points, has_gpx)
+
+        self.bridge.spawn(self.history_tab.profile_chart, go(), "drive profile")
+
+    def _export_gpx(self, drive_id: int) -> None:
+        out, _f = QFileDialog.getSaveFileName(
+            self,
+            self.tr("Export drive as GPX"),
+            str(Path.home() / f"socks-drive-{drive_id}.gpx"),
+            self.tr("GPX track (*.gpx)"),
+        )
+        if not out:
+            return
+        if not out.lower().endswith(".gpx"):
+            out += ".gpx"
+
+        async def go() -> None:
+            try:
+                path = await self._ensure_history()
+                n = await self.bridge.run_sync(history_export_gpx, path, drive_id, out)
+            except Exception as exc:  # noqa: BLE001 - inline
+                self.history_tab.note.setText(
+                    self.tr("GPX export failed: {0}").format(describe(exc))
+                )
+                return
+            self.history_tab.note.setText(
+                self.tr("Exported {0} track points to {1}").format(n, out)
+            )
+
+        self.bridge.spawn(self.history_tab.gpx_btn, go(), "export gpx")
+
     def _chart_saved(self, path: str, ok: bool) -> None:
-        self.history_tab.note.setText(f"Chart saved to {path}" if ok else f"Could not save {path}")
+        self.history_tab.note.setText(
+            self.tr("Chart saved to {0}").format(path)
+            if ok
+            else self.tr("Could not save {0}").format(path)
+        )
 
     # ----------------------------------------------------------- commands
 
-    def _on_command(self, cmd: Any, arg: Any) -> None:
-        """The single gate: every command that changes the car passes here."""
+    def _on_slide_command(self, cmd: Any, arg: Any) -> None:
+        self._on_command(cmd, arg, preconfirmed=True)
+
+    def _on_command(self, cmd: Any, arg: Any, *, preconfirmed: bool = False) -> None:
+        """The single gate: every command that changes the car passes here.
+
+        ``preconfirmed``: a Status-tab slide switch whose full gesture is the confirmation
+        (it replaces the dialog and the typed challenge for exactly those toggles).
+        """
         if self.bridge.busy(self.controls_tab):
+            if preconfirmed:
+                self.status_tab.revert_switches()
             return
         info = COMMANDS[cmd]
         dangerous = info.dangerous or cmd.value in ALWAYS_DANGEROUS
         detail = [self.controls_tab.describe_arg(cmd, arg)]
         if info.needs_wake:
-            detail.append("The car will be woken up if it is asleep.")
+            detail.append(self.tr("The car will be woken up if it is asleep."))
         if self.ctx.fake:
             detail.append("Fake mode: nothing is sent to a real car.")
-        if not confirm(self, info.label, "\n".join(x for x in detail if x), dangerous):
-            self.controls_tab.show_result(f"{info.label}: cancelled, nothing sent.", False)
+        if not preconfirmed and not confirm(
+            self, command_label(info), "\n".join(x for x in detail if x), dangerous
+        ):
+            self.controls_tab.show_result(
+                self.tr("{0}: cancelled, nothing sent.").format(command_label(info)), False
+            )
             return
         self.bridge.spawn(
-            self.controls_tab, self._send(cmd, arg, info.label), f"command {info.label}"
+            self.controls_tab, self._send(cmd, arg, command_label(info)), f"command {cmd.value}"
         )
 
     async def _send(self, cmd: Any, arg: Any, label: str) -> None:
@@ -459,12 +601,15 @@ class MainWindow(QMainWindow):
             if getattr(exc, "maybe_executed", False):
                 msg += " (the car may have executed it; check before retrying)"
             log.warning("%s failed: %s", label, msg, exc_info=exc if self.ctx.debug else None)
-            self.controls_tab.show_result(f"{label} failed: {msg}", False)
+            self.controls_tab.show_result(self.tr("{0} failed: {1}").format(label, msg), False)
+            self.statusBar().showMessage(self.tr("{0} failed: {1}").format(label, msg), 10000)
+            self.status_tab.revert_switches()
             return
         finally:
             self.controls_tab.set_busy(None)
         log.info("%s: done", label)
-        self.controls_tab.show_result(f"{label}: done.", True)
+        self.controls_tab.show_result(self.tr("{0}: done.").format(label), True)
+        self.statusBar().showMessage(self.tr("{0}: done").format(label), 5000)
         self.refresh()
 
     # ----------------------------------------------------------- settings
@@ -480,10 +625,13 @@ class MainWindow(QMainWindow):
         except Exception as exc:  # noqa: BLE001
             msg = describe(exc)
             log.warning("saving settings failed: %s", msg, exc_info=exc if self.ctx.debug else None)
-            self.settings_tab.show_result(f"Could not save: {msg}", False)
+            self.settings_tab.show_result(self.tr("Could not save: {0}").format(msg), False)
             return
         self.ctx.gui_prefs.setValue("close_to_tray", self.settings_tab.close_to_tray.isChecked())
         self.ctx.gui_prefs.setValue("poll_in_background", self.settings_tab.poll_bg.isChecked())
+        self.ctx.gui_prefs.setValue("language", self.settings_tab.language.currentData())
+        self.ctx.gui_prefs.setValue("awake_while_driving", self.settings_tab.awake.isChecked())
+        self._update_awake()
         self.ctx.gui_prefs.sync()
         with contextlib.suppress(OSError):
             Path(self.ctx.gui_prefs.fileName()).chmod(0o600)
@@ -495,8 +643,77 @@ class MainWindow(QMainWindow):
             self._history_dirty = True
         self._apply_units()
         self._apply_poll()
-        self.settings_tab.show_result(f"Saved at {datetime.now().strftime('%H:%M:%S')}.", True)
+        self.settings_tab.show_result(
+            self.tr("Saved at {0}.").format(datetime.now().strftime("%H:%M:%S")), True
+        )
         log.info("settings saved")
+
+    # ----------------------------------------------------------- departure
+
+    def _arm_departure(self, plan: Any) -> None:
+        card = self.status_tab.depart
+
+        async def go() -> None:
+            card.set_busy(self.tr("Sending to the car…"))
+            try:
+                lines = await self.bridge.io(depart.arm(self._get_backend(), plan))
+            except Exception as exc:  # noqa: BLE001 - inline
+                lines = [f"{depart.FAILED}: {describe(exc)}"]
+            failed = result_failed(lines)
+            if failed:
+                card.set_busy(self.tr("Could not set: {0}").format(failed))
+                return
+            notes = [ln.split(":", 1)[1].strip() for ln in lines if ln.startswith(depart.NOTE)]
+            card.set_busy(" ".join(notes))
+            self.ctx.settings.depart_plan = plan
+            self._persist_settings()
+            card.set_plan(plan)
+            log.info("departure set")
+            self.refresh()
+
+        self.bridge.spawn(card, go(), "depart by")
+
+    def _disarm_departure(self) -> None:
+        card = self.status_tab.depart
+
+        async def go() -> None:
+            card.set_busy(self.tr("Cancelling…"))
+            try:
+                result = await self.bridge.io(depart.disarm(self._get_backend()))
+            except Exception as exc:  # noqa: BLE001 - inline
+                result = f"{depart.FAILED}: {describe(exc)}"
+            failed = result_failed(result)
+            if failed:
+                card.set_busy(self.tr("Could not cancel: {0}").format(failed))
+                return
+            card.set_busy("")
+            self.ctx.settings.depart_plan = None
+            self._persist_settings()
+            card.set_plan(None)
+
+        self.bridge.spawn(card, go(), "cancel departure")
+
+    async def _maintain_departure(self) -> None:
+        if self.ctx.settings.depart_plan is None:
+            return
+        try:
+            result = await self.bridge.io(
+                depart.maintain(self._get_backend(), _SavePath(self.ctx), datetime.now(UTC))
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.debug("departure upkeep failed: %s", describe(exc))
+            return
+        if result == "cleared":
+            self.status_tab.depart.show_cleared()
+        elif result_failed(result):
+            log.warning("could not clear the departure: %s", result_failed(result))
+
+    def _persist_settings(self) -> None:
+        path = self.ctx.extras.get("settings_path")
+        try:
+            self.ctx.settings.save(path) if path is not None else self.ctx.settings.save()
+        except OSError as exc:
+            log.warning("saving settings failed: %s", describe(exc))
 
     # ------------------------------------------------------------ location
 
@@ -508,18 +725,23 @@ class MainWindow(QMainWindow):
         if not self._location_enabled() or lat is None or lon is None:
             self.status_tab.set_location(None)
             return
-        name = None
+        name = address = None
         try:
             path = await self._ensure_history()
-            name = await self.bridge.run_sync(place_label, path, self._vin, lat, lon)
+            name, address = await self.bridge.run_sync(place_label, path, self._vin, lat, lon)
         except Exception as exc:  # noqa: BLE001 - a missing label is not an error
             log.debug("place lookup failed: %s", describe(exc))
+        fix = s.gps_as_of or s.ts
         if name:
-            self.status_tab.set_location(name)
+            text = name
+        elif address and self.ctx.settings.geocode_enabled:
+            text = address
         elif self.ctx.extras.get("redact_location"):
-            self.status_tab.set_location("(coordinates hidden)")
+            text = self.tr("(coordinates hidden)")
         else:
-            self.status_tab.set_location(f"{lat:.5f}, {lon:.5f}")
+            text = f"{lat:.5f}, {lon:.5f}"
+        coords = None if self.ctx.extras.get("redact_location") else (lat, lon)
+        self.status_tab.set_location(text, coords, fix)
 
     def _trip_poll(self) -> None:
         if self.bridge.busy(self.trip_chip):
@@ -554,7 +776,9 @@ class MainWindow(QMainWindow):
     def _trip_changed(self, polling: bool, reads: int, usd: float) -> None:
         self.trip_chip.setVisible(polling or reads > 0)
         state = "polling" if polling else "stopped"
-        self.trip_chip.setText(f"trip watch: {state} ({reads} reads, ≈ ${usd:.3f})")
+        self.trip_chip.setText(
+            self.tr("trip watch: {0} ({1} reads, ≈ ${2:.3f})").format(state, reads, usd)
+        )
 
     def _set_purpose(self, drive_id: int, purpose: Any) -> None:
         async def go() -> None:
@@ -562,7 +786,11 @@ class MainWindow(QMainWindow):
                 path = await self._ensure_history()
                 await self.bridge.run_sync(set_purpose, path, drive_id, purpose)
             except Exception as exc:  # noqa: BLE001
-                self.history_tab.note.setText(f"Could not set purpose: {describe(exc)}")
+                self.history_tab.note.setText(
+                    QCoreApplication.translate("MainWindow", "Could not set purpose: {0}").format(
+                        describe(exc)
+                    )
+                )
                 return
             self.history_tab.drives_table.set_purpose(drive_id, purpose)
             self._history_dirty = True
@@ -576,9 +804,17 @@ class MainWindow(QMainWindow):
                 path = await self._ensure_history()
                 await self.bridge.run_sync(rename_place, path, place_id, name, kind)
             except Exception as exc:  # noqa: BLE001
-                self.history_tab.note.setText(f"Could not rename place: {describe(exc)}")
+                self.history_tab.note.setText(
+                    QCoreApplication.translate("MainWindow", "Could not rename place: {0}").format(
+                        describe(exc)
+                    )
+                )
                 return
-            self.history_tab.note.setText("Place saved. Use Rebuild labels to relabel drives.")
+            self.history_tab.note.setText(
+                QCoreApplication.translate(
+                    "MainWindow", "Place saved. Use Rebuild labels to relabel drives."
+                )
+            )
 
         self.bridge.spawn(self.history_tab.places_table, go(), "rename place")
 
@@ -589,11 +825,19 @@ class MainWindow(QMainWindow):
                 path = await self._ensure_history()
                 n_places, n_drives = await self.bridge.run_sync(rebuild_labels, path, self._vin)
             except Exception as exc:  # noqa: BLE001
-                self.history_tab.note.setText(f"Rebuild failed: {describe(exc)}")
+                self.history_tab.note.setText(
+                    QCoreApplication.translate("MainWindow", "Rebuild failed: {0}").format(
+                        describe(exc)
+                    )
+                )
                 return
             finally:
                 self.history_tab.rebuild_btn.setEnabled(True)
-            self.history_tab.note.setText(f"{n_places} places, {n_drives} drives relabelled.")
+            self.history_tab.note.setText(
+                QCoreApplication.translate(
+                    "MainWindow", "{0} places, {1} drives relabelled."
+                ).format(n_places, n_drives)
+            )
             self._history_dirty = True
             self.reload_history()
 
@@ -641,7 +885,7 @@ class MainWindow(QMainWindow):
     def _log_line(self, text: str, level: int) -> None:
         self.log_view.append_line(text, level)
         if level >= logging.WARNING and not self.log_view.isVisible():
-            self.log_btn.setText("Log •")
+            self.log_btn.setText(self.tr("Log •"))
 
     def _tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
@@ -671,6 +915,7 @@ class MainWindow(QMainWindow):
         self.poll_timer.stop()
         self.age_timer.stop()
         self.trip_watch.stop()
+        self.inhibitor.release()
         rec, backend = self._recorder, self._backend
         self._recorder = self._backend = None
         self.bridge.shutdown(
@@ -682,6 +927,27 @@ class MainWindow(QMainWindow):
         if self.tray is not None:
             self.tray.hide()
         QTimer.singleShot(0, QApplication.quit)
+
+
+class _SavePath:
+    """Settings proxy for core code that calls ``settings.save()``: in --fake it must
+    write the throwaway settings file, never the real one."""
+
+    def __init__(self, ctx: AppContext) -> None:
+        object.__setattr__(self, "_ctx", ctx)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._ctx.settings, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        setattr(self._ctx.settings, name, value)
+
+    def save(self) -> None:
+        path = self._ctx.extras.get("settings_path")
+        if path is not None:
+            self._ctx.settings.save(path)
+        else:
+            self._ctx.settings.save()
 
 
 def is_asleep(exc: BaseException) -> bool:

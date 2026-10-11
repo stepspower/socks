@@ -23,10 +23,7 @@ from socks.gui.location import (  # noqa: E402
 )
 from tests.fakes import make_state  # noqa: E402
 
-
-@pytest.fixture(scope="module")
-def qapp() -> object:
-    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+pytestmark = pytest.mark.usefixtures("qapp")
 
 
 def test_purpose_cycle() -> None:

@@ -24,12 +24,9 @@ from socks.gui.history_export import (  # noqa: E402
 )
 from socks.gui.history_io import seed_fake_history  # noqa: E402
 
+pytestmark = pytest.mark.usefixtures("qapp")
+
 VIN = "5YJ3E7EB0KF000001"
-
-
-@pytest.fixture(scope="module")
-def qapp() -> object:
-    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
 
 
 @pytest.fixture(scope="module")

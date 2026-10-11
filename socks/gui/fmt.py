@@ -8,6 +8,8 @@ from datetime import UTC, date, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication
+
 from socks.history.units import KM_PER_MI, c_to_f, f_to_c
 
 DASH = "–"
@@ -15,6 +17,10 @@ DASH = "–"
 
 def imperial(units: str) -> bool:
     return units == "imperial"
+
+
+def _t(text: str) -> str:
+    return QCoreApplication.translate("fmt", text)
 
 
 def dist(km: float | None, units: str, digits: int = 0) -> str:
@@ -70,18 +76,18 @@ def minutes(m: int | None) -> str:
 
 def age(ts: datetime | None, now: datetime | None = None) -> str:
     if ts is None:
-        return "never"
+        return _t("never")
     now = now or datetime.now(UTC)
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=UTC)
     s = (now - ts).total_seconds()
     if s < 45:
-        return "just now"
+        return _t("just now")
     if s < 3600:
-        return f"{int(s // 60)} min ago"
+        return _t("{0} min ago").format(int(s // 60))
     if s < 86400:
-        return f"{int(s // 3600)} h ago"
-    return f"{int(s // 86400)} d ago"
+        return _t("{0} h ago").format(int(s // 3600))
+    return _t("{0} d ago").format(int(s // 86400))
 
 
 def local_time(ts: datetime | None, with_date: bool = False) -> str:
@@ -93,33 +99,35 @@ def local_time(ts: datetime | None, with_date: bool = False) -> str:
     return lt.strftime("%Y-%m-%d %H:%M") if with_date else lt.strftime("%H:%M:%S")
 
 
-def yes_no(b: bool | None, yes: str = "yes", no: str = "no") -> str:
-    return DASH if b is None else (yes if b else no)
+def yes_no(b: bool | None, yes: str = "", no: str = "") -> str:
+    if b is None:
+        return DASH
+    return (yes or _t("yes")) if b else (no or _t("no"))
 
 
 LABELS = {
-    "total_km": "Distance in period",
-    "km_7d": "Distance, last 7 days",
-    "km_30d": "Distance, last 30 days",
-    "kwh_charged_30d": "Charged, last 30 days",
-    "cost_30d": "Charging cost, last 30 days",
-    "sessions_30d": "Charge sessions, last 30 days",
-    "avg_wh_per_km": "Consumption (estimate)",
-    "longest_drive_km": "Longest drive",
-    "best_day_km": "Best day",
-    "start_soc": "Start SoC",
-    "end_soc": "End SoC",
-    "energy_kwh": "Energy",
-    "max_power_kw": "Max power",
-    "first_range_at_100_km": "First seen",
-    "latest_range_at_100_km": "Latest",
+    "total_km": QT_TRANSLATE_NOOP("fmt", "Distance in period"),
+    "km_7d": QT_TRANSLATE_NOOP("fmt", "Distance, last 7 days"),
+    "km_30d": QT_TRANSLATE_NOOP("fmt", "Distance, last 30 days"),
+    "kwh_charged_30d": QT_TRANSLATE_NOOP("fmt", "Charged, last 30 days"),
+    "cost_30d": QT_TRANSLATE_NOOP("fmt", "Charging cost, last 30 days"),
+    "sessions_30d": QT_TRANSLATE_NOOP("fmt", "Charge sessions, last 30 days"),
+    "avg_wh_per_km": QT_TRANSLATE_NOOP("fmt", "Consumption (estimate)"),
+    "longest_drive_km": QT_TRANSLATE_NOOP("fmt", "Longest drive"),
+    "best_day_km": QT_TRANSLATE_NOOP("fmt", "Best day"),
+    "start_soc": QT_TRANSLATE_NOOP("fmt", "Start SoC"),
+    "end_soc": QT_TRANSLATE_NOOP("fmt", "End SoC"),
+    "energy_kwh": QT_TRANSLATE_NOOP("fmt", "Energy"),
+    "max_power_kw": QT_TRANSLATE_NOOP("fmt", "Max power"),
+    "first_range_at_100_km": QT_TRANSLATE_NOOP("fmt", "First seen"),
+    "latest_range_at_100_km": QT_TRANSLATE_NOOP("fmt", "Latest"),
 }
 
 
 def humanize(name: str) -> str:
     """``energy_added_kwh`` → ``Energy added``."""
     if name in LABELS:
-        return LABELS[name]
+        return _t(LABELS[name])
     skip = {"kwh", "km", "kw", "pct", "eur", "h", "c", "estimate", "ts"}
     words = []
     for w in name.split("_"):

@@ -60,7 +60,7 @@ class ConfirmDialog(QDialog):
             lay.addWidget(warn)
             self.edit = QLineEdit()
             self.edit.setPlaceholderText(self._challenge)
-            self.edit.setAccessibleName("Confirmation letters")
+            self.edit.setAccessibleName(self.tr("Confirmation letters"))
             self.edit.textChanged.connect(self._check)
             lay.addWidget(self.edit)
             self._ok.setEnabled(False)

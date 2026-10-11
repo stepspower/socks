@@ -41,8 +41,8 @@ class LogView(QPlainTextEdit):
         self.setReadOnly(True)
         self.setMaximumBlockCount(1000)
         self.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
-        self.setAccessibleName("Application log")
-        self.setPlaceholderText("Nothing logged yet.")
+        self.setAccessibleName(self.tr("Application log"))
+        self.setPlaceholderText(self.tr("Nothing logged yet."))
 
     def append_line(self, text: str, _level: int = logging.INFO) -> None:
         self.appendPlainText(text)

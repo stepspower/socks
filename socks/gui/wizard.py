@@ -14,7 +14,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPaintEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -77,7 +77,7 @@ class QrView(QWidget):
 
     def set_text(self, text: str) -> None:
         self._modules = encode(text, "M").modules
-        self.setAccessibleName("QR code of the pairing link")
+        self.setAccessibleName(self.tr("QR code of the pairing link"))
         self.setAccessibleDescription(text)
         self.update()
 
@@ -112,7 +112,7 @@ class Action(QWidget):
         self.spin.setTextVisible(False)
         self.spin.hide()
         self.result = _label()
-        self.result.setAccessibleName(f"{text.replace('&', '')} result")
+        self.result.setAccessibleName(self.tr("{0} result").format(text.replace("&", "")))
         self.result.hide()
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -134,7 +134,7 @@ class Action(QWidget):
         bridge: AsyncBridge,
         work: Callable[[], Any],
         done: Callable[[Any], tuple[str, bool]],
-        busy_text: str = "Working…",
+        busy_text: str = "",
     ) -> None:
         """``work`` returns the awaitable for bridge.io/run_sync; ``done`` maps result → text."""
         if bridge.busy(self):
@@ -143,7 +143,7 @@ class Action(QWidget):
         async def go() -> None:
             self.button.setEnabled(False)
             self.spin.show()
-            self.show_result(busy_text, None)
+            self.show_result(busy_text or self.tr("Working…"), None)
             try:
                 result = await work()
             except Exception as exc:  # noqa: BLE001 - shown inline
@@ -172,16 +172,18 @@ class _Page(QWizardPage):
 
 class CarPage(_Page):
     def __init__(self, wiz: SetupWizard) -> None:
-        super().__init__(wiz, "Your car", "SOCKS needs the car's VIN to talk to it.")
+        super().__init__(
+            wiz, self.tr("Your car"), self.tr("SOCKS needs the car's VIN to talk to it.")
+        )
         self.vin = QLineEdit(wiz.vin)
         self.vin.setMaxLength(17)
-        self.vin.setPlaceholderText("17 characters, e.g. 5YJ3E7EB…")
-        self.vin.setAccessibleName("VIN")
+        self.vin.setPlaceholderText(self.tr("17 characters, e.g. 5YJ3E7EB…"))
+        self.vin.setAccessibleName(self.tr("VIN"))
         self.feedback = _label()
         self.vin.textEdited.connect(lambda t: self.vin.setText(t.upper()))
         self.vin.textChanged.connect(self._changed)
         form = QFormLayout()
-        form.addRow(QLabel("&VIN:", buddy=self.vin), self.vin)
+        form.addRow(QLabel(self.tr("&VIN:"), buddy=self.vin), self.vin)
         form.addRow("", self.feedback)
         self.lay.addLayout(form)
         self.lay.addWidget(
@@ -211,17 +213,23 @@ class KeyPage(_Page):
     def __init__(self, wiz: SetupWizard) -> None:
         super().__init__(
             wiz,
-            "Key",
-            "The car only accepts commands signed with a key it knows. "
-            "The private key never leaves this computer and is never shown.",
+            self.tr("Key"),
+            self.tr(
+                "The car only accepts commands signed with a key it knows. "
+                "The private key never leaves this computer and is never shown."
+            ),
         )
         self.group = QButtonGroup(self)
         self.keep = QRadioButton("")
-        self.imp = QRadioButton("&Import an existing key (already paired, e.g. from tesla-control)")
-        self.gen = QRadioButton("&Generate a new key (must then be paired with a key card)")
+        self.imp = QRadioButton(
+            self.tr("&Import an existing key (already paired, e.g. from tesla-control)")
+        )
+        self.gen = QRadioButton(
+            self.tr("&Generate a new key (must then be paired with a key card)")
+        )
         current = wiz.current_key
         if current is not None:
-            self.keep.setText(f"&Keep the current key: {current}")
+            self.keep.setText(self.tr("&Keep the current key: {0}").format(current))
             self.lay.addWidget(self.keep)
         else:
             self.keep.hide()
@@ -229,14 +237,14 @@ class KeyPage(_Page):
             self.group.addButton(b)
         self.path = QLineEdit(str(DEFAULT_IMPORT) if DEFAULT_IMPORT.is_file() else "")
         self.path.setPlaceholderText(str(DEFAULT_IMPORT))
-        self.path.setAccessibleName("Key file to import")
-        self.browse = QPushButton("&Browse…")
+        self.path.setAccessibleName(self.tr("Key file to import"))
+        self.browse = QPushButton(self.tr("&Browse…"))
         self.browse.clicked.connect(self._browse)
         self.path_state = _label()
         self.path.textChanged.connect(self._path_changed)
-        self.import_action = Action("&Use this key")
+        self.import_action = Action(self.tr("&Use this key"))
         self.import_action.button.clicked.connect(self._import)
-        self.gen_action = Action("Ge&nerate key")
+        self.gen_action = Action(self.tr("Ge&nerate key"))
         self.gen_action.button.clicked.connect(self._generate)
 
         imp_box = QWidget()
@@ -251,7 +259,7 @@ class KeyPage(_Page):
         gen_box = QWidget()
         gl = QVBoxLayout(gen_box)
         gl.setContentsMargins(24, 0, 0, 0)
-        gl.addWidget(_label(f"Stored as {wiz.services.key_dest} (mode 0600)."))
+        gl.addWidget(_label(self.tr("Stored as {0} (mode 0600).").format(wiz.services.key_dest)))
         gl.addWidget(self.gen_action)
         self.imp_box, self.gen_box = imp_box, gen_box
 
@@ -272,7 +280,10 @@ class KeyPage(_Page):
     def _browse(self) -> None:
         start = self.path.text().strip() or str(DEFAULT_IMPORT.parent)
         path, _f = QFileDialog.getOpenFileName(
-            self, "Import existing private key", start, "PEM key (*.pem);;All files (*)"
+            self,
+            self.tr("Import existing private key"),
+            start,
+            self.tr("PEM key (*.pem);;All files (*)"),
         )
         if path:
             self.path.setText(path)
@@ -286,8 +297,8 @@ class KeyPage(_Page):
     def _key_done(self, res: KeyResult) -> tuple[str, bool]:
         self.wiz.key_result = res
         self.completeChanged.emit()
-        verb = "Generated" if res.created else "Using"
-        return f"{verb} key {res.path}\nFingerprint {res.fingerprint}", True
+        verb = self.tr("Generated") if res.created else self.tr("Using")
+        return self.tr("{0} key {1}\nFingerprint {2}").format(verb, res.path, res.fingerprint), True
 
     def _import(self) -> None:
         src = Path(self.path.text().strip()).expanduser()
@@ -318,17 +329,21 @@ class KeyPage(_Page):
 class PairPage(_Page):
     def __init__(self, wiz: SetupWizard) -> None:
         super().__init__(
-            wiz, "Pair with the car", "Optional if the key is already paired. Uses Bluetooth only."
+            wiz,
+            self.tr("Pair with the car"),
+            self.tr("Optional if the key is already paired. Uses Bluetooth only."),
         )
         self.role = QComboBox()
         for r in PAIR_ROLES:
             self.role.addItem(r.capitalize(), r)
-        self.role_help = _label(ROLE_HELP["driver"])
+        self.role_help = _label(QCoreApplication.translate("setup", ROLE_HELP["driver"]))
         self.role.currentIndexChanged.connect(
-            lambda _i: self.role_help.setText(ROLE_HELP[self.role.currentData()])
+            lambda _i: self.role_help.setText(
+                QCoreApplication.translate("setup", ROLE_HELP[self.role.currentData()])
+            )
         )
         form = QFormLayout()
-        form.addRow(QLabel("&Role:", buddy=self.role), self.role)
+        form.addRow(QLabel(self.tr("&Role:"), buddy=self.role), self.role)
         form.addRow("", self.role_help)
         self.lay.addLayout(form)
         self.lay.addWidget(
@@ -337,9 +352,9 @@ class PairPage(_Page):
                 "on the centre console when the screen asks, and confirm on the screen."
             )
         )
-        self.pair_action = Action("&Send pairing request")
+        self.pair_action = Action(self.tr("&Send pairing request"))
         self.pair_action.button.clicked.connect(self._pair)
-        self.test_action = Action("&Test connection")
+        self.test_action = Action(self.tr("&Test connection"))
         self.test_action.button.clicked.connect(self._test)
         self.lay.addWidget(self.pair_action)
         self.lay.addWidget(self.test_action)
@@ -350,7 +365,9 @@ class PairPage(_Page):
 
         def done(paired: bool) -> tuple[str, bool]:
             if paired:
-                return f"Paired: the car accepted the key as {role}.", True
+                return QCoreApplication.translate(
+                    "PairPage", "Paired: the car accepted the key as {0}."
+                ).format(role), True
             return (
                 "No confirmation yet. Approval may still be pending: check the car's Locks "
                 "screen, then use Test connection.",
@@ -361,7 +378,7 @@ class PairPage(_Page):
             w.bridge,
             lambda: w.bridge.io(w.services.pair(w.vin, w.key_path, role)),
             done,
-            "Waiting for the key card tap (up to a minute)…",
+            self.tr("Waiting for the key card tap (up to a minute)…"),
         )
 
     def _test(self) -> None:
@@ -369,7 +386,9 @@ class PairPage(_Page):
 
         def done(s: Any) -> tuple[str, bool]:
             soc = "–" if s.soc is None else f"{s.soc} %"
-            return f"Connected: {soc}, range {fmt.dist(s.rated_range_km, w.units)}.", True
+            return QCoreApplication.translate("PairPage", "Connected: {0}, range {1}.").format(
+                soc, fmt.dist(s.rated_range_km, w.units)
+            ), True
 
         self.test_action.run(
             w.bridge,
@@ -383,41 +402,43 @@ class CloudPage(_Page):
     def __init__(self, wiz: SetupWizard) -> None:
         super().__init__(
             wiz,
-            "Cloud access (optional)",
+            self.tr("Cloud access (optional)"),
             "Remote access through Tesla's Fleet API. Skip this page to use Bluetooth only.",
         )
-        self.enable = QCheckBox("Set up &cloud access now")
+        self.enable = QCheckBox(self.tr("Set up &cloud access now"))
         self.enable.setChecked(wiz.cloud_enabled)
         self.lay.addWidget(self.enable)
         self.box = QWidget()
         bl = QVBoxLayout(self.box)
         bl.setContentsMargins(24, 0, 0, 0)
-        bl.addWidget(_label(PRICE_NOTE))
+        bl.addWidget(_label(QCoreApplication.translate("setup", PRICE_NOTE)))
         self.client_id = QLineEdit(wiz.client_id)
-        self.client_id.setPlaceholderText("from developer.tesla.com")
+        self.client_id.setPlaceholderText(self.tr("from developer.tesla.com"))
         self.secret = QLineEdit()
         self.secret.setEchoMode(QLineEdit.EchoMode.Password)
-        self.secret.setPlaceholderText("used once, never stored")
-        self.secret.setAccessibleName("Client secret")
+        self.secret.setPlaceholderText(self.tr("used once, never stored"))
+        self.secret.setAccessibleName(self.tr("Client secret"))
         form = QFormLayout()
-        form.addRow(QLabel("Client &ID:", buddy=self.client_id), self.client_id)
-        form.addRow(QLabel("Client s&ecret:", buddy=self.secret), self.secret)
+        form.addRow(QLabel(self.tr("Client &ID:"), buddy=self.client_id), self.client_id)
+        form.addRow(QLabel(self.tr("Client s&ecret:"), buddy=self.secret), self.secret)
         bl.addLayout(form)
-        self.register_action = Action("Check key && &register domain")
+        self.register_action = Action(self.tr("Check key && &register domain"))
         self.register_action.button.clicked.connect(self._register)
-        self.login_action = Action("&Log in with Tesla")
+        self.login_action = Action(self.tr("&Log in with Tesla"))
         self.login_action.button.clicked.connect(self._login)
         bl.addWidget(self.register_action)
         bl.addWidget(self.login_action)
 
         link = wiz.services.pairing_link()
         self.link = _label(link, wrap=False)
-        copy = QPushButton("Cop&y link")
+        copy = QPushButton(self.tr("Cop&y link"))
         copy.clicked.connect(lambda: QGuiApplication.clipboard().setText(link))
         self.qr = QrView()
         self.qr.set_text(link)
         link_col = QVBoxLayout()
-        link_col.addWidget(_label("Then add the virtual key: open this link on your phone."))
+        link_col.addWidget(
+            _label(self.tr("Then add the virtual key: open this link on your phone."))
+        )
         link_col.addWidget(self.link)
         link_col.addWidget(copy, 0, Qt.AlignmentFlag.AlignLeft)
         link_col.addStretch(1)
@@ -445,11 +466,13 @@ class CloudPage(_Page):
     def _register(self) -> None:
         w, svc = self.wiz, self.wiz.services
         if not self.client_id.text().strip():
-            self.register_action.show_result("Enter the Client ID first.", False)
+            self.register_action.show_result(self.tr("Enter the Client ID first."), False)
             return
         secret = self._take_secret()
         if not secret:
-            self.register_action.show_result("Registration needs the Client Secret.", False)
+            self.register_action.show_result(
+                self.tr("Registration needs the Client Secret."), False
+            )
             return
         settings = self._fleet_settings()
 
@@ -457,21 +480,31 @@ class CloudPage(_Page):
             check = await w.bridge.io(svc.check_key())
             if not check.ok:
                 raise RuntimeError(f"public key check failed: {check.reason} ({check.url})")
-            self.register_action.show_result(f"Key check OK: {check.reason}. Registering…", None)
+            self.register_action.show_result(
+                QCoreApplication.translate("CloudPage", "Key check OK: {0}. Registering…").format(
+                    check.reason
+                ),
+                None,
+            )
             await w.bridge.io(svc.register(settings, secret))
             return check.reason
 
         self.register_action.run(
             w.bridge,
             work,
-            lambda reason: (f"Domain {svc.domain} registered (key check: {reason}).", True),
-            "Checking the public key on the domain…",
+            lambda reason: (
+                QCoreApplication.translate(
+                    "CloudPage", "Domain {0} registered (key check: {1})."
+                ).format(svc.domain, reason),
+                True,
+            ),
+            self.tr("Checking the public key on the domain…"),
         )
 
     def _login(self) -> None:
         w, svc = self.wiz, self.wiz.services
         if not self.client_id.text().strip():
-            self.login_action.show_result("Enter the Client ID first.", False)
+            self.login_action.show_result(self.tr("Enter the Client ID first."), False)
             return
         secret = self._take_secret() or None
         settings = self._fleet_settings()
@@ -482,13 +515,18 @@ class CloudPage(_Page):
 
         def done(st: Any) -> tuple[str, bool]:
             if not st.logged_in:
-                return "Not logged in.", False
+                return QCoreApplication.translate("CloudPage", "Not logged in."), False
             self.wiz.logged_in = True
             scopes = ", ".join(st.scopes) or "–"
-            return f"Logged in (region {st.region}; scopes {scopes}).", True
+            return QCoreApplication.translate(
+                "CloudPage", "Logged in (region {0}; scopes {1})."
+            ).format(st.region, scopes), True
 
         self.login_action.run(
-            w.bridge, work, done, "Waiting for the browser login (complete it in the browser)…"
+            w.bridge,
+            work,
+            done,
+            self.tr("Waiting for the browser login (complete it in the browser)…"),
         )
 
     def validatePage(self) -> bool:
@@ -500,7 +538,7 @@ class CloudPage(_Page):
 
 class DonePage(_Page):
     def __init__(self, wiz: SetupWizard) -> None:
-        super().__init__(wiz, "Done", "SOCKS is ready.")
+        super().__init__(wiz, self.tr("Done"), self.tr("SOCKS is ready."))
         self.summary = _label()
         self.lay.addWidget(self.summary)
         self.lay.addStretch(1)
@@ -508,8 +546,8 @@ class DonePage(_Page):
     def initializePage(self) -> None:
         w = self.wiz
         lines = [
-            f"VIN: {w.vin}",
-            f"Key: {w.key_path}",
+            self.tr("VIN: {0}").format(w.vin),
+            self.tr("Key: {0}").format(w.key_path),
             "Cloud: "
             + ("enabled" + (", logged in" if w.logged_in else "") if w.cloud_enabled else "off"),
             "Polling stays off; turn it on in Settings if you want history recorded automatically.",
@@ -528,7 +566,7 @@ class SetupWizard(QWizard):
         self, parent: QWidget | None, bridge: AsyncBridge, services: Any, settings: Any, units: str
     ) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Set up")
+        self.setWindowTitle(self.tr("Set up"))
         self.setWizardStyle(QWizard.WizardStyle.ClassicStyle)
         self.bridge, self.services, self.settings, self.units = bridge, services, settings, units
         self.vin: str = settings.vin
@@ -542,8 +580,14 @@ class SetupWizard(QWizard):
         for page in (CarPage, KeyPage, PairPage, CloudPage, DonePage):
             self.addPage(page(self))
         self.setOption(QWizard.WizardOption.HaveCustomButton1, True)
-        self.setButtonText(QWizard.WizardButton.CustomButton1, "S&kip setup")
-        self.setButtonText(QWizard.WizardButton.FinishButton, "&Open SOCKS")
+        self.setButtonText(
+            QWizard.WizardButton.CustomButton1,
+            self.tr("S&kip setup"),
+        )
+        self.setButtonText(
+            QWizard.WizardButton.FinishButton,
+            self.tr("&Open SOCKS"),
+        )
         self.customButtonClicked.connect(lambda _w: self.reject())
         self.resize(720, 560)
 

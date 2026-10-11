@@ -15,10 +15,7 @@ from socks.gui.main_window import is_asleep  # noqa: E402
 from socks.gui.tabs.settings import SettingsTab  # noqa: E402
 from socks.gui.widgets.poll_spinbox import PollSpinBox  # noqa: E402
 
-
-@pytest.fixture(scope="module")
-def qapp() -> object:
-    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+pytestmark = pytest.mark.usefixtures("qapp")
 
 
 def test_is_asleep() -> None:

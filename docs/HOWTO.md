@@ -97,6 +97,24 @@ poll interval (minimum 60 s over Bluetooth, longer with cloud on); it only runs 
 is open. Charge sessions and drives are derived from those snapshots, so gaps make coarser
 sessions.
 
+### Drive mode and recording a drive
+
+When a Bluetooth read shows the car in gear, SOCKS switches to **drive mode**: it reads the
+car every 15 s over Bluetooth (free; never over the cloud) and records a detailed track (speed,
+power, state of charge and, if location is on, position) that the History tab shows as a
+drive profile and can export as GPX. Two reads in P end drive mode.
+
+To record with the laptop lid closed, turn on **Settings > Keep this computer awake while
+driving (lid closed)** (off by default). While the car is in gear SOCKS then holds a
+systemd-logind "sleep / lid switch" inhibitor and shows an *awake lock* chip; it releases it
+when the car parks or SOCKS quits. Notes:
+
+- **Battery cost:** an awake laptop typically uses about 5–10 % of its battery per hour.
+- **The laptop must already be awake when the drive starts.** The lock is only taken once a
+  read shows the car in gear; a laptop that suspended before that stays asleep.
+- If your system refuses the inhibitor (polkit policy), SOCKS shows a one-line note and
+  continues without it.
+
 ## 8. Units, tariff, backup
 
 - Units: Settings > Units, metric (km, kWh, °C) or imperial. Stored values stay metric;

@@ -123,10 +123,12 @@ class Chart(QWidget):
         if self._pts:
             lo, hi = min(p[1] for p in self._pts), max(p[1] for p in self._pts)
             self.setAccessibleDescription(
-                f"{title}: {len(self._pts)} points, from {self._yfmt(lo)} to {self._yfmt(hi)}"
+                self.tr("{0}: {1} points, from {2} to {3}").format(
+                    title, len(self._pts), self._yfmt(lo), self._yfmt(hi)
+                )
             )
         else:
-            self.setAccessibleDescription(f"{title}: no data")
+            self.setAccessibleDescription(self.tr("{0}: no data").format(title))
         self.setAccessibleName(title)
         self.update()
 
@@ -200,7 +202,7 @@ class Chart(QWidget):
         r = self._plot_rect(width, height)
         if not self._pts:
             p.setPen(muted(pal))
-            p.drawText(r, Qt.AlignmentFlag.AlignCenter, "No data yet")
+            p.drawText(r, Qt.AlignmentFlag.AlignCenter, self.tr("No data yet"))
             return
 
         grid = QColor(pal.color(QPalette.ColorRole.Mid))
@@ -268,8 +270,8 @@ class Chart(QWidget):
 
     def contextMenuEvent(self, e: QContextMenuEvent) -> None:
         menu = QMenu(self)
-        menu.addAction("Save as &PNG…", lambda: self.save_dialog("png"))
-        menu.addAction("Save as &SVG…", lambda: self.save_dialog("svg"))
+        menu.addAction(self.tr("Save as &PNG…"), lambda: self.save_dialog("png"))
+        menu.addAction(self.tr("Save as &SVG…"), lambda: self.save_dialog("svg"))
         menu.exec(e.globalPos())
 
     def save_dialog(self, kind: str) -> None:

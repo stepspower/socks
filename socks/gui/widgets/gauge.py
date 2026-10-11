@@ -28,7 +28,7 @@ class Gauge(QWidget):
         self._charging = False
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMinimumSize(160, 160)
-        self.setAccessibleName("State of charge")
+        self.setAccessibleName(self.tr("State of charge"))
         self.setMouseTracking(True)
 
     def sizeHint(self) -> QSize:
@@ -36,9 +36,9 @@ class Gauge(QWidget):
 
     def set_state(self, soc: int | None, limit: int | None, caption: str, charging: bool) -> None:
         self._value, self._limit, self._caption, self._charging = soc, limit, caption, charging
-        desc = "unknown" if soc is None else f"{soc} percent"
+        desc = "unknown" if soc is None else self.tr("{0} percent").format(soc)
         if limit is not None:
-            desc += f", limit {limit} percent"
+            desc += self.tr(", limit {0} percent").format(limit)
         self.setAccessibleDescription(f"{desc}. {caption}")
         self.update()
 
@@ -60,7 +60,7 @@ class Gauge(QWidget):
     def mouseMoveEvent(self, e: QMouseEvent) -> None:
         hit = self.tick_hit(e.position().x(), e.position().y())
         self.setCursor(Qt.CursorShape.PointingHandCursor if hit else Qt.CursorShape.ArrowCursor)
-        self.setToolTip("Click to change the charge limit" if hit else "")
+        self.setToolTip(self.tr("Click to change the charge limit") if hit else "")
         super().mouseMoveEvent(e)
 
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:

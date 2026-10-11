@@ -29,6 +29,8 @@ class HistoryData:
     places: list[Any] = field(default_factory=list)
     mileage: Any = None
     year: int = 0
+    parked: Any = None
+    energy_split: tuple[float, float] = (0.0, 0.0)  # (measured, estimated) kWh, this year
 
 
 def with_db[T](path: Path, fn: Callable[[sqlite3.Connection], T]) -> T:
@@ -38,6 +40,43 @@ def with_db[T](path: Path, fn: Callable[[sqlite3.Connection], T]) -> T:
         return fn(db)
     finally:
         db.close()
+
+
+def _energy_split(db: sqlite3.Connection, vin: str, year: int) -> tuple[float, float]:
+    """Drive energy this year: (measured by power integration, estimated from SoC) kWh."""
+    lo, hi = (dbm.iso(t) for t in trips.year_bounds(year))
+    out = {"measured": 0.0, "estimated": 0.0}
+    for source, kwh in db.execute(
+        "SELECT energy_source, COALESCE(SUM(energy_kwh), 0) FROM drive "
+        "WHERE vin = ? AND start_ts >= ? AND start_ts < ? AND energy_source IS NOT NULL "
+        "GROUP BY energy_source",
+        (vin, lo, hi),
+    ):
+        out[source] = float(kwh)
+    return out["measured"], out["estimated"]
+
+
+def drive_detail(path: Path, drive_id: int) -> tuple[list[Any], bool]:
+    """(drive_profile points, whether a GPX export is possible) for one drive."""
+
+    def go(db: sqlite3.Connection) -> tuple[list[Any], bool]:
+        has_gps = (
+            db.execute(
+                "SELECT 1 FROM track_point WHERE drive_id = ? AND lat IS NOT NULL "
+                "AND lon IS NOT NULL LIMIT 1",
+                (drive_id,),
+            ).fetchone()
+            is not None
+        )
+        return stats.drive_profile(db, drive_id), has_gps
+
+    return with_db(path, go)
+
+
+def export_gpx(path: Path, drive_id: int, out: str) -> int:
+    from socks.history import export
+
+    return with_db(path, lambda db: export.export_gpx(db, drive_id, out))
 
 
 def load_history(
@@ -57,6 +96,8 @@ def load_history(
             places=places.list_places(db, vin),
             mileage=trips.mileage_summary(db, vin, year),
             year=year,
+            parked=stats.parked_stats(db, vin, since),
+            energy_split=_energy_split(db, vin, year),
         )
 
     return with_db(path, go)

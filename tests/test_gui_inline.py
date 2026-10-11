@@ -17,10 +17,7 @@ from socks.core.model import ChargingState  # noqa: E402
 from socks.gui.inline_logic import arg_for, hhmm, toggle_command, toggle_text  # noqa: E402
 from tests.fakes import make_state  # noqa: E402
 
-
-@pytest.fixture(scope="module")
-def qapp() -> object:
-    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+pytestmark = pytest.mark.usefixtures("qapp")
 
 
 @pytest.mark.parametrize(
@@ -73,10 +70,13 @@ def test_status_tab_emits_through_signal(qapp: object) -> None:
     tab.update_state(make_state(locked=True, sentry_on=True, climate_on=False, target_temp_c=20.0,
                                 charge_limit=80))  # fmt: skip
     got: list[tuple[object, object]] = []
+    slid: list[tuple[object, object]] = []
     tab.command_requested.connect(lambda c, a: got.append((c, a)))
-    tab._chips["locked"].activated.emit()
-    tab._chips["sentry_on"].activated.emit()
-    tab._chips["climate_on"].activated.emit()
+    tab.confirmed_command_requested.connect(lambda c, a: slid.append((c, a)))
+    tab._switches["locked"].toggled.emit(False)
+    tab._switches["sentry_on"].toggled.emit(False)
+    tab._switches["climate_on"].toggled.emit(True)
+    tab._switches["frunk"].toggled.emit(True)
     ed = tab._editors["set_temp"]
     ed.start()
     assert ed.editing() and ed.editor.value() == 20.0
@@ -87,21 +87,14 @@ def test_status_tab_emits_through_signal(qapp: object) -> None:
     lim.start()
     lim.editor.setValue(90)
     lim._commit()
-    sched = tab._editors["set_scheduled_departure"]
-    sched.start()
-    sched.off.setChecked(False)
-    from PySide6.QtCore import QTime
-
-    sched.editor.setTime(QTime(7, 15))
-    sched._commit()
-    assert got == [
+    assert slid == [
         (Command.UNLOCK, None),
         (Command.SENTRY_OFF, None),
         (Command.CLIMATE_ON, None),
-        (Command.SET_TEMP, 22.0),
-        (Command.SET_CHARGE_LIMIT, 90),
-        (Command.SET_SCHEDULED_DEPARTURE, 435),
+        (Command.FRUNK, None),
     ]
+    assert got == [(Command.SET_TEMP, 22.0), (Command.SET_CHARGE_LIMIT, 90)]
+    assert "set_scheduled_departure" not in tab._editors  # the Depart-by card covers it
 
 
 def test_escape_cancels(qapp: object) -> None:

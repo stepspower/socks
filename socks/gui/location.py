@@ -74,15 +74,18 @@ def rebuild_labels(db_path: Path, vin: str) -> tuple[int, int]:
     return with_db(db_path, go)
 
 
-def place_label(db_path: Path | None, vin: str, lat: float, lon: float) -> str | None:
+def place_label(
+    db_path: Path | None, vin: str, lat: float, lon: float
+) -> tuple[str | None, str | None]:
+    """(learned place name, cached geocode address) for a position."""
     if db_path is None:
-        return None
+        return None, None
     from socks.gui.history_io import with_db
     from socks.history import places
 
-    def go(db: Any) -> str | None:
+    def go(db: Any) -> tuple[str | None, str | None]:
         p = places.place_at(db, vin, lat, lon)
-        return p.display_name if p is not None else places.cached_geocode(db, lat, lon)
+        return (p.display_name if p is not None else None), places.cached_geocode(db, lat, lon)
 
     return with_db(db_path, go)
 

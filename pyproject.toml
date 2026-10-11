@@ -50,7 +50,7 @@ socks = "socks.gui.app:main"
 version = { attr = "socks.__version__" }
 
 [tool.setuptools.package-data]
-"socks.gui" = ["icons/*.svg"]
+"socks.gui" = ["icons/*.svg", "i18n/*.qm"]
 
 [tool.setuptools.packages.find]
 include = ["socks*"]

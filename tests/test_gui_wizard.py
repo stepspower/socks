@@ -26,6 +26,8 @@ from socks.gui.widgets.qr import (  # noqa: E402
     rs_remainder,
 )
 
+pytestmark = pytest.mark.usefixtures("qapp")
+
 # Reference: the `qrcode` library, b"SOCKS", version 1, EC level M, mask 2, byte mode.
 SOCKS_V1_M_MASK2 = (
     "#######..#....#######",

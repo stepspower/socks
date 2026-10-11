@@ -17,19 +17,30 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication
+
 from socks.core.keys import tesla_control_dir, validate_vin
 
 DEFAULT_IMPORT = tesla_control_dir() / "private_key.pem"
 PAIR_ROLES = ("driver", "owner")
 ROLE_HELP = {
-    "driver": "Driver: can unlock, drive and use the car, but cannot add or remove keys.",
-    "owner": "Owner: full access, including managing other keys. Pick only if you need it.",
+    "driver": QT_TRANSLATE_NOOP(
+        "setup", "Driver: can unlock, drive and use the car, but cannot add or remove keys."
+    ),
+    "owner": QT_TRANSLATE_NOOP(
+        "setup", "Owner: full access, including managing other keys. Pick only if you need it."
+    ),
 }
-PRICE_NOTE = (
+PRICE_NOTE = QT_TRANSLATE_NOOP(
+    "setup",
     "Fleet API prices: data read $0.002, command $0.001, wake $0.02; Tesla credits $10 a "
     "month, which usually covers personal use. SOCKS uses Bluetooth first and polling "
-    "stays off by default."
+    "stays off by default.",
 )
+
+
+def _t(text: str) -> str:
+    return QCoreApplication.translate("setup", text)
 
 
 # ------------------------------------------------------------------ validation
@@ -39,28 +50,28 @@ def vin_feedback(text: str) -> tuple[bool, str]:
     """(valid, message) for the live VIN field."""
     norm = text.strip().upper()
     if not norm:
-        return False, "Enter the 17-character VIN."
+        return False, _t("Enter the 17-character VIN.")
     try:
         validate_vin(norm)
     except ValueError as exc:
         return False, str(exc)
-    return True, "VIN looks valid."
+    return True, _t("VIN looks valid.")
 
 
 def import_path_feedback(text: str) -> tuple[bool, str]:
     """(usable, message) for the import path; looks at the file system entry only."""
     raw = text.strip()
     if not raw:
-        return False, "Choose the private key file (PEM)."
+        return False, _t("Choose the private key file (PEM).")
     p = Path(raw).expanduser()
     if not p.is_file():
-        return False, "No file at this path."
+        return False, _t("No file at this path.")
     try:
         if p.stat().st_mode & 0o077:
-            return False, "The key file is readable by other users; run chmod 600 on it first."
+            return False, _t("The key file is readable by other users; run chmod 600 on it first.")
     except OSError as exc:
-        return False, f"Cannot read file information: {exc.strerror}"
-    return True, "File found."
+        return False, _t("Cannot read file information: {0}").format(exc.strerror)
+    return True, _t("File found.")
 
 
 @dataclass(frozen=True)

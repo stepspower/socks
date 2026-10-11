@@ -4,10 +4,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QCoreApplication, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
@@ -16,16 +17,63 @@ from socks.gui.inline_logic import (
     TOGGLES,
     arg_for,
     display_range,
-    hhmm,
-    minutes_of,
     toggle_command,
     toggle_text,
 )
+from socks.gui.labels import command_label
+from socks.gui.tabs.depart import DepartCard
 from socks.gui.widgets.gauge import Gauge
 from socks.gui.widgets.inline import InlineEdit, ToggleChip
+from socks.gui.widgets.slide_switch import SlideSwitch
 from socks.gui.widgets.status_card import Chip, StatusCard
 
 STALE_SECONDS = 15 * 60
+
+
+@dataclass(frozen=True)
+class SwitchSpec:
+    name: str
+    on_cmd: str
+    off_cmd: str | None  # None: one-way (frunk/trunk open)
+    on_text: str
+    off_text: str
+    risky_on: bool = False
+    risky_off: bool = False
+
+
+# Risky direction = full slide (or hold Enter ~1 s); replaces the typed challenge here.
+SWITCHES: dict[str, SwitchSpec] = {
+    "locked": SwitchSpec("Lock", "lock", "unlock", "Locked", "Unlocked", risky_off=True),
+    "sentry_on": SwitchSpec("Sentry", "sentry_on", "sentry_off", "Sentry on", "Sentry off",
+                            risky_off=True),
+    "charge_port_open": SwitchSpec("Charge port", "charge_port_open", "charge_port_close",
+                                   "Port open", "Port closed", risky_on=True),
+    "climate_on": SwitchSpec("Climate", "climate_on", "climate_off", "Climate on", "Climate off"),
+    "frunk": SwitchSpec("Frunk", "frunk", None, "Frunk open", "Frunk closed", risky_on=True),
+    "trunk": SwitchSpec("Trunk", "trunk", None, "Trunk open", "Trunk closed", risky_on=True),
+}  # fmt: skip
+
+
+def tr_switch(text: str) -> str:
+    return QCoreApplication.translate("StatusTab", text)
+
+
+def switch_state(field: str, s: Any) -> bool | None:
+    if field in ("frunk", "trunk"):
+        return field in (s.doors_open or ())
+    return getattr(s, field, None)
+
+
+def switch_command(field: str, on: bool) -> str | None:
+    """Command value for a completed slide to ``on`` (None if that direction doesn't exist)."""
+    sp = SWITCHES[field]
+    return sp.on_cmd if on else sp.off_cmd
+
+
+def osm_url(lat: float, lon: float) -> str:
+    return (
+        f"https://www.openstreetmap.org/?mlat={lat:.5f}&mlon={lon:.5f}#map=16/{lat:.5f}/{lon:.5f}"
+    )
 
 
 def _names(items: tuple[str, ...]) -> str:
@@ -36,22 +84,24 @@ class StatusTab(QWidget):
     refresh_requested = Signal()
     #: (Command, argument in command units or None) — the window runs the confirm gate
     command_requested = Signal(object, object)
+    #: (Command, arg): already confirmed by a completed slide gesture (no dialog)
+    confirmed_command_requested = Signal(object, object)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._state: Any = None
         self._units = "metric"
 
-        self.title = QLabel("No vehicle data yet")
+        self.title = QLabel(self.tr("No vehicle data yet"))
         self.title.setTextFormat(Qt.TextFormat.PlainText)  # car_name comes from the car/cloud
         tf = QFont(self.font())
         tf.setPointSizeF(tf.pointSizeF() * 1.3)
         tf.setWeight(QFont.Weight.DemiBold)
         self.title.setFont(tf)
         self.chip = Chip()
-        self.chip.set_chip("no data", "muted")
-        self.refresh_btn = QPushButton("&Refresh")
-        self.refresh_btn.setToolTip("Read the current state from the car (F5)")
+        self.chip.set_chip(self.tr("no data"), "muted")
+        self.refresh_btn = QPushButton(self.tr("&Refresh"))
+        self.refresh_btn.setToolTip(self.tr("Read the current state from the car (F5)"))
         self.refresh_btn.clicked.connect(self.refresh_requested)
 
         head = QHBoxLayout()
@@ -61,12 +111,12 @@ class StatusTab(QWidget):
         head.addWidget(self.refresh_btn)
 
         self.gauge = Gauge()
-        self.range_card = StatusCard("Range")
-        self.charge_card = StatusCard("Charging")
-        self.climate_card = StatusCard("Temperature")
-        self.security_card = StatusCard("Locks & closures")
-        self.odo_card = StatusCard("Odometer")
-        self.vehicle_card = StatusCard("Vehicle")
+        self.range_card = StatusCard(self.tr("Range"))
+        self.charge_card = StatusCard(self.tr("Charging"))
+        self.climate_card = StatusCard(self.tr("Temperature"))
+        self.security_card = StatusCard(self.tr("Locks & closures"))
+        self.odo_card = StatusCard(self.tr("Odometer"))
+        self.vehicle_card = StatusCard(self.tr("Vehicle"))
 
         grid = QGridLayout()
         grid.setSpacing(8)
@@ -92,16 +142,25 @@ class StatusTab(QWidget):
         self._chips: dict[str, ToggleChip] = {}
         self.gauge.limit_clicked.connect(lambda: self._start_editor("set_charge_limit"))
 
-        self.location = QLabel("")
-        self.location.setTextFormat(Qt.TextFormat.PlainText)  # place names are user text
-        self.location.setAccessibleName("Location")
-        self.location.hide()
-        grid.addWidget(self.location, 3, 0, 1, 2)
+        self._switches: dict[str, SlideSwitch] = {}
+        self.location_card = StatusCard(self.tr("Location"))
+        self._coords: tuple[float, float] | None = None
+        self.map_btn = QPushButton(self.tr("Open in &map"))
+        self.map_btn.setToolTip(self.tr("Opens openstreetmap.org in your browser"))
+        self.map_btn.clicked.connect(self._open_map)
+        self.copy_btn = QPushButton(self.tr("Cop&y"))
+        self.copy_btn.clicked.connect(self._copy_location)
+        self.location_card.add_row(self.map_btn, self.copy_btn)
+        self.location_card.hide()
+        grid.addWidget(self.location_card, 3, 0, 1, 2)
         grid.setRowStretch(3, 0)
         grid.setRowStretch(4, 1)
 
+        self.depart = DepartCard()
+
         lay = QVBoxLayout(self)
         lay.addLayout(head)
+        lay.addWidget(self.depart)
         lay.addLayout(body, 1)
 
     # ---------------------------------------------------- click-to-change
@@ -128,6 +187,22 @@ class StatusTab(QWidget):
             self._chips[field] = ch
             return ch
 
+        def switch(field: str) -> SlideSwitch | None:
+            sp = SWITCHES[field]
+            if sp.on_cmd not in self._cmds or (sp.off_cmd and sp.off_cmd not in self._cmds):
+                return None
+            sw = SlideSwitch(
+                tr_switch(sp.name),
+                tr_switch(sp.on_text),
+                tr_switch(sp.off_text),
+                risky_on=sp.risky_on,
+                risky_off=sp.risky_off,
+                one_way=sp.off_cmd is None,
+            )
+            sw.toggled.connect(lambda on, f=field: self._slid(f, on))
+            self._switches[field] = sw
+            return sw
+
         def row(card: StatusCard, *ws: QWidget | None) -> None:
             ws2 = [w for w in ws if w is not None]
             if ws2:
@@ -138,14 +213,10 @@ class StatusTab(QWidget):
             editor("set_charge_limit", "slider"),
             editor("set_charge_amps", "spin"),
         )
-        row(self.charge_card, chip("charging"), chip("charge_port_open"))
-        row(
-            self.charge_card,
-            editor("set_scheduled_charging", "time"),
-            editor("set_scheduled_departure", "time"),
-        )
-        row(self.climate_card, editor("set_temp", "spin"), chip("climate_on"))
-        row(self.security_card, chip("locked"), chip("sentry_on"))
+        row(self.charge_card, chip("charging"), switch("charge_port_open"))
+        row(self.climate_card, editor("set_temp", "spin"), switch("climate_on"))
+        row(self.security_card, switch("locked"), switch("sentry_on"))
+        row(self.security_card, switch("frunk"), switch("trunk"))
         self._configure_editors()
 
     def _info(self, cmd_value: str) -> Any:
@@ -169,6 +240,16 @@ class StatusTab(QWidget):
             return
         self.command_requested.emit(self._cmds[cmd], arg)
 
+    def _slid(self, field: str, on: bool) -> None:
+        cmd = switch_command(field, on)
+        if cmd is not None and cmd in self._cmds:
+            self.confirmed_command_requested.emit(self._cmds[cmd], None)
+
+    def revert_switches(self) -> None:
+        """A slide-confirmed command failed: show the car's real state again."""
+        for sw in self._switches.values():
+            sw.revert()
+
     def _toggle(self, field: str) -> None:
         if self._state is None:
             return
@@ -188,7 +269,7 @@ class StatusTab(QWidget):
 
         put(
             "set_charge_limit",
-            f"Limit {s.charge_limit} %",
+            QCoreApplication.translate("StatusTab", "Limit {0} %").format(s.charge_limit),
             s.charge_limit,
             s.charge_limit is not None,
         )
@@ -200,40 +281,62 @@ class StatusTab(QWidget):
             self._editors["set_charge_amps"].configure(lo, hi, step, unit)
         if s.target_temp_c is not None:
             t = fmt.temp_to_display(s.target_temp_c, u)
-            put("set_temp", f"Target {fmt.temp(s.target_temp_c, u)}", t)
-        mode = s.scheduled_charging_mode
-        start = minutes_of(s.scheduled_charging_start)
-        put(
-            "set_scheduled_charging",
-            f"Charge at {hhmm(start)}" if start is not None else "Scheduled charging off",
-            start,
-        )
-        dep = minutes_of(s.scheduled_departure) if mode != "Off" else None
-        put(
-            "set_scheduled_departure",
-            f"Depart by {hhmm(dep)}" if dep is not None else "Departure off",
-            dep,
-        )
+            put(
+                "set_temp",
+                QCoreApplication.translate("StatusTab", "Target {0}").format(
+                    fmt.temp(s.target_temp_c, u)
+                ),
+                t,
+            )
+        for field, sw in self._switches.items():
+            sw.set_checked(switch_state(field, s))
+            sw.setVisible(field != "charge_port_open" or s.charge_port_open is not None)
         for field, ch in self._chips.items():
             value = getattr(s, field, None)
             target = toggle_command(field, value)
-            action = self._infos[self._cmds[target]].label.lower()
+            action = command_label(self._infos[self._cmds[target]]).lower()
             ch.set_state(toggle_text(field, value), action)
             ch.setVisible(field != "charge_port_open" or value is not None)
             if field == "charging":
                 ch.setVisible(bool(s.plugged_in))
 
-    def set_location(self, text: str | None) -> None:
-        """Place name or coordinates; None hides the line (location off or unknown)."""
-        self.location.setVisible(bool(text))
-        self.location.setText(f"Location: {text}" if text else "")
+    def set_location(
+        self,
+        text: str | None,
+        coords: tuple[float, float] | None = None,
+        fix: datetime | None = None,
+    ) -> None:
+        """Place / address / coordinates with the fix time; None hides the card."""
+        self.location_card.setVisible(bool(text))
+        self._coords = coords
+        if text:
+            when = self.tr("GPS fix {0}").format(fmt.local_time(fix)) if fix else ""
+            self.location_card.set(text, when)
+        self.map_btn.setEnabled(coords is not None)
+        self.copy_btn.setEnabled(bool(text))
+
+    def _open_map(self) -> None:
+        if self._coords is not None:
+            import webbrowser
+
+            webbrowser.open(osm_url(*self._coords))
+
+    def _copy_location(self) -> None:
+        from PySide6.QtGui import QGuiApplication
+
+        text = self.location_card.value_text()
+        if self._coords is not None:
+            text = f"{text} ({self._coords[0]:.5f}, {self._coords[1]:.5f})"
+        QGuiApplication.clipboard().setText(text)
 
     def set_busy(self, busy: bool) -> None:
         self.refresh_btn.setEnabled(not busy)
-        self.refresh_btn.setText("Refreshing…" if busy else "&Refresh")
+        self.refresh_btn.setText(self.tr("Refreshing…") if busy else "&Refresh")
 
     def set_units(self, units: str) -> None:
         self._units = units
+        self.depart.units = units
+        self.depart.set_plan(self.depart.plan)
         self._configure_editors()
         if self._state is not None:
             self.update_state(self._state)
@@ -241,7 +344,7 @@ class StatusTab(QWidget):
     def update_state(self, s: Any) -> None:
         self._state = s
         u = self._units
-        self.title.setText(s.car_name or s.vin or "Vehicle")
+        self.title.setText(s.car_name or s.vin or self.tr("Vehicle"))
         charging_name = s.charging.name
         is_charging = charging_name == "CHARGING"
         cap = fmt.dist(s.rated_range_km, u)
@@ -249,15 +352,19 @@ class StatusTab(QWidget):
             cap += " · charging"
         self.gauge.set_state(s.soc, s.charge_limit, cap, is_charging)
 
-        usable = f"usable {s.usable_soc} %" if s.usable_soc is not None else ""
-        ideal = f"ideal {fmt.dist(s.ideal_range_km, u)}" if s.ideal_range_km is not None else ""
+        usable = self.tr("usable {0} %").format(s.usable_soc) if s.usable_soc is not None else ""
+        ideal = (
+            self.tr("ideal {0}").format(fmt.dist(s.ideal_range_km, u))
+            if s.ideal_range_km is not None
+            else ""
+        )
         self.range_card.set(
             fmt.dist(s.rated_range_km, u), " · ".join(x for x in (usable, ideal) if x)
         )
 
         state_text = s.charging.value
         if s.plugged_in is False:
-            value, detail = "Unplugged", ""
+            value, detail = self.tr("Unplugged"), ""
         elif is_charging:
             value = f"{state_text} · {fmt.power(s.charger_power_kw)}"
             bits = [
@@ -269,10 +376,14 @@ class StatusTab(QWidget):
                 bits.append(f"+{fmt.energy(s.charge_energy_added_kwh)}")
             detail = " · ".join(b for b in bits if b)
         else:
-            value = f"Plugged in · {state_text}" if s.plugged_in else state_text
-            detail = f"limit {s.charge_limit} %" if s.charge_limit is not None else ""
+            value = self.tr("Plugged in · {0}").format(state_text) if s.plugged_in else state_text
+            detail = (
+                self.tr("limit {0} %").format(s.charge_limit) if s.charge_limit is not None else ""
+            )
             if s.scheduled_charging_start is not None:
-                detail += f" · scheduled {fmt.local_time(s.scheduled_charging_start)}"
+                detail += self.tr(" · starts {0}").format(
+                    fmt.local_time(s.scheduled_charging_start)
+                )
         self.charge_card.set(value, detail)
 
         climate = (
@@ -281,16 +392,20 @@ class StatusTab(QWidget):
             else (" · climate on" if s.climate_on else " · climate off")
         )
         self.climate_card.set(
-            f"{fmt.temp(s.inside_temp_c, u)} inside",
-            f"{fmt.temp(s.outside_temp_c, u)} outside{climate}",
+            self.tr("{0} inside").format(fmt.temp(s.inside_temp_c, u)),
+            self.tr("{0} outside{1}").format(fmt.temp(s.outside_temp_c, u), climate),
         )
 
-        lock = {True: "Locked", False: "UNLOCKED", None: "Lock state unknown"}[s.locked]
+        lock = {
+            True: self.tr("Locked"),
+            False: self.tr("UNLOCKED"),
+            None: self.tr("Lock state unknown"),
+        }[s.locked]
         open_bits = []
         if s.doors_open:
-            open_bits.append(f"open: {_names(s.doors_open)}")
+            open_bits.append(self.tr("open: {0}").format(_names(s.doors_open)))
         if s.windows_open:
-            open_bits.append(f"windows: {_names(s.windows_open)}")
+            open_bits.append(self.tr("windows: {0}").format(_names(s.windows_open)))
         if not open_bits:
             open_bits.append("all doors and windows closed")
         if s.sentry_on is not None and "sentry_on" not in self._chips:
@@ -299,11 +414,12 @@ class StatusTab(QWidget):
 
         self.odo_card.set(fmt.dist(s.odometer_km, u), "")
         shift = s.shift.value
-        veh = f"Shift {shift}"
+        veh = self.tr("Shift {0}").format(shift)
         if s.speed_kmh:
             veh += f" · {fmt.speed(s.speed_kmh, u)}"
-        self.vehicle_card.set(veh, f"firmware {s.firmware}" if s.firmware else "")
+        self.vehicle_card.set(veh, self.tr("firmware {0}").format(s.firmware) if s.firmware else "")
         self._update_controls(s)
+        self.depart.set_charge_limit(s.charge_limit)
         self.update_age()
 
     def update_age(self) -> None:
@@ -314,8 +430,8 @@ class StatusTab(QWidget):
         old = (datetime.now(UTC) - ts).total_seconds() > STALE_SECONDS
         src = s.source.value.upper()
         self.chip.set_chip(f"{src} · {fmt.age(ts)}", "warn" if old else "normal")
-        self.chip.setToolTip(f"Read at {fmt.local_time(ts, with_date=True)}")
-        self.chip.setAccessibleName(f"Data source {src}, {fmt.age(ts)}")
+        self.chip.setToolTip(self.tr("Read at {0}").format(fmt.local_time(ts, with_date=True)))
+        self.chip.setAccessibleName(self.tr("Data source {0}, {1}").format(src, fmt.age(ts)))
 
     def focus_default(self) -> None:
         self.refresh_btn.setFocus(Qt.FocusReason.OtherFocusReason)

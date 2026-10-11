@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 
 from socks.core.config import MIN_POLL_BLE, MIN_POLL_CLOUD, MIN_TRIP_WATCH_INTERVAL
 from socks.core.keys import is_valid_vin, tesla_control_dir
+from socks.gui.i18n import LANGUAGES, pick_language
 from socks.gui.widgets.colors import ok, warn
 from socks.gui.widgets.poll_spinbox import PollSpinBox
 
@@ -55,14 +56,14 @@ class SettingsTab(QWidget):
 
         self.vin = QLineEdit()
         self.vin.setMaxLength(17)
-        self.vin.setPlaceholderText("17 characters, e.g. 5YJ3E7EB…")
+        self.vin.setPlaceholderText(self.tr("17 characters, e.g. 5YJ3E7EB…"))
         self.vin.textEdited.connect(lambda t: self.vin.setText(t.upper()))
 
         self.key_path = QLineEdit()
         self.key_path.setPlaceholderText(str(DEFAULT_KEY))
-        self.key_path.setAccessibleName("Private key path")
+        self.key_path.setAccessibleName(self.tr("Private key path"))
         self.key_path.textChanged.connect(self._key_status)
-        self.key_btn = QPushButton("Import existing &key…")
+        self.key_btn = QPushButton(self.tr("Import existing &key…"))
         self.key_btn.setToolTip(
             "Choose the PEM file already paired with your car. Only the path is stored."
         )
@@ -73,14 +74,14 @@ class SettingsTab(QWidget):
         key_row.addWidget(self.key_btn)
 
         self.units = QComboBox()
-        self.units.addItem("Metric (km, °C)", "metric")
-        self.units.addItem("Imperial (mi, °F)", "imperial")
+        self.units.addItem(self.tr("Metric (km, °C)"), "metric")
+        self.units.addItem(self.tr("Imperial (mi, °F)"), "imperial")
 
         self.prefer = QComboBox()
-        self.prefer.addItem("Bluetooth first, cloud as fallback", "ble")
-        self.prefer.addItem("Cloud first, Bluetooth as fallback", "cloud")
+        self.prefer.addItem(self.tr("Bluetooth first, cloud as fallback"), "ble")
+        self.prefer.addItem(self.tr("Cloud first, Bluetooth as fallback"), "cloud")
 
-        self.cloud = QCheckBox("Enable Tesla Fleet API (cloud)")
+        self.cloud = QCheckBox(self.tr("Enable Tesla Fleet API (cloud)"))
         self.price = QLabel(PRICE_NOTE)
         self.price.setWordWrap(True)
         self.price.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -92,11 +93,11 @@ class SettingsTab(QWidget):
         ):
             self.region.addItem(label, code)
         self.client_id = QLineEdit()
-        self.client_id.setPlaceholderText("from developer.tesla.com")
+        self.client_id.setPlaceholderText(self.tr("from developer.tesla.com"))
         self.cloud.toggled.connect(self._cloud_toggled)
 
         self.poll = PollSpinBox()
-        self.poll.setAccessibleName("Poll interval")
+        self.poll.setAccessibleName(self.tr("Poll interval"))
         self.poll.setToolTip(
             "Read the car periodically while the window is open (records history). "
             "Polling never wakes a sleeping car."
@@ -105,7 +106,7 @@ class SettingsTab(QWidget):
         self.poll_note = QLabel("")
         self.poll_note.setWordWrap(True)
         self.poll_note.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.poll_bg = QCheckBox("Keep polling in background (while hidden in the tray)")
+        self.poll_bg = QCheckBox(self.tr("Keep polling in background (while hidden in the tray)"))
 
         self.tariff = QDoubleSpinBox()
         self.tariff.setRange(0, 10)
@@ -118,17 +119,19 @@ class SettingsTab(QWidget):
         self.currency.textChanged.connect(lambda t: self.tariff.setSuffix(f" {t or 'EUR'}/kWh"))
         tariff_row = QHBoxLayout()
         tariff_row.addWidget(self.tariff)
-        tariff_row.addWidget(QLabel("Currency:"))
+        tariff_row.addWidget(QLabel(self.tr("Currency:")))
         tariff_row.addWidget(self.currency)
         tariff_row.addStretch(1)
 
-        self.location = QCheckBox("Read and show the car's &location (stays on this computer)")
-        self.trip_watch = QCheckBox("Follow trips via cloud while the car is away")
+        self.location = QCheckBox(
+            self.tr("Read and show the car's &location (stays on this computer)")
+        )
+        self.trip_watch = QCheckBox(self.tr("Follow trips via cloud while the car is away"))
         self.trip_interval = QSpinBox()
         self.trip_interval.setRange(300, 3600)
         self.trip_interval.setSingleStep(60)
         self.trip_interval.setSuffix(" s")
-        self.trip_interval.setAccessibleName("Trip watch interval")
+        self.trip_interval.setAccessibleName(self.tr("Trip watch interval"))
         self.trip_note = QLabel("")
         self.trip_note.setWordWrap(True)
         self.trip_note.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
@@ -137,14 +140,29 @@ class SettingsTab(QWidget):
         self.geocode = QCheckBox(
             "Resolve addresses with OpenStreetMap (sends coordinates to openstreetmap.org)"
         )
-        self.close_to_tray = QCheckBox("Closing the window keeps SOCKS running in the system tray")
+        self.awake = QCheckBox(self.tr("Keep this computer awake while driving (lid closed)"))
+        self.awake.setToolTip(
+            self.tr(
+                "While the car is in gear over Bluetooth, SOCKS asks the system not to "
+                "suspend on lid close. Costs laptop battery; the laptop must be awake when "
+                "the drive starts."
+            )
+        )
+        self.language = QComboBox()
+        for code, name in LANGUAGES.items():
+            self.language.addItem(self.tr("System language") if code == "auto" else name, code)
+        self.language.setAccessibleName(self.tr("Language"))
+        self.language_note = QLabel("")
+        self.close_to_tray = QCheckBox(
+            self.tr("Closing the window keeps SOCKS running in the system tray")
+        )
 
-        self.setup_btn = QPushButton("Set &up…")
-        self.setup_btn.setToolTip("Run the setup wizard: VIN, key, pairing, cloud")
+        self.setup_btn = QPushButton(self.tr("Set &up…"))
+        self.setup_btn.setToolTip(self.tr("Run the setup wizard: VIN, key, pairing, cloud"))
         self.setup_btn.clicked.connect(self.wizard_requested)
-        self.save_btn = QPushButton("Save")
+        self.save_btn = QPushButton(self.tr("Save"))
         self.save_btn.setShortcut(QKeySequence.StandardKey.Save)
-        self.save_btn.setToolTip("Save settings (Ctrl+S)")
+        self.save_btn.setToolTip(self.tr("Save settings (Ctrl+S)"))
         self.save_btn.setDefault(True)
         self.save_btn.clicked.connect(self._save)
         self.result = QLabel("")
@@ -152,19 +170,19 @@ class SettingsTab(QWidget):
 
         form = QFormLayout()
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        form.addRow("&VIN:", self.vin)
-        form.addRow(QLabel("Private key:", buddy=self.key_path), key_row)
+        form.addRow(self.tr("&VIN:"), self.vin)
+        form.addRow(QLabel(self.tr("Private key:"), buddy=self.key_path), key_row)
         form.addRow("", self.key_state)
-        form.addRow("&Units:", self.units)
-        form.addRow("Co&nnection:", self.prefer)
+        form.addRow(self.tr("&Units:"), self.units)
+        form.addRow(self.tr("Co&nnection:"), self.prefer)
         form.addRow("", self.cloud)
         form.addRow("", self.price)
-        form.addRow("&Region:", self.region)
-        form.addRow("Client &ID:", self.client_id)
-        form.addRow("&Poll interval:", self.poll)
+        form.addRow(self.tr("&Region:"), self.region)
+        form.addRow(self.tr("Client &ID:"), self.client_id)
+        form.addRow(self.tr("&Poll interval:"), self.poll)
         form.addRow("", self.poll_note)
         form.addRow("", self.poll_bg)
-        form.addRow(QLabel("Tari&ff:", buddy=self.tariff), tariff_row)
+        form.addRow(QLabel(self.tr("Tari&ff:"), buddy=self.tariff), tariff_row)
         form.addRow("", self.location)
         trip_row = QHBoxLayout()
         trip_row.addWidget(self.trip_watch)
@@ -174,6 +192,11 @@ class SettingsTab(QWidget):
         form.addRow("", self.trip_note)
         form.addRow("", self.geocode)
         form.addRow("", self.close_to_tray)
+        form.addRow("", self.awake)
+        lang_row = QHBoxLayout()
+        lang_row.addWidget(self.language)
+        lang_row.addWidget(self.language_note, 1)
+        form.addRow(QLabel(self.tr("Lan&guage:"), buddy=self.language), lang_row)
 
         bottom = QHBoxLayout()
         bottom.addWidget(self.setup_btn)
@@ -186,6 +209,17 @@ class SettingsTab(QWidget):
         lay.addLayout(bottom)
 
     # ----------------------------------------------------------- load/save
+
+    def set_language(self, code: str, active: str) -> None:
+        """``code``: the saved choice; ``active``: what this session runs in."""
+        self._active_language = active
+        self._select(self.language, code)
+        self.language.currentIndexChanged.connect(self._language_changed)
+
+    def _language_changed(self, _i: int) -> None:
+        chosen = pick_language(self.language.currentData())
+        changed = chosen != getattr(self, "_active_language", chosen)
+        self.language_note.setText(self.tr("Restart SOCKS to apply.") if changed else "")
 
     def load(self, s: Any, close_to_tray: bool, poll_in_background: bool = False) -> None:
         self._settings = s
@@ -254,7 +288,10 @@ class SettingsTab(QWidget):
     def _pick_key(self) -> None:
         start = self.key_path.text().strip() or str(DEFAULT_KEY)
         path, _flt = QFileDialog.getOpenFileName(
-            self, "Import existing private key", start, "PEM key (*.pem);;All files (*)"
+            self,
+            self.tr("Import existing private key"),
+            start,
+            self.tr("PEM key (*.pem);;All files (*)"),
         )
         if path:
             self.key_path.setText(path)
@@ -268,7 +305,7 @@ class SettingsTab(QWidget):
         except OSError:
             exists, loose = False, False
         if not exists:
-            msg, good = "Key file not found at this path.", False
+            msg, good = self.tr("Key file not found at this path."), False
         elif loose:
             msg, good = "Key file found, but readable by other users (expected mode 0600).", False
         else:
@@ -283,24 +320,29 @@ class SettingsTab(QWidget):
 
     def _poll_note_update(self, *_a: object) -> None:
         lo = self.poll.minimum_on()
-        text = f"0 = off; otherwise at least {lo} s. Polling never wakes a sleeping car."
+        text = self.tr(
+            "0 = off; otherwise at least {0} s. Polling never wakes a sleeping car."
+        ).format(lo)
         v = self.poll.value()
         if self.cloud.isChecked():
-            text += " With the cloud enabled, a poll that falls back to the cloud is a paid read"
+            text += " " + self.tr(
+                "With the cloud enabled, a poll that falls back to the cloud is a paid read."
+            )
             if v:
-                text += f" (up to {86_400 / v * CLOUD_READ_USD:.2f} $ a day at this interval)"
-            text += "."
+                text += " " + self.tr("Up to ${0:.2f} a day at this interval.").format(
+                    86_400 / v * CLOUD_READ_USD
+                )
         self.poll_note.setText(text)
 
     def _trip_note_update(self, *_a: object) -> None:
         v = max(300, self.trip_interval.value())
         per_hour = 3600 / v * CLOUD_READ_USD
-        text = (
+        text = self.tr(
             "Starts when the car leaves Bluetooth range moving; stops when it is parked. "
-            f"Each poll is a paid cloud read ($0.002): about ${per_hour:.3f} per hour of driving."
-        )
+            "Each poll is a paid cloud read ($0.002): about ${0:.3f} per hour of driving."
+        ).format(per_hour)
         if not self.cloud.isChecked():
-            text = "Requires cloud access. " + text
+            text = self.tr("Requires cloud access.") + " " + text
         self.trip_note.setText(text)
 
     def _cloud_toggled(self, on: bool) -> None:
