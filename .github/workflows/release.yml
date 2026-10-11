@@ -22,7 +22,7 @@ jobs:
     if: ${{ github.event_name == 'push' || inputs.only == 'all' || inputs.only == 'dist' }}
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
       - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
@@ -44,7 +44,7 @@ jobs:
           apt-get install -y --no-install-recommends ca-certificates git build-essential fakeroot \
             debhelper dh-python pybuild-plugin-pyproject python3-all python3-setuptools python3-pip \
             desktop-file-utils appstream
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
       - name: Build .deb
@@ -64,12 +64,12 @@ jobs:
     steps:
       - name: Install build tools
         run: dnf install -y rpm-build dnf-plugins-core python3-pip git tar gzip
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
       - name: Use the spec from the dispatching ref (lets a fixed spec rebuild an old tag)
         if: ${{ github.event_name == 'workflow_dispatch' }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: ci
       - name: Overlay spec
@@ -97,7 +97,7 @@ jobs:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.11
       options: --privileged
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.tag || github.ref }}
       - name: Make a CI variant of the manifest that builds the checked-out tree
