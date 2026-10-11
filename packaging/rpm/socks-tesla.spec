@@ -1,5 +1,5 @@
 Name:           socks-tesla
-Version:        0.1.0
+Version:        0.1.1
 Release:        1%{?dist}
 Summary:        Tesla companion for Linux: Bluetooth control, charge status and history
 License:        GPL-3.0-or-later
@@ -92,5 +92,8 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/net.stepspower.Socks.
 %{_datadir}/icons/hicolor/*/apps/net.stepspower.Socks*
 
 %changelog
+* Sun Oct 11 2026 stepspower <security@stepspower.net> - 0.1.1-1
+- Bluetooth: re-scan for the car after BlueZ drops the device following an idle disconnect
+
 * Sun Oct 11 2026 stepspower <security@stepspower.net> - 0.1.0-1
 - Initial package

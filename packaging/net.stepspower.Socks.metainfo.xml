@@ -44,6 +44,9 @@
   </provides>
   <releases>
     <!-- PLACEHOLDER: AppStream requires a date; integrator sets the real release date when tagging v0.1.0 -->
+    <release version="0.1.1" date="2026-10-11">
+      <description><p>Bluetooth reconnect after idle no longer requires a relaunch.</p></description>
+    </release>
     <release version="0.1.0" date="2026-10-11">
       <description>
         <p>First public release.</p>

@@ -1,6 +1,6 @@
 # Maintainer: stepspower <security@stepspower.net>
 pkgname=socks-tesla
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc='Tesla companion for Linux: Bluetooth control, charge status, driving and charging history'
 arch=(any)

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 — 2026-10-11
+
+- Bluetooth: after the 45 s idle disconnect, BlueZ may drop the car's device object; SOCKS now re-scans and reconnects instead of failing until relaunch.
+- README: the SOCKS proxy protocol is a different thing.
+
 ## 0.1.0 — 2026-10-11
 
 First release. SOCKS for your Tesla: a lean Linux desktop companion.
