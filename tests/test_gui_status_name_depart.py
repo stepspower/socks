@@ -70,3 +70,19 @@ def test_format_steps_ok_already_and_failed() -> None:
 def test_error_text_only_says_unreachable_for_not_available() -> None:
     assert error_text(NotAvailable("car not reachable. ble: out of range")) == "car not reachable"
     assert "car not reachable" not in error_text(CommandError("timeout"))
+
+
+def test_format_steps_all_branches() -> None:
+    lines = [
+        f"{depart.FAILED}: departure must be in the future",  # no step: validation error
+        f"{depart.NOTE}: the car repeats the departure daily",
+        f"{depart.OK}: Set charge limit 80 % (already set)",
+        f"{depart.OK}: Something new",  # unknown step: passed through
+    ]
+    text, failed = format_steps(lines)
+    out = text.splitlines()
+    assert failed
+    assert out[0] == "Not set: departure must be in the future"
+    assert out[1] == "the car repeats the departure daily"
+    assert out[2] == "Charge limit 80 % — already set"
+    assert out[3].startswith("Something new") and out[3].endswith("— ok")

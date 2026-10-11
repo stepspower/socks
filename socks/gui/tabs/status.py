@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,60 +20,21 @@ from PySide6.QtWidgets import (
 
 from socks.gui import fmt
 from socks.gui.inline_logic import (
-    TOGGLES,
+    SWITCHES,
     arg_for,
     display_range,
-    toggle_command,
-    toggle_text,
+    switch_command,
+    switch_enabled,
+    switch_state,
+    tr_switch,
 )
-from socks.gui.labels import command_label
 from socks.gui.tabs.depart import DepartCard
 from socks.gui.widgets.gauge import Gauge
-from socks.gui.widgets.inline import EditableValue, InlineEdit, ToggleChip
+from socks.gui.widgets.inline import EditableValue, InlineEdit
 from socks.gui.widgets.slide_switch import SlideSwitch
 from socks.gui.widgets.status_card import Chip, StatusCard
 
 STALE_SECONDS = 15 * 60
-
-
-@dataclass(frozen=True)
-class SwitchSpec:
-    name: str
-    on_cmd: str
-    off_cmd: str | None  # None: one-way (frunk/trunk open)
-    on_text: str
-    off_text: str
-    risky_on: bool = False
-    risky_off: bool = False
-
-
-# Risky direction = full slide (or hold Enter ~1 s); replaces the typed challenge here.
-SWITCHES: dict[str, SwitchSpec] = {
-    "locked": SwitchSpec("Lock", "lock", "unlock", "Locked", "Unlocked", risky_off=True),
-    "sentry_on": SwitchSpec("Sentry", "sentry_on", "sentry_off", "Sentry on", "Sentry off",
-                            risky_off=True),
-    "charge_port_open": SwitchSpec("Charge port", "charge_port_open", "charge_port_close",
-                                   "Port open", "Port closed", risky_on=True),
-    "climate_on": SwitchSpec("Climate", "climate_on", "climate_off", "Climate on", "Climate off"),
-    "frunk": SwitchSpec("Frunk", "frunk", None, "Frunk open", "Frunk closed", risky_on=True),
-    "trunk": SwitchSpec("Trunk", "trunk", None, "Trunk open", "Trunk closed", risky_on=True),
-}  # fmt: skip
-
-
-def tr_switch(text: str) -> str:
-    return QCoreApplication.translate("StatusTab", text)
-
-
-def switch_state(field: str, s: Any) -> bool | None:
-    if field in ("frunk", "trunk"):
-        return field in (s.doors_open or ())
-    return getattr(s, field, None)
-
-
-def switch_command(field: str, on: bool) -> str | None:
-    """Command value for a completed slide to ``on`` (None if that direction doesn't exist)."""
-    sp = SWITCHES[field]
-    return sp.on_cmd if on else sp.off_cmd
 
 
 def osm_url(lat: float, lon: float) -> str:
@@ -139,7 +99,7 @@ class StatusTab(QWidget):
         self.vehicle_card = StatusCard(self.tr("Vehicle"))
 
         grid = QGridLayout()
-        grid.setSpacing(8)
+        grid.setSpacing(12)
         cards = (
             self.range_card,
             self.charge_card,
@@ -159,7 +119,6 @@ class StatusTab(QWidget):
 
         self._cmds: dict[str, Any] = {}
         self._editors: dict[str, InlineEdit] = {}
-        self._chips: dict[str, ToggleChip] = {}
         self.gauge.limit_clicked.connect(lambda: self._start_editor("set_charge_limit"))
 
         self._switches: dict[str, SlideSwitch] = {}
@@ -198,15 +157,6 @@ class StatusTab(QWidget):
             self._editors[cmd] = ed
             return ed
 
-        def chip(field: str) -> ToggleChip | None:
-            t = TOGGLES[field]
-            if t.on_cmd not in self._cmds or t.off_cmd not in self._cmds:
-                return None
-            ch = ToggleChip()
-            ch.activated.connect(lambda f=field: self._toggle(f))
-            self._chips[field] = ch
-            return ch
-
         def switch(field: str) -> SlideSwitch | None:
             sp = SWITCHES[field]
             if sp.on_cmd not in self._cmds or (sp.off_cmd and sp.off_cmd not in self._cmds):
@@ -233,7 +183,7 @@ class StatusTab(QWidget):
             editor("set_charge_limit", "slider"),
             editor("set_charge_amps", "spin"),
         )
-        row(self.charge_card, chip("charging"), switch("charge_port_open"))
+        row(self.charge_card, switch("charging"), switch("charge_port_open"))
         row(self.climate_card, editor("set_temp", "spin"), switch("climate_on"))
         row(self.security_card, switch("locked"), switch("sentry_on"))
         row(self.security_card, switch("frunk"), switch("trunk"))
@@ -270,12 +220,6 @@ class StatusTab(QWidget):
         for sw in self._switches.values():
             sw.revert()
 
-    def _toggle(self, field: str) -> None:
-        if self._state is None:
-            return
-        cmd = toggle_command(field, getattr(self._state, field, None))
-        self.command_requested.emit(self._cmds[cmd], None)
-
     def _update_controls(self, s: Any) -> None:
         u = self._units
 
@@ -310,15 +254,10 @@ class StatusTab(QWidget):
             )
         for field, sw in self._switches.items():
             sw.set_checked(switch_state(field, s))
+            if not switch_enabled(field, s):
+                sw.setEnabled(False)
+                sw.setToolTip(self.tr("Plug in the cable to charge"))
             sw.setVisible(field != "charge_port_open" or s.charge_port_open is not None)
-        for field, ch in self._chips.items():
-            value = getattr(s, field, None)
-            target = toggle_command(field, value)
-            action = command_label(self._infos[self._cmds[target]]).lower()
-            ch.set_state(toggle_text(field, value), action)
-            ch.setVisible(field != "charge_port_open" or value is not None)
-            if field == "charging":
-                ch.setVisible(bool(s.plugged_in))
 
     # ------------------------------------------------------------- rename
 
@@ -458,7 +397,7 @@ class StatusTab(QWidget):
 
         climate = (
             ""
-            if "climate_on" in self._chips
+            if "climate_on" in self._switches
             else (" · climate on" if s.climate_on else " · climate off")
         )
         self.climate_card.set(
@@ -478,7 +417,7 @@ class StatusTab(QWidget):
             open_bits.append(self.tr("windows: {0}").format(_names(s.windows_open)))
         if not open_bits:
             open_bits.append("all doors and windows closed")
-        if s.sentry_on is not None and "sentry_on" not in self._chips:
+        if s.sentry_on is not None and "sentry_on" not in self._switches:
             open_bits.append("sentry on" if s.sentry_on else "sentry off")
         self.security_card.set(lock, " · ".join(open_bits))
 

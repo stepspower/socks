@@ -12,7 +12,7 @@ from datetime import UTC, datetime, time
 from typing import Any
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, QTime, QTimer, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPaintEvent
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 from socks.core import depart
 from socks.gui import fmt
 from socks.gui.widgets.inline import EditableValue
+from socks.gui.widgets.status_card import paint_card
 
 
 def tr(text: str) -> str:
@@ -88,7 +89,6 @@ def format_steps(lines: list[str]) -> tuple[str, bool]:
     "already" → "— already set"; "failed: Set temperature 21 °C: <reason>" → "Cabin 21 °C —
     failed: <reason>". Notes are kept as they are. Only failed lines make it an error.
     """
-    tr = QCoreApplication.translate
     out: list[str] = []
     failed = False
     for line in lines:
@@ -102,16 +102,16 @@ def format_steps(lines: list[str]) -> tuple[str, bool]:
             head, _s, reason = rest.partition(": ")
             name, what = _step_name(head)
             if not name:  # plan validation / transport error without a step
-                out.append(tr("DepartCard", "Not set: {0}").format(rest))
+                out.append(tr("Not set: {0}").format(rest))
             else:
-                out.append(tr("DepartCard", "{0} {1} — failed: {2}").format(name, what, reason))
+                out.append(tr("{0} {1} — failed: {2}").format(name, what, reason))
             continue
         name, what = _step_name(rest)
         if "already" in what.lower():
             what = what.replace("(already set)", "").strip()
-            out.append(tr("DepartCard", "{0} {1} — already set").format(name or rest, what))
+            out.append(tr("{0} {1} — already set").format(name or rest, what))
         else:
-            out.append(tr("DepartCard", "{0} {1} — ok").format(name or rest, what).strip())
+            out.append(tr("{0} {1} — ok").format(name or rest, what).strip())
     return "\n".join(out), failed
 
 
@@ -217,7 +217,7 @@ class DepartCard(QFrame):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setFrameShape(QFrame.Shape.NoFrame)  # flat card (painted)
         self.units = "metric"
         self.plan: Any = None
         self._charge_limit: int | None = None
@@ -247,9 +247,9 @@ class DepartCard(QFrame):
         row = QHBoxLayout()
         row.addWidget(title)
         row.addSpacing(12)
-        for w in (self.button, self.when, QLabel("·"), self.charge, QLabel("·"), self.cabin):
+        self._dots = [QLabel("·"), QLabel("·")]
+        for w in (self.button, self.when, self._dots[0], self.charge, self._dots[1], self.cabin):
             row.addWidget(w)
-        self._dots = [w for w in self.findChildren(QLabel) if w.text() == "·"]
         row.addStretch(1)
         row.addWidget(self.cancel)
         lay = QVBoxLayout(self)
@@ -257,6 +257,9 @@ class DepartCard(QFrame):
         lay.addLayout(row)
         lay.addWidget(self.status)
         self.set_plan(None)
+
+    def paintEvent(self, _e: QPaintEvent) -> None:
+        paint_card(self)
 
     def set_charge_limit(self, limit: int | None) -> None:
         self._charge_limit = limit

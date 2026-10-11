@@ -5,10 +5,30 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QRectF, QSize, Qt
-from PySide6.QtGui import QFont, QPainter, QPaintEvent, QPalette
+from PySide6.QtGui import QColor, QFont, QPainter, QPaintEvent, QPalette
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QSizePolicy, QVBoxLayout, QWidget
 
 from socks.gui.widgets.colors import accent, muted, warn
+
+
+def card_color(pal: QPalette) -> QColor:
+    """Flat card fill: the window colour nudged toward the text colour (works in dark mode)."""
+    base, text = pal.color(QPalette.ColorRole.Window), pal.color(QPalette.ColorRole.WindowText)
+    t = 0.05
+    return QColor.fromRgbF(
+        base.redF() * (1 - t) + text.redF() * t,
+        base.greenF() * (1 - t) + text.greenF() * t,
+        base.blueF() * (1 - t) + text.blueF() * t,
+    )
+
+
+def paint_card(w: QWidget) -> None:
+    p = QPainter(w)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(card_color(w.palette()))
+    p.drawRoundedRect(QRectF(w.rect()), 8, 8)
+    p.end()
 
 
 def _muted(label: QLabel) -> None:
@@ -20,10 +40,10 @@ def _muted(label: QLabel) -> None:
 class StatusCard(QFrame):
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setFrameShape(QFrame.Shape.StyledPanel)
+        self.setFrameShape(QFrame.Shape.NoFrame)  # flat card, painted in paintEvent
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setContentsMargins(12, 12, 12, 12)
         lay.setSpacing(2)
         self._title = QLabel(title)
         f = QFont(self.font())
@@ -43,6 +63,9 @@ class StatusCard(QFrame):
         for w in (self._title, self._value, self._detail):
             lay.addWidget(w)
         self.setAccessibleName(title)
+
+    def paintEvent(self, _e: QPaintEvent) -> None:
+        paint_card(self)
 
     def add_row(self, *widgets: QWidget) -> QWidget:
         """Append a row of (interactive) widgets under the value; returns its container."""
@@ -72,6 +95,35 @@ class StatusCard(QFrame):
         if e.type() == QEvent.Type.PaletteChange:
             _muted(self._title)
             _muted(self._detail)
+        super().changeEvent(e)
+
+
+class Section(QFrame):
+    """Flat card with a muted section title; put content into ``body``."""
+
+    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 12, 12, 12)
+        lay.setSpacing(12)
+        self.title = QLabel(title)
+        f = QFont(self.font())
+        f.setWeight(QFont.Weight.DemiBold)
+        self.title.setFont(f)
+        _muted(self.title)
+        lay.addWidget(self.title)
+        self.body = QVBoxLayout()
+        self.body.setSpacing(8)
+        lay.addLayout(self.body)
+        self.setAccessibleName(title)
+
+    def paintEvent(self, _e: QPaintEvent) -> None:
+        paint_card(self)
+
+    def changeEvent(self, e: QEvent) -> None:
+        if e.type() == QEvent.Type.PaletteChange:
+            _muted(self.title)
         super().changeEvent(e)
 
 

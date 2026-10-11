@@ -1,235 +1,298 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 stepspower
-"""Controls tab: one button per Command in ``COMMANDS``.
+"""Controls tab: a state-aware panel.
 
-This tab only *requests* commands (``command_requested``); the main window
-owns the confirm gate and the execution, so there is exactly one path to the
-car.
+Toggles are slide switches showing what the car last reported; the risky direction
+(unlock, sentry off, open charge port / frunk / trunk) needs a full slide or Enter/Space
+held ~1 s, which *is* the confirmation. Numeric values are inline editors prefilled from
+the state (✓/Enter applies, Esc cancels). One-shot actions are buttons with a result line
+next to them. Nothing here talks to the car: it emits ``command_requested`` and the main
+window sends it.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, Signal
-from PySide6.QtWidgets import (
-    QCheckBox,
-    QDoubleSpinBox,
-    QGridLayout,
-    QGroupBox,
-    QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QSlider,
-    QSpinBox,
-    QTimeEdit,
-    QVBoxLayout,
-    QWidget,
-)
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, QTimer, Signal
+from PySide6.QtWidgets import QGridLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from socks.gui import fmt
+from socks.gui.inline_logic import (
+    SWITCHES,
+    arg_for,
+    display_range,
+    hhmm,
+    minutes_of,
+    switch_command,
+    switch_enabled,
+    switch_state,
+    tr_switch,
+)
 from socks.gui.labels import command_label
-from socks.gui.widgets.colors import ok, warn
+from socks.gui.widgets.colors import muted, ok, warn
+from socks.gui.widgets.inline import InlineEdit
+from socks.gui.widgets.slide_switch import SlideSwitch
+from socks.gui.widgets.status_card import Section
 
-_GROUP_NAMES = (
+RESULT_MS = 8000
+
+# (section title, [("switch", field) | ("edit", command, kind, label) | ("action", command)])
+LAYOUT: tuple[tuple[str, tuple[tuple[str, ...], ...]], ...] = (
+    (
+        "Security",
+        (("switch", "locked"), ("switch", "sentry_on")),
+    ),
+    (
+        "Climate",
+        (("switch", "climate_on"), ("edit", "set_temp", "spin", "Cabin temperature")),
+    ),
+    (
+        "Charging",
+        (
+            ("switch", "charging"),
+            ("edit", "set_charge_limit", "slider", "Charge limit"),
+            ("edit", "set_charge_amps", "spin", "Charging current"),
+            ("edit", "set_scheduled_charging", "time", "Start charging at"),
+            ("edit", "set_scheduled_departure", "time", "Departure time"),
+        ),
+    ),
+    (
+        "Access",
+        (("switch", "charge_port_open"), ("switch", "frunk"), ("switch", "trunk")),
+    ),
+    (
+        "Misc",
+        (("action", "flash_lights"), ("action", "honk"), ("action", "wake")),
+    ),
+)
+_TR = (  # for lupdate
     QT_TRANSLATE_NOOP("ControlsTab", "Security"),
     QT_TRANSLATE_NOOP("ControlsTab", "Climate"),
     QT_TRANSLATE_NOOP("ControlsTab", "Charging"),
-    QT_TRANSLATE_NOOP("ControlsTab", "Other"),
-    QT_TRANSLATE_NOOP("ControlsTab", "More"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Access"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Misc"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Cabin temperature"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Charge limit"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Charging current"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Start charging at"),
+    QT_TRANSLATE_NOOP("ControlsTab", "Departure time"),
 )
-GROUPS: dict[str, tuple[str, ...]] = {
-    "Security": ("lock", "unlock", "sentry_on", "sentry_off"),
-    "Climate": ("climate_on", "climate_off", "set_temp"),
-    "Charging": (
-        "charge_start",
-        "charge_stop",
-        "set_charge_limit",
-        "set_charge_amps",
-        "set_scheduled_charging",
-        "set_scheduled_departure",
-        "charge_port_open",
-        "charge_port_close",
-    ),
-    "Other": ("flash_lights", "honk", "frunk", "trunk", "wake"),
-}
+
+
+def _tr(text: str) -> str:
+    return QCoreApplication.translate("ControlsTab", text)
+
+
+def used_commands() -> set[str]:
+    """Command values the fixed layout covers (switch directions included)."""
+    out: set[str] = set()
+    for _title, items in LAYOUT:
+        for item in items:
+            if item[0] == "switch":
+                sp = SWITCHES[item[1]]
+                out |= {sp.on_cmd} | ({sp.off_cmd} if sp.off_cmd else set())
+            else:
+                out.add(item[1])
+    return out
+
+
+def editor_value(cmd: str, s: Any, units: str) -> tuple[str, Any] | None:
+    """(display text, editor value) for an inline editor from the car state; None = hide."""
+    if cmd == "set_temp":
+        if s.target_temp_c is None:
+            return None
+        return fmt.temp(s.target_temp_c, units), fmt.temp_to_display(s.target_temp_c, units)
+    if cmd == "set_charge_limit":
+        return None if s.charge_limit is None else (f"{s.charge_limit} %", s.charge_limit)
+    if cmd == "set_charge_amps":
+        a = s.charge_current_request_a
+        return None if a is None else (f"{a} A", a)
+    if cmd == "set_scheduled_charging":
+        m = minutes_of(s.scheduled_charging_start)
+        return (hhmm(m) if m is not None else _tr("off")), m
+    if cmd == "set_scheduled_departure":
+        m = minutes_of(s.scheduled_departure) if s.scheduled_charging_mode != "Off" else None
+        return (hhmm(m) if m is not None else _tr("off")), m
+    return None
 
 
 class ControlsTab(QWidget):
-    #: (command, argument or None)
+    #: (Command, arg) — the gesture/✓ already confirmed it; the window just sends it
     command_requested = Signal(object, object)
 
     def __init__(self, commands: dict[Any, Any], parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._units = "metric"
-        self._temp_ready = False
-        self._buttons: dict[Any, QPushButton] = {}
-        self._arg_widgets: dict[Any, Any] = {}
-        self._arg_off: dict[Any, QCheckBox] = {}
-        self.result = QLabel(
-            self.tr("Every command asks for confirmation before anything is sent to the car.")
-        )
-        self.result.setWordWrap(True)
-        self.result.setTextFormat(Qt.TextFormat.PlainText)  # may hold the car's refusal reason
-        self.result.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self._state: Any = None
+        self._infos = commands
+        self._cmds = {c.value: c for c in commands}
+        self.switches: dict[str, SlideSwitch] = {}
+        self.editors: dict[str, InlineEdit] = {}
+        self.actions: dict[str, tuple[QPushButton, QLabel]] = {}
+
+        self.waiting = QLabel(self.tr("Waiting for the first read from the car…"))
+        self.result = self._result_label()
         self.result.setAccessibleName(self.tr("Last command result"))
 
-        self.temp = QDoubleSpinBox()
-        self.temp.setDecimals(1)
-        self.temp.setSingleStep(0.5)
-        self.temp.setAccessibleName(self.tr("Target temperature"))
-        self.limit = QSlider(Qt.Orientation.Horizontal)
-        self.limit.setRange(50, 100)
-        self.limit.setSingleStep(1)
-        self.limit.setPageStep(5)
-        self.limit.setValue(80)
-        self.limit.setAccessibleName(self.tr("Charge limit"))
-        self.limit_label = QLabel("80 %")
-        self.limit_label.setMinimumWidth(
-            self.limit_label.fontMetrics().horizontalAdvance("100 %") + 4
-        )
-        self.limit.valueChanged.connect(lambda v: self.limit_label.setText(f"{v} %"))
-        self.set_units("metric")
-
-        by_value = {c.value: c for c in commands}
-        placed: set[Any] = set()
-        lay = QVBoxLayout(self)
-        lay.addWidget(self.result)
         grid = QGridLayout()
-        lay.addLayout(grid)
-        groups = dict(GROUPS)
-        leftovers = tuple(v for v in by_value if all(v not in g for g in GROUPS.values()))
-        if leftovers:
-            groups["More"] = leftovers
-        for gi, (title, names) in enumerate(groups.items()):
-            box = QGroupBox(QCoreApplication.translate("ControlsTab", title))
-            bl = QVBoxLayout(box)
-            for name in names:
-                cmd = by_value.get(name)
-                if cmd is None:
-                    continue
-                info = commands[cmd]
-                placed.add(cmd)
-                btn = QPushButton(command_label(info) + ("…" if info.dangerous else ""))
-                btn.setAccessibleName(command_label(info))
-                if info.dangerous:
-                    btn.setToolTip(self.tr("Requires typed confirmation"))
-                btn.clicked.connect(lambda _c=False, c=cmd: self._request(c))
-                self._buttons[cmd] = btn
-                if info.arg == "temp_c":
-                    row = QHBoxLayout()
-                    row.addWidget(self.temp)
-                    row.addWidget(btn, 1)
-                    bl.addLayout(row)
-                elif info.arg == "percent":
-                    row = QHBoxLayout()
-                    row.addWidget(self.limit, 1)
-                    row.addWidget(self.limit_label)
-                    bl.addLayout(row)
-                    bl.addWidget(btn)
-                elif info.arg in ("amps", "minutes_after_midnight"):
-                    ed = self._arg_editor(cmd, info)
-                    row = QHBoxLayout()
-                    row.addWidget(ed)
-                    if info.arg == "minutes_after_midnight":
-                        off = QCheckBox(self.tr("Off"))
-                        off.toggled.connect(lambda on, e=ed: e.setEnabled(not on))
-                        self._arg_off[cmd] = off
-                        row.addWidget(off)
-                    row.addWidget(btn, 1)
-                    bl.addLayout(row)
-                else:
-                    bl.addWidget(btn)
-            bl.addStretch(1)
-            grid.addWidget(box, gi // 2, gi % 2)
-        lay.addStretch(1)
-        self._commands = commands
-        if placed != set(commands):
-            raise RuntimeError("every command must have a button")
-
-    def _request(self, cmd: Any) -> None:
-        info = self._commands[cmd]
-        arg: float | int | None = None
-        if info.arg == "temp_c":
-            arg = round(fmt.temp_from_display(self.temp.value(), self._units), 1)
-        elif info.arg == "percent":
-            arg = int(self.limit.value())
-        elif info.arg == "amps":
-            arg = int(self._arg_widgets[cmd].value())
-        elif info.arg == "minutes_after_midnight":
-            off = self._arg_off.get(cmd)
-            t = self._arg_widgets[cmd].time()
-            arg = None if off is not None and off.isChecked() else t.hour() * 60 + t.minute()
-        self.command_requested.emit(cmd, arg)
-
-    def _arg_editor(self, cmd: Any, info: Any) -> Any:
-        from socks.gui.inline_logic import spec
-
-        if info.arg == "amps":
-            lo, hi, step, unit = spec(info)
-            w = QSpinBox()
-            w.setRange(int(lo), int(hi))
-            w.setSingleStep(int(step) or 1)
-            w.setValue(int(hi) if hi < 16 else 16)
-            w.setSuffix(f" {unit}")
-        else:
-            w = QTimeEdit()
-            w.setDisplayFormat("HH:mm")
-        w.setAccessibleName(self.tr("{0} value").format(command_label(info)))
-        self._arg_widgets[cmd] = w
-        return w
-
-    def describe_arg(self, cmd: Any, arg: float | int | None) -> str:
-        info = self._commands[cmd]
-        if info.arg == "temp_c" and arg is not None:
-            return self.tr("Target: {0}").format(fmt.temp(float(arg), self._units))
-        if info.arg == "percent" and arg is not None:
-            return self.tr("Charge limit: {0} %").format(arg)
-        if info.arg == "amps" and arg is not None:
-            return self.tr("Charging current: {0} A").format(arg)
-        if info.arg == "minutes_after_midnight":
-            from socks.gui.inline_logic import hhmm
-
-            return (
-                self.tr("Time: {0}").format(hhmm(arg))
-                if arg is not None
-                else self.tr("Turn it off")
-            )
-        return ""
-
-    def set_units(self, units: str) -> None:
-        current_c = (
-            fmt.temp_from_display(self.temp.value(), self._units) if self._temp_ready else 20.5
+        grid.setSpacing(12)
+        extra = sorted(
+            v for v, c in self._cmds.items() if v not in used_commands() and commands[c].arg is None
         )
-        self._temp_ready = True
-        self._units = units
-        lo, hi = fmt.temp_to_display(15.0, units), fmt.temp_to_display(28.0, units)
-        self.temp.setRange(lo, hi)
-        self.temp.setSuffix(" °F" if fmt.imperial(units) else " °C")
-        self.temp.setValue(fmt.temp_to_display(current_c, units))
+        layout = list(LAYOUT)
+        if extra:  # anything core adds later still gets a control
+            layout.append(("More", tuple(("action", v) for v in extra)))
+        for i, (title, items) in enumerate(layout):
+            sec = Section(_tr(title))
+            form = QGridLayout()
+            form.setHorizontalSpacing(12)
+            form.setVerticalSpacing(8)
+            row = 0
+            for item in items:
+                w = self._build(item)
+                if w is None:
+                    continue
+                name, widget = w
+                label = QLabel(name)
+                label.setBuddy(widget)
+                form.addWidget(label, row, 0)
+                form.addWidget(widget, row, 1, Qt.AlignmentFlag.AlignLeft)
+                row += 1
+            form.setColumnStretch(1, 1)
+            sec.body.addLayout(form)
+            grid.addWidget(sec, i // 2, i % 2)
+        lay = QVBoxLayout(self)
+        lay.setSpacing(12)
+        lay.addWidget(self.waiting)
+        lay.addWidget(self.result)
+        lay.addLayout(grid)
+        lay.addStretch(1)
+        self._apply_state()
+
+    # ------------------------------------------------------------- build
+
+    def _result_label(self) -> QLabel:
+        lab = QLabel("")
+        lab.setTextFormat(Qt.TextFormat.PlainText)  # may hold the car's refusal reason
+        lab.setWordWrap(True)
+        lab.hide()
+        lab._timer = QTimer(lab)  # type: ignore[attr-defined]
+        lab._timer.setSingleShot(True)  # type: ignore[attr-defined]
+        lab._timer.timeout.connect(lab.hide)  # type: ignore[attr-defined]
+        return lab
+
+    def _build(self, item: tuple[str, ...]) -> tuple[str, QWidget] | None:
+        kind = item[0]
+        if kind == "switch":
+            field = item[1]
+            sp = SWITCHES[field]
+            if sp.on_cmd not in self._cmds or (sp.off_cmd and sp.off_cmd not in self._cmds):
+                return None
+            sw = SlideSwitch(
+                tr_switch(sp.name),
+                tr_switch(sp.on_text),
+                tr_switch(sp.off_text),
+                risky_on=sp.risky_on,
+                risky_off=sp.risky_off,
+                one_way=sp.off_cmd is None,
+            )
+            sw.toggled.connect(lambda on, f=field: self._slid(f, on))
+            self.switches[field] = sw
+            return tr_switch(sp.name), sw
+        cmd = item[1]
+        if cmd not in self._cmds:
+            return None
+        info = self._infos[self._cmds[cmd]]
+        if kind == "edit":
+            ed = InlineEdit(item[2])
+            ed.committed.connect(lambda v, c=cmd: self._commit(c, v))
+            self.editors[cmd] = ed
+            return _tr(item[3]), ed
+        btn = QPushButton(command_label(info))
+        res = self._result_label()
+        btn.clicked.connect(lambda _c=False, c=cmd: self._action(c))
+        box = QWidget()
+        row = QGridLayout(box)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(btn, 0, 0)
+        row.addWidget(res, 0, 1)
+        row.setColumnStretch(1, 1)
+        self.actions[cmd] = (btn, res)
+        return "", box
+
+    # ----------------------------------------------------------- signals
+
+    def _slid(self, field: str, on: bool) -> None:
+        cmd = switch_command(field, on)
+        if cmd is not None and cmd in self._cmds:
+            self.command_requested.emit(self._cmds[cmd], None)
+
+    def _commit(self, cmd: str, value: Any) -> None:
+        try:
+            arg = arg_for(self._infos[self._cmds[cmd]], value, self._units)
+        except ValueError as exc:
+            self.show_result(str(exc), False)
+            return
+        self.command_requested.emit(self._cmds[cmd], arg)
+
+    def _action(self, cmd: str) -> None:
+        self.command_requested.emit(self._cmds[cmd], None)
+
+    # ------------------------------------------------------------- state
 
     def update_state(self, s: Any) -> None:
-        """Sync the argument widgets with the car (unless the user is editing)."""
-        if s.target_temp_c is not None and not self.temp.hasFocus():
-            self.temp.setValue(fmt.temp_to_display(s.target_temp_c, self._units))
-        if (
-            s.charge_limit is not None
-            and not self.limit.isSliderDown()
-            and not self.limit.hasFocus()
-        ):
-            self.limit.setValue(int(s.charge_limit))
+        self._state = s
+        self._apply_state()
+
+    def _apply_state(self) -> None:
+        s = self._state
+        self.waiting.setVisible(s is None)
+        for field, sw in self.switches.items():
+            sw.set_checked(switch_state(field, s))
+            if s is None:
+                sw.setToolTip(self.tr("Waiting for the first read"))
+            elif not switch_enabled(field, s):
+                sw.setEnabled(False)
+                sw.setToolTip(self.tr("Plug in the cable to charge"))
+        for cmd, ed in self.editors.items():
+            if ed.kind != "time":
+                lo, hi, step, unit = display_range(self._infos[self._cmds[cmd]], self._units)
+                if cmd == "set_charge_amps" and s is not None and s.charge_current_request_max_a:
+                    hi = s.charge_current_request_max_a
+                ed.configure(lo, hi, step, "" if ed.kind == "slider" else unit)
+            val = editor_value(cmd, s, self._units) if s is not None else None
+            ed.setEnabled(val is not None)
+            if not ed.editing():
+                ed.set_value(val[0] if val else "–", val[1] if val else None)
+        for btn, _res in self.actions.values():
+            btn.setEnabled(s is not None)
+
+    def set_units(self, units: str) -> None:
+        self._units = units
+        self._apply_state()
 
     def set_busy(self, cmd: Any | None) -> None:
-        for c, b in self._buttons.items():
-            b.setEnabled(cmd is None)
-            if c == cmd:
-                b.setText(self.tr("{0} — sending…").format(command_label(self._commands[c])))
-            else:
-                info = self._commands[c]
-                b.setText(command_label(info) + ("…" if info.dangerous else ""))
+        busy = cmd is not None
+        for w in (*self.switches.values(), *self.editors.values()):
+            w.setEnabled(not busy)
+        for btn, _res in self.actions.values():
+            btn.setEnabled(not busy and self._state is not None)
+        if not busy:
+            self._apply_state()
 
-    def show_result(self, text: str, success: bool) -> None:
-        pal = self.result.palette()
-        pal.setColor(self.result.foregroundRole(), ok(pal) if success else warn(pal))
-        self.result.setPalette(pal)
-        self.result.setText(("✓ " if success else "✗ ") + text)
+    def revert_switches(self) -> None:
+        for sw in self.switches.values():
+            sw.revert()
+
+    def show_result(self, text: str, success: bool, cmd: Any = None) -> None:
+        """Short inline line; next to the action button for one-shot commands. Clears."""
+        value = getattr(cmd, "value", None)
+        lab = self.actions[value][1] if value in self.actions else self.result
+        pal = lab.palette()
+        col = muted(pal) if success is None else (ok(pal) if success else warn(pal))
+        pal.setColor(lab.foregroundRole(), col)
+        lab.setPalette(pal)
+        lab.setText(("✓ " if success else "✗ ") + text)
+        lab.show()
+        lab._timer.start(RESULT_MS)  # type: ignore[attr-defined]

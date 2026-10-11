@@ -2,9 +2,9 @@
 # Copyright (C) 2026 stepspower
 """Main window: Status · Controls · History · Settings, status bar, tray icon.
 
-All car I/O is started here and only here: ``refresh`` and ``_on_command``
-(through the single ``confirm`` gate). Backend calls run on the bridge's I/O
-thread; results come back to GUI-side coroutines that update widgets.
+All car I/O is started here and only here: ``refresh`` and ``_on_command`` (the gesture
+that emits a command is its confirmation). Backend calls run on the bridge's I/O thread;
+results come back to GUI-side coroutines that update widgets.
 """
 
 from __future__ import annotations
@@ -57,13 +57,10 @@ from socks.gui.tabs.depart import error_text, format_steps, result_failed
 from socks.gui.tabs.history import HistoryTab
 from socks.gui.tabs.settings import SettingsTab
 from socks.gui.tabs.status import StatusTab
-from socks.gui.widgets.confirm_dialog import confirm
 from socks.gui.widgets.log_view import LogView, QtLogHandler
 
 log = logging.getLogger("socks.gui")
 
-#: Defence in depth: these always need typed confirmation, whatever core says.
-ALWAYS_DANGEROUS = frozenset({"unlock", "frunk", "trunk", "remote_start"})
 FAKE_POLL_SECONDS = 5
 
 
@@ -140,7 +137,7 @@ class MainWindow(QMainWindow):
         self.status_tab.refresh_requested.connect(lambda: self.refresh())
         self.status_tab.set_commands(commands)
         self.status_tab.command_requested.connect(self._on_command)
-        self.status_tab.confirmed_command_requested.connect(self._on_slide_command)
+        self.status_tab.confirmed_command_requested.connect(self._on_command)
         self.status_tab.depart.set_plan(ctx.settings.depart_plan)
         self.status_tab.set_name_override(ctx.settings.car_name)
         self.status_tab.rename_requested.connect(self._rename_car)
@@ -563,36 +560,17 @@ class MainWindow(QMainWindow):
 
     # ----------------------------------------------------------- commands
 
-    def _on_slide_command(self, cmd: Any, arg: Any) -> None:
-        self._on_command(cmd, arg, preconfirmed=True)
-
-    def _on_command(self, cmd: Any, arg: Any, *, preconfirmed: bool = False) -> None:
-        """The single gate: every command that changes the car passes here.
-
-        ``preconfirmed``: a Status-tab slide switch whose full gesture is the confirmation
-        (it replaces the dialog and the typed challenge for exactly those toggles).
-        """
+    def _on_command(self, cmd: Any, arg: Any) -> None:
+        """The single path to the car. There is no dialog: the gesture that emitted this
+        (a completed slide — full drag or held key for the risky direction —, an inline
+        editor's ✓/Enter, or a one-shot button) is the confirmation."""
         if self.bridge.busy(self.controls_tab):
-            if preconfirmed:
-                self.status_tab.revert_switches()
+            self.status_tab.revert_switches()
+            self.controls_tab.revert_switches()
+            self.statusBar().showMessage(self.tr("Still sending the previous command…"), 4000)
             return
-        info = COMMANDS[cmd]
-        dangerous = info.dangerous or cmd.value in ALWAYS_DANGEROUS
-        detail = [self.controls_tab.describe_arg(cmd, arg)]
-        if info.needs_wake:
-            detail.append(self.tr("The car will be woken up if it is asleep."))
-        if self.ctx.fake:
-            detail.append("Fake mode: nothing is sent to a real car.")
-        if not preconfirmed and not confirm(
-            self, command_label(info), "\n".join(x for x in detail if x), dangerous
-        ):
-            self.controls_tab.show_result(
-                self.tr("{0}: cancelled, nothing sent.").format(command_label(info)), False
-            )
-            return
-        self.bridge.spawn(
-            self.controls_tab, self._send(cmd, arg, command_label(info)), f"command {cmd.value}"
-        )
+        label = command_label(COMMANDS[cmd])
+        self.bridge.spawn(self.controls_tab, self._send(cmd, arg, label), f"command {cmd.value}")
 
     async def _send(self, cmd: Any, arg: Any, label: str) -> None:
         self.controls_tab.set_busy(cmd)
@@ -603,14 +581,15 @@ class MainWindow(QMainWindow):
             if getattr(exc, "maybe_executed", False):
                 msg += " (the car may have executed it; check before retrying)"
             log.warning("%s failed: %s", label, msg, exc_info=exc if self.ctx.debug else None)
-            self.controls_tab.show_result(self.tr("{0} failed: {1}").format(label, msg), False)
+            self.controls_tab.show_result(self.tr("{0} failed: {1}").format(label, msg), False, cmd)
             self.statusBar().showMessage(self.tr("{0} failed: {1}").format(label, msg), 10000)
             self.status_tab.revert_switches()
+            self.controls_tab.revert_switches()
             return
         finally:
             self.controls_tab.set_busy(None)
         log.info("%s: done", label)
-        self.controls_tab.show_result(self.tr("{0}: done.").format(label), True)
+        self.controls_tab.show_result(self.tr("{0}: done").format(label), True, cmd)
         self.statusBar().showMessage(self.tr("{0}: done").format(label), 5000)
         self.refresh()
 

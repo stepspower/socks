@@ -10,6 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication
+
 from socks.gui import fmt
 
 
@@ -114,3 +116,86 @@ def hhmm(minutes: int | None) -> str:
     if minutes is None:
         return "off"
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+# ------------------------------------------------------------------ switches
+
+
+@dataclass(frozen=True)
+class SwitchSpec:
+    name: str
+    on_cmd: str
+    off_cmd: str | None  # None: one-way (frunk/trunk open)
+    on_text: str
+    off_text: str
+    risky_on: bool = False
+    risky_off: bool = False
+
+
+# The risky direction needs a full slide (or Enter/Space held ~1 s): that gesture is the
+# confirmation. Safe directions are a click. No dialogs.
+SWITCHES: dict[str, SwitchSpec] = {
+    "locked": SwitchSpec(
+        QT_TRANSLATE_NOOP("Switches", "Lock"), "lock", "unlock",
+        QT_TRANSLATE_NOOP("Switches", "Locked"), QT_TRANSLATE_NOOP("Switches", "Unlocked"),
+        risky_off=True,
+    ),
+    "sentry_on": SwitchSpec(
+        QT_TRANSLATE_NOOP("Switches", "Sentry"), "sentry_on", "sentry_off",
+        QT_TRANSLATE_NOOP("Switches", "Sentry on"), QT_TRANSLATE_NOOP("Switches", "Sentry off"),
+        risky_off=True,
+    ),
+    "climate_on": SwitchSpec(
+        QT_TRANSLATE_NOOP("Switches", "Climate"), "climate_on", "climate_off",
+        QT_TRANSLATE_NOOP("Switches", "Climate on"), QT_TRANSLATE_NOOP("Switches", "Climate off"),
+    ),
+    "charging": SwitchSpec(
+        QT_TRANSLATE_NOOP("Switches", "Charging"), "charge_start", "charge_stop",
+        QT_TRANSLATE_NOOP("Switches", "Charging"), QT_TRANSLATE_NOOP("Switches", "Not charging"),
+    ),
+    "charge_port_open": SwitchSpec(
+        QT_TRANSLATE_NOOP("Switches", "Charge port"), "charge_port_open", "charge_port_close",
+        QT_TRANSLATE_NOOP("Switches", "Port open"), QT_TRANSLATE_NOOP("Switches", "Port closed"),
+        risky_on=True,
+    ),
+    "frunk": SwitchSpec(
+        QT_TRANSLATE_NOOP("Switches", "Frunk"), "frunk", None,
+        QT_TRANSLATE_NOOP("Switches", "Frunk open"), QT_TRANSLATE_NOOP("Switches", "Frunk closed"),
+        risky_on=True,
+    ),
+    "trunk": SwitchSpec(
+        QT_TRANSLATE_NOOP("Switches", "Trunk"), "trunk", None,
+        QT_TRANSLATE_NOOP("Switches", "Trunk open"), QT_TRANSLATE_NOOP("Switches", "Trunk closed"),
+        risky_on=True,
+    ),
+}  # fmt: skip
+
+
+def tr_switch(text: str) -> str:
+    return QCoreApplication.translate("Switches", text)
+
+
+def switch_state(field: str, s: Any) -> bool | None:
+    """The switch position the car's state implies (None = unknown)."""
+    if s is None:
+        return None
+    if field in ("frunk", "trunk"):
+        return field in (s.doors_open or ())
+    if field == "charging":
+        return is_on("charging", s.charging)
+    return getattr(s, field, None)
+
+
+def switch_enabled(field: str, s: Any) -> bool:
+    """Charging can only be switched with the cable in; everything else once state exists."""
+    if s is None:
+        return False
+    if field == "charging":
+        return bool(s.plugged_in)
+    return True
+
+
+def switch_command(field: str, on: bool) -> str | None:
+    """Command value for a completed switch gesture to ``on`` (None: no such direction)."""
+    sp = SWITCHES[field]
+    return sp.on_cmd if on else sp.off_cmd

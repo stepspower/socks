@@ -40,8 +40,14 @@ a compromised Tesla account or car, and physical access to an unlocked session.
 
 ## Command confirmation gate
 
-Every command that changes the car goes through one `confirm()` function in the GUI. `unlock`,
-open trunk/frunk and remote start additionally require typing the first letters of the action.
+Every command that changes the car goes through one path in the GUI (`MainWindow._on_command`),
+and only a deliberate gesture can reach it; there are no confirmation pop-ups. Toggles are slide
+switches that show the state read from the car. The risky direction (unlock, sentry off, open the
+charge port, open frunk/trunk) needs the knob dragged the whole way (≥ 95 % of the travel) or
+Enter/Space held for about a second; letting go earlier snaps it back and sends nothing. Safe
+directions (lock, climate, start/stop charging, …) are a click. Values (charge limit, temperature,
+amps, times) are sent only from an inline editor's ✓ or Enter; Esc cancels. One-shot actions
+(flash, honk, wake) are plain buttons. A failed command puts the switch back to the car's state.
 The CLI requires an explicit flag for dangerous commands.
 
 ## Data
@@ -59,8 +65,8 @@ temperatures), not raw API payloads, tokens or keys.
       with the right mode atomically (no window of wider permissions).
 - [ ] OAuth: PKCE verifier and state checked, redirect bound to 127.0.0.1, listener closes after
       one use or timeout, no open redirect, token refresh failures do not leak responses.
-- [ ] Command gate: no code path sends a state-changing command without `confirm()`; typed
-      confirmation on unlock, trunk/frunk, remote start.
+- [ ] Command gate: state-changing commands reach `MainWindow._on_command` only from a
+      completed gesture (full slide / held key for the risky direction, editor ✓, button).
 - [ ] Every SQL statement uses parameters; no string-built queries.
 - [ ] Input from the car/cloud is validated before use (types, ranges, units).
 - [ ] No network calls except enabled Tesla endpoints (check with the cloud toggle off).
