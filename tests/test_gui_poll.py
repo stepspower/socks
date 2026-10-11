@@ -52,7 +52,8 @@ def test_is_asleep() -> None:
 
     assert is_asleep(NotAvailable("car asleep; not woken"))
     err = NotAvailable("x")
-    from socks.core.backend import ASLEEP, NotAvailable as CoreNA
+    from socks.core.backend import ASLEEP
+    from socks.core.backend import NotAvailable as CoreNA
 
     assert is_asleep(CoreNA("Bluetooth: car is asleep", kind=ASLEEP))
     assert not is_asleep(CoreNA("Bluetooth: car is asleep?", kind="Timeout"))
