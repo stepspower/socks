@@ -46,7 +46,9 @@ sed -i -e 's/setuptools>=77/setuptools>=61/' \
 %endif
 
 %generate_buildrequires
-%pyproject_buildrequires
+# -R: the runtime requirements (tesla-fleet-api, PySide6-Essentials, platformdirs) are not
+# build dependencies: they are vendored (all but PySide6) or provided by python3-pyside6.
+%pyproject_buildrequires -R
 
 %build
 %pyproject_wheel
