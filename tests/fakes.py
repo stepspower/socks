@@ -73,6 +73,7 @@ def make_state(**overrides: Any) -> VehicleState:
         scheduled_charging_mode="Off",
         preconditioning_enabled=False,
         off_peak_charging_enabled=False,
+        ble_rssi_dbm=-62,
         raw={"fake": True},
     )
     return replace(base, **overrides)

@@ -88,6 +88,7 @@ class VehicleState:
     scheduled_charging_mode: str | None = None  # "Off" | "StartAt" | "DepartBy"
     preconditioning_enabled: bool | None = None  # departure preconditioning
     off_peak_charging_enabled: bool | None = None  # departure off-peak charging
+    ble_rssi_dbm: int | None = None  # Bluetooth signal (last BlueZ RSSI), BLE reads only
     raw: dict = field(default_factory=dict, compare=False, repr=False)  # payload, never persisted
 
 

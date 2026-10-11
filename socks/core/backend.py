@@ -28,6 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Protocol
 
+from socks.core.ble import device_rssi
 from socks.core.commands import COMMANDS, Command, CommandArg, DepartureArg, validate_arg
 from socks.core.keys import KeyFileError, is_valid_vin, load_private_key, vin_model
 from socks.core.model import ChargingState, ShiftState, Source, VehicleState
@@ -733,7 +734,9 @@ class BleBackend:
                         payload[name] = _to_dict(await getattr(vehicle, name)())
             except CommandError as e:
                 log.debug("optional BLE read failed: %s", e)
-        return _named_state(parse_ble_payload(self.vin, payload, self._clock()), self.car_name)
+        state = _named_state(parse_ble_payload(self.vin, payload, self._clock()), self.car_name)
+        rssi = device_rssi(vehicle.get_device())
+        return state if rssi is None else replace(state, ble_rssi_dbm=rssi)
 
     async def pair(self, role: str = "driver", timeout: float = PAIR_TIMEOUT) -> bool:
         """Send the BLE add-key request for this backend's key (form factor cloud_key).

@@ -983,3 +983,15 @@ async def test_car_name_override_then_vin_model(key_path: Path) -> None:
     assert c.car_name == "step's 3"  # the car's own name beats the model
     settings = Settings(vin=VIN, key_path=key_path, car_name="Rocket")
     assert build_router(settings).ble.car_name == "Rocket"
+
+
+async def test_ble_read_reports_rssi_without_scan(key_path: Path) -> None:
+    class Dev:
+        details = {"path": "/org/bluez/hci0/dev_X", "props": {"RSSI": -71, "Name": "S1"}}
+
+    vehicle = FakeBleVehicle()
+    vehicle.device = Dev()  # already found: no find_vehicle (scan) call
+    s = await _ble(key_path, vehicle).read_state()
+    assert s.ble_rssi_dbm == -71 and "find" not in vehicle.calls
+    vehicle2 = FakeBleVehicle()  # plain object() device: no BlueZ props -> None
+    assert (await _ble(key_path, vehicle2).read_state()).ble_rssi_dbm is None

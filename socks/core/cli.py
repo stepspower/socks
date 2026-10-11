@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 from socks import __version__
+from socks.core.ble import format_signal
 from socks.core.commands import COMMANDS, parse_command
 from socks.core.model import VehicleState, state_to_dict
 from socks.history.units import KM_PER_MI, c_to_f
@@ -280,6 +281,7 @@ def format_status(
     rows = [
         ("Car", " · ".join(x for x in (state.car_name, state.vin, state.firmware) if x)),
         ("Read", f"{when(state.ts)} via {state.source.value}"),
+        *([("Bluetooth", signal)] if (signal := format_signal(state.ble_rssi_dbm)) else []),
         ("Battery", f"{opt(state.soc, ' %')} (limit {opt(state.charge_limit, ' %')})"),
         ("Range", f"{dist(state.rated_range_km)} rated"),
         ("Charging", charging),
