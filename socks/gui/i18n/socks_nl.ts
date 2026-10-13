@@ -929,234 +929,239 @@ Vingerafdruk {2}</translation>
         <translation>Starten…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="181"/>
+        <location filename="../main_window.py" line="183"/>
         <source>driving — {0} s</source>
         <translation>rijden — {0} s</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="183"/>
+        <location filename="../main_window.py" line="185"/>
         <source>awake lock</source>
         <translation>wakker houden</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="184"/>
+        <location filename="../main_window.py" line="186"/>
         <source>This computer will not sleep while the car is driving</source>
         <translation>Deze computer gaat niet slapen terwijl de auto rijdt</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="214"/>
+        <location filename="../main_window.py" line="216"/>
         <source>Tab {0}</source>
         <translation>Tabblad {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="215"/>
+        <location filename="../main_window.py" line="217"/>
         <source>Ctrl+{0}</source>
         <translation>Ctrl+{0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="225"/>
+        <location filename="../main_window.py" line="227"/>
         <source>Show SOCKS</source>
         <translation>SOCKS tonen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="226"/>
+        <location filename="../main_window.py" line="228"/>
         <source>Refresh</source>
         <translation>Vernieuwen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="228"/>
+        <location filename="../main_window.py" line="230"/>
         <source>Quit</source>
         <translation>Afsluiten</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="230"/>
+        <location filename="../main_window.py" line="232"/>
         <source>SOCKS</source>
         <translation>SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="282"/>
+        <location filename="../main_window.py" line="300"/>
         <source>car asleep — poll at {0:%H:%M} skipped</source>
         <translation>auto slaapt — peiling om {0:%H:%M} overgeslagen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="290"/>
+        <location filename="../main_window.py" line="308"/>
+        <source>Car is asleep — showing last known state</source>
+        <translation>Auto slaapt — laatste bekende status wordt getoond</translation>
+    </message>
+    <message>
+        <location filename="../main_window.py" line="313"/>
         <source>Refresh failed: {0}</source>
         <translation>Vernieuwen mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="304"/>
+        <location filename="../main_window.py" line="327"/>
         <source>retrying ({0}/{1})…</source>
         <translation>opnieuw proberen ({0}/{1})…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="312"/>
+        <location filename="../main_window.py" line="335"/>
         <source>weak Bluetooth signal — move closer to the car or press Refresh</source>
         <translation>zwak Bluetooth-signaal — ga dichter bij de auto of klik op Vernieuwen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="326"/>
+        <location filename="../main_window.py" line="349"/>
         <source>SOCKS — {0}: {1} · {2}</source>
         <translation>SOCKS — {0}: {1} · {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="334"/>
+        <location filename="../main_window.py" line="357"/>
         <source>Last update {0} ({1}) via {2}</source>
         <translation>Laatst bijgewerkt {0} ({1}) via {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="366"/>
+        <location filename="../main_window.py" line="389"/>
         <source>Could not keep the computer awake: {0}</source>
         <translation>Kon de computer niet wakker houden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="469"/>
+        <location filename="../main_window.py" line="492"/>
         <source>Set a VIN in Settings (or refresh once) to see history.</source>
         <translation>Stel een VIN in bij Instellingen (of vernieuw één keer) om de geschiedenis te zien.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="487"/>
+        <location filename="../main_window.py" line="510"/>
         <source>Could not load history: {0}</source>
         <translation>Kon geschiedenis niet laden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="498"/>
+        <location filename="../main_window.py" line="521"/>
         <source>Nothing to export yet.</source>
         <translation>Nog niets te exporteren.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="506"/>
+        <location filename="../main_window.py" line="529"/>
         <source>Export {0}</source>
         <translation>{0} exporteren</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="514"/>
+        <location filename="../main_window.py" line="537"/>
         <source>Exporting {0}…</source>
         <translation>{0} exporteren…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="525"/>
+        <location filename="../main_window.py" line="548"/>
         <source>Export failed: {0}</source>
         <translation>Exporteren mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="529"/>
+        <location filename="../main_window.py" line="552"/>
         <source>Exported {0} rows to {1}</source>
         <translation>{0} rijen geëxporteerd naar {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="550"/>
+        <location filename="../main_window.py" line="573"/>
         <source>Export drive as GPX</source>
         <translation>Rit exporteren als GPX</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="552"/>
+        <location filename="../main_window.py" line="575"/>
         <source>GPX track (*.gpx)</source>
         <translation>GPX-spoor (*.gpx)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="565"/>
+        <location filename="../main_window.py" line="588"/>
         <source>GPX export failed: {0}</source>
         <translation>GPX-export mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="569"/>
+        <location filename="../main_window.py" line="592"/>
         <source>Exported {0} track points to {1}</source>
         <translation>{0} spoorpunten geëxporteerd naar {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="576"/>
+        <location filename="../main_window.py" line="599"/>
         <source>Chart saved to {0}</source>
         <translation>Grafiek opgeslagen in {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="578"/>
+        <location filename="../main_window.py" line="601"/>
         <source>Could not save {0}</source>
         <translation>Kon {0} niet opslaan</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="590"/>
+        <location filename="../main_window.py" line="613"/>
         <source>Still sending the previous command…</source>
         <translation>Vorige opdracht wordt nog verzonden…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="607"/>
-        <location filename="../main_window.py" line="608"/>
+        <location filename="../main_window.py" line="630"/>
+        <location filename="../main_window.py" line="631"/>
         <source>{0} failed: {1}</source>
         <translation>{0} mislukt: {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="615"/>
-        <location filename="../main_window.py" line="616"/>
+        <location filename="../main_window.py" line="638"/>
+        <location filename="../main_window.py" line="639"/>
         <source>{0}: done</source>
         <translation>{0}: klaar</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="632"/>
+        <location filename="../main_window.py" line="655"/>
         <source>Could not save: {0}</source>
         <translation>Kon niet opslaan: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="651"/>
+        <location filename="../main_window.py" line="675"/>
         <source>Saved at {0}.</source>
         <translation>Opgeslagen om {0}.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="661"/>
+        <location filename="../main_window.py" line="685"/>
         <source>Sending to the car…</source>
         <translation>Verzenden naar de auto…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="665"/>
+        <location filename="../main_window.py" line="689"/>
         <source>Not set: {0}</source>
         <translation>Niet ingesteld: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="683"/>
+        <location filename="../main_window.py" line="707"/>
         <source>Cancelling…</source>
         <translation>Annuleren…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="690"/>
+        <location filename="../main_window.py" line="714"/>
         <source>Could not cancel: {0}</source>
         <translation>Kon niet annuleren: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="751"/>
+        <location filename="../main_window.py" line="775"/>
         <source>(coordinates hidden)</source>
         <translation>(coördinaten verborgen)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="791"/>
+        <location filename="../main_window.py" line="815"/>
         <source>trip watch: {0} ({1} reads, ≈ ${2:.3f})</source>
         <translation>ritvolging: {0} ({1} keer gelezen, ≈ ${2:.3f})</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="801"/>
+        <location filename="../main_window.py" line="825"/>
         <source>Could not set purpose: {0}</source>
         <translation>Kon doel niet instellen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="819"/>
+        <location filename="../main_window.py" line="843"/>
         <source>Could not rename place: {0}</source>
         <translation>Kon plaats niet hernoemen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="825"/>
+        <location filename="../main_window.py" line="849"/>
         <source>Place saved. Use Rebuild labels to relabel drives.</source>
         <translation>Plaats opgeslagen. Gebruik Labels opnieuw opbouwen om ritten opnieuw te labelen.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="840"/>
+        <location filename="../main_window.py" line="864"/>
         <source>Rebuild failed: {0}</source>
         <translation>Opnieuw opbouwen mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="848"/>
+        <location filename="../main_window.py" line="872"/>
         <source>{0} places, {1} drives relabelled.</source>
         <translation>{0} plaatsen, {1} ritten opnieuw gelabeld.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="899"/>
+        <location filename="../main_window.py" line="923"/>
         <source>Log •</source>
         <translation>Logboek •</translation>
     </message>
@@ -1300,141 +1305,151 @@ Vingerafdruk {2}</translation>
     </message>
     <message>
         <location filename="../tabs/settings.py" line="143"/>
+        <source>Refresh may wake the car</source>
+        <translation>Vernieuwen mag de auto wekken</translation>
+    </message>
+    <message>
+        <location filename="../tabs/settings.py" line="146"/>
+        <source>Off: Refresh shows the last known state while the car sleeps and offers “Wake &amp; refresh”. A wake keeps the car awake ~15 min (~0.2 km of range).</source>
+        <translation>Uit: Vernieuwen toont de laatste bekende status terwijl de auto slaapt en biedt “Wekken &amp; vernieuwen”. Wekken houdt de auto ~15 min wakker (~0,2 km bereik).</translation>
+    </message>
+    <message>
+        <location filename="../tabs/settings.py" line="150"/>
         <source>Keep this computer awake while driving (lid closed)</source>
         <translation>Deze computer wakker houden tijdens het rijden (klep dicht)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="146"/>
+        <location filename="../tabs/settings.py" line="153"/>
         <source>While the car is in gear over Bluetooth, SOCKS asks the system not to suspend on lid close. Costs laptop battery; the laptop must be awake when the drive starts.</source>
         <translation>Zolang de auto via Bluetooth in een rijstand staat, vraagt SOCKS het systeem om niet in slaap te gaan bij het sluiten van de klep. Kost accu van de laptop; de laptop moet wakker zijn als de rit begint.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="153"/>
+        <location filename="../tabs/settings.py" line="160"/>
         <source>System language</source>
         <translation>Systeemtaal</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="154"/>
+        <location filename="../tabs/settings.py" line="161"/>
         <source>Language</source>
         <translation>Taal</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="157"/>
+        <location filename="../tabs/settings.py" line="164"/>
         <source>Closing the window keeps SOCKS running in the system tray</source>
         <translation>Bij sluiten van het venster blijft SOCKS actief in het systeemvak</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="160"/>
+        <location filename="../tabs/settings.py" line="167"/>
         <source>Set &amp;up…</source>
         <translation>In&amp;stellen…</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="161"/>
+        <location filename="../tabs/settings.py" line="168"/>
         <source>Run the setup wizard: VIN, key, pairing, cloud</source>
         <translation>Installatieassistent starten: VIN, sleutel, koppelen, cloud</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="163"/>
+        <location filename="../tabs/settings.py" line="170"/>
         <source>Save</source>
         <translation>Opslaan</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="165"/>
+        <location filename="../tabs/settings.py" line="172"/>
         <source>Save settings (Ctrl+S)</source>
         <translation>Instellingen opslaan (Ctrl+S)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="173"/>
+        <location filename="../tabs/settings.py" line="180"/>
         <source>&amp;VIN:</source>
         <translation>&amp;VIN:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="174"/>
+        <location filename="../tabs/settings.py" line="181"/>
         <source>Private key:</source>
         <translation>Privésleutel:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="176"/>
+        <location filename="../tabs/settings.py" line="183"/>
         <source>&amp;Units:</source>
         <translation>&amp;Eenheden:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="177"/>
+        <location filename="../tabs/settings.py" line="184"/>
         <source>Co&amp;nnection:</source>
         <translation>Ver&amp;binding:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="180"/>
+        <location filename="../tabs/settings.py" line="187"/>
         <source>&amp;Region:</source>
         <translation>&amp;Regio:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="181"/>
+        <location filename="../tabs/settings.py" line="188"/>
         <source>Client &amp;ID:</source>
         <translation>Client-&amp;ID:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="182"/>
+        <location filename="../tabs/settings.py" line="189"/>
         <source>&amp;Poll interval:</source>
         <translation>&amp;Peilinterval:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="185"/>
+        <location filename="../tabs/settings.py" line="192"/>
         <source>Tari&amp;ff:</source>
         <translation>&amp;Tarief:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="199"/>
+        <location filename="../tabs/settings.py" line="207"/>
         <source>Lan&amp;guage:</source>
         <translation>T&amp;aal:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="203"/>
+        <location filename="../tabs/settings.py" line="211"/>
         <source>Open log folder</source>
         <translation>Logmap openen</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="230"/>
+        <location filename="../tabs/settings.py" line="238"/>
         <source>Restart SOCKS to apply.</source>
         <translation>Herstart SOCKS om toe te passen.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="300"/>
+        <location filename="../tabs/settings.py" line="308"/>
         <source>Import existing private key</source>
         <translation>Bestaande privésleutel importeren</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="302"/>
+        <location filename="../tabs/settings.py" line="310"/>
         <source>PEM key (*.pem);;All files (*)</source>
         <translation>PEM-sleutel (*.pem);;Alle bestanden (*)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="326"/>
+        <location filename="../tabs/settings.py" line="334"/>
         <source>Key file not found at this path.</source>
         <translation>Sleutelbestand niet gevonden op dit pad.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="342"/>
+        <location filename="../tabs/settings.py" line="350"/>
         <source>0 = off; otherwise at least {0} s. Polling never wakes a sleeping car.</source>
         <translation>0 = uit; anders minstens {0} s. Peilen wekt nooit een slapende auto.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="347"/>
+        <location filename="../tabs/settings.py" line="355"/>
         <source>With the cloud enabled, a poll that falls back to the cloud is a paid read.</source>
         <translation>Met de cloud ingeschakeld is een peiling die terugvalt op de cloud een betaalde leesactie.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="350"/>
+        <location filename="../tabs/settings.py" line="358"/>
         <source>Up to ${0:.2f} a day at this interval.</source>
         <translation>Tot ${0:.2f} per dag bij dit interval.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="359"/>
+        <location filename="../tabs/settings.py" line="367"/>
         <source>Starts when the car leaves Bluetooth range moving; stops when it is parked. Each poll is a paid cloud read ($0.002): about ${0:.3f} per hour of driving.</source>
         <translation>Start wanneer de auto rijdend buiten Bluetooth-bereik komt; stopt als hij geparkeerd is. Elke peiling is een betaalde cloudleesactie ($0.002): ongeveer ${0:.3f} per uur rijden.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="363"/>
+        <location filename="../tabs/settings.py" line="371"/>
         <source>Requires cloud access.</source>
         <translation>Vereist cloudtoegang.</translation>
     </message>
@@ -1479,229 +1494,249 @@ Vingerafdruk {2}</translation>
 <context>
     <name>StatusTab</name>
     <message>
-        <location filename="../tabs/status.py" line="82"/>
+        <location filename="../tabs/status.py" line="83"/>
         <source>No vehicle data yet</source>
         <extracomment>(Command, argument in command units or None) — the window runs the confirm gate new display name for the car (&quot;&quot; = back to the name the car/VIN gives) (Command, arg): already confirmed by a completed slide gesture (no dialog)</extracomment>
         <translation>Nog geen voertuiggegevens</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="92"/>
+        <location filename="../tabs/status.py" line="93"/>
         <source>Name (empty = model name)</source>
         <translation>Naam (leeg = modelnaam)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="93"/>
+        <location filename="../tabs/status.py" line="94"/>
         <source>Car name</source>
         <translation>Naam van de auto</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="97"/>
+        <location filename="../tabs/status.py" line="98"/>
         <source>no data</source>
         <translation>geen gegevens</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="98"/>
+        <location filename="../tabs/status.py" line="99"/>
         <source>&amp;Refresh</source>
         <translation>&amp;Vernieuwen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="99"/>
+        <location filename="../tabs/status.py" line="100"/>
         <source>Read the current state from the car (F5)</source>
         <translation>Huidige status uit de auto lezen (F5)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="110"/>
+        <location filename="../tabs/status.py" line="102"/>
+        <source>&amp;Wake &amp;&amp; refresh</source>
+        <translation>&amp;Wekken &amp;&amp; vernieuwen</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="104"/>
+        <source>Wake the car and read it. A wake keeps it awake for about 15 minutes.</source>
+        <translation>Wek de auto en lees hem uit. Hij blijft dan ongeveer 15 minuten wakker.</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="119"/>
         <source>Range</source>
         <translation>Bereik</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="111"/>
+        <location filename="../tabs/status.py" line="120"/>
         <source>Charging</source>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="112"/>
+        <location filename="../tabs/status.py" line="121"/>
         <source>Temperature</source>
         <translation>Temperatuur</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="113"/>
+        <location filename="../tabs/status.py" line="122"/>
         <source>Locks &amp; closures</source>
         <translation>Sloten en openingen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="114"/>
+        <location filename="../tabs/status.py" line="123"/>
         <source>Odometer</source>
         <translation>Kilometerteller</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="115"/>
-        <location filename="../tabs/status.py" line="309"/>
+        <location filename="../tabs/status.py" line="124"/>
+        <location filename="../tabs/status.py" line="318"/>
         <source>Vehicle</source>
         <translation>Voertuig</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="144"/>
+        <location filename="../tabs/status.py" line="153"/>
         <source>Location</source>
         <translation>Locatie</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="146"/>
+        <location filename="../tabs/status.py" line="155"/>
         <source>Open in &amp;map</source>
         <translation>Op &amp;kaart tonen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="147"/>
+        <location filename="../tabs/status.py" line="156"/>
         <source>Opens openstreetmap.org in your browser</source>
         <translation>Opent openstreetmap.org in je browser</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="149"/>
+        <location filename="../tabs/status.py" line="158"/>
         <source>Cop&amp;y</source>
         <translation>K&amp;opiëren</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="260"/>
+        <location filename="../tabs/status.py" line="269"/>
         <source>Limit {0} %</source>
         <translation>Limiet {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="271"/>
+        <location filename="../tabs/status.py" line="280"/>
         <source>starts {0}</source>
         <translation>start {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="273"/>
+        <location filename="../tabs/status.py" line="282"/>
         <source>starts: off</source>
         <translation>start: uit</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="280"/>
+        <location filename="../tabs/status.py" line="289"/>
         <source>departure {0}</source>
         <translation>vertrek {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="292"/>
+        <location filename="../tabs/status.py" line="301"/>
         <source>Target {0}</source>
         <translation>Doel {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="301"/>
+        <location filename="../tabs/status.py" line="310"/>
         <source>Plug in the cable to charge</source>
         <translation>Sluit de kabel aan om te laden</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="314"/>
+        <location filename="../tabs/status.py" line="323"/>
         <source>Click to rename</source>
         <translation>Klik om te hernoemen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="364"/>
+        <location filename="../tabs/status.py" line="373"/>
         <source>GPS fix {0}</source>
         <translation>GPS-fix {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="385"/>
+        <location filename="../tabs/status.py" line="395"/>
         <source>Refreshing…</source>
         <translation>Vernieuwen…</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="406"/>
+        <location filename="../tabs/status.py" line="418"/>
         <source>usable {0} %</source>
         <translation>bruikbaar {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="408"/>
+        <location filename="../tabs/status.py" line="420"/>
         <source>ideal {0}</source>
         <translation>ideaal {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="418"/>
+        <location filename="../tabs/status.py" line="430"/>
         <source>Unplugged</source>
         <translation>Niet aangesloten</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="423"/>
+        <location filename="../tabs/status.py" line="435"/>
         <source>{0} to limit</source>
         <translation>{0} tot limiet</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="433"/>
+        <location filename="../tabs/status.py" line="445"/>
         <source>Plugged in · {0}</source>
         <translation>Aangesloten · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="435"/>
+        <location filename="../tabs/status.py" line="447"/>
         <source>limit {0} %</source>
         <translation>limiet {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="443"/>
+        <location filename="../tabs/status.py" line="455"/>
         <source> · starts {0}</source>
         <translation> · start {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="454"/>
+        <location filename="../tabs/status.py" line="466"/>
         <source>{0} inside</source>
         <translation>{0} binnen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="455"/>
+        <location filename="../tabs/status.py" line="467"/>
         <source>{0} outside{1}</source>
         <translation>{0} buiten{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="459"/>
+        <location filename="../tabs/status.py" line="471"/>
         <source>Locked</source>
         <translation>Vergrendeld</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="460"/>
+        <location filename="../tabs/status.py" line="472"/>
         <source>UNLOCKED</source>
         <translation>ONTGRENDELD</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="461"/>
+        <location filename="../tabs/status.py" line="473"/>
         <source>Lock state unknown</source>
         <translation>Vergrendelstatus onbekend</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="465"/>
+        <location filename="../tabs/status.py" line="477"/>
         <source>open: {0}</source>
         <translation>open: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="467"/>
+        <location filename="../tabs/status.py" line="479"/>
         <source>windows: {0}</source>
         <translation>ramen: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="476"/>
+        <location filename="../tabs/status.py" line="488"/>
         <source>Shift {0}</source>
         <translation>Rijstand {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="479"/>
+        <location filename="../tabs/status.py" line="491"/>
         <source>firmware {0}</source>
         <translation>firmware {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="492"/>
+        <location filename="../tabs/status.py" line="506"/>
+        <source>asleep · last read {0}</source>
+        <translation>slaapt · laatst gelezen {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="507"/>
+        <source>The car is asleep; it was not woken.</source>
+        <translation>De auto slaapt; hij is niet gewekt.</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="515"/>
         <source>Read at {0}</source>
         <translation>Gelezen om {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="497"/>
+        <location filename="../tabs/status.py" line="520"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="498"/>
+        <location filename="../tabs/status.py" line="521"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Bluetooth-signaalsterkte; de afstand is een ruwe schatting</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="501"/>
+        <location filename="../tabs/status.py" line="524"/>
         <source>Data source {0}, {1}</source>
         <translation>Gegevensbron {0}, {1}</translation>
     </message>

@@ -140,6 +140,13 @@ class SettingsTab(QWidget):
         self.geocode = QCheckBox(
             "Resolve addresses with OpenStreetMap (sends coordinates to openstreetmap.org)"
         )
+        self.refresh_wakes = QCheckBox(self.tr("Refresh may wake the car"))
+        self.refresh_wakes.setToolTip(
+            self.tr(
+                "Off: Refresh shows the last known state while the car sleeps and offers "
+                "“Wake & refresh”. A wake keeps the car awake ~15 min (~0.2 km of range)."
+            )
+        )
         self.awake = QCheckBox(self.tr("Keep this computer awake while driving (lid closed)"))
         self.awake.setToolTip(
             self.tr(
@@ -192,6 +199,7 @@ class SettingsTab(QWidget):
         form.addRow("", self.trip_note)
         form.addRow("", self.geocode)
         form.addRow("", self.close_to_tray)
+        form.addRow("", self.refresh_wakes)
         form.addRow("", self.awake)
         lang_row = QHBoxLayout()
         lang_row.addWidget(self.language)

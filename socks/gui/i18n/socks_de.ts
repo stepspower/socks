@@ -929,234 +929,239 @@ Fingerabdruck {2}</translation>
         <translation>Wird gestartet…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="181"/>
+        <location filename="../main_window.py" line="183"/>
         <source>driving — {0} s</source>
         <translation>Fahrt — {0} s</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="183"/>
+        <location filename="../main_window.py" line="185"/>
         <source>awake lock</source>
         <translation>Wachhalten</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="184"/>
+        <location filename="../main_window.py" line="186"/>
         <source>This computer will not sleep while the car is driving</source>
         <translation>Dieser Computer geht während der Fahrt nicht in den Ruhezustand</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="214"/>
+        <location filename="../main_window.py" line="216"/>
         <source>Tab {0}</source>
         <translation>Tab {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="215"/>
+        <location filename="../main_window.py" line="217"/>
         <source>Ctrl+{0}</source>
         <translation>Ctrl+{0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="225"/>
+        <location filename="../main_window.py" line="227"/>
         <source>Show SOCKS</source>
         <translation>SOCKS anzeigen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="226"/>
+        <location filename="../main_window.py" line="228"/>
         <source>Refresh</source>
         <translation>Aktualisieren</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="228"/>
+        <location filename="../main_window.py" line="230"/>
         <source>Quit</source>
         <translation>Beenden</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="230"/>
+        <location filename="../main_window.py" line="232"/>
         <source>SOCKS</source>
         <translation>SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="282"/>
+        <location filename="../main_window.py" line="300"/>
         <source>car asleep — poll at {0:%H:%M} skipped</source>
         <translation>Fahrzeug schläft — Abfrage um {0:%H:%M} übersprungen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="290"/>
+        <location filename="../main_window.py" line="308"/>
+        <source>Car is asleep — showing last known state</source>
+        <translation>Auto schläft — letzter bekannter Zustand wird angezeigt</translation>
+    </message>
+    <message>
+        <location filename="../main_window.py" line="313"/>
         <source>Refresh failed: {0}</source>
         <translation>Aktualisierung fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="304"/>
+        <location filename="../main_window.py" line="327"/>
         <source>retrying ({0}/{1})…</source>
         <translation>neuer Versuch ({0}/{1})…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="312"/>
+        <location filename="../main_window.py" line="335"/>
         <source>weak Bluetooth signal — move closer to the car or press Refresh</source>
         <translation>schwaches Bluetooth-Signal — näher ans Fahrzeug gehen oder Aktualisieren drücken</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="326"/>
+        <location filename="../main_window.py" line="349"/>
         <source>SOCKS — {0}: {1} · {2}</source>
         <translation>SOCKS — {0}: {1} · {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="334"/>
+        <location filename="../main_window.py" line="357"/>
         <source>Last update {0} ({1}) via {2}</source>
         <translation>Zuletzt aktualisiert {0} ({1}) über {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="366"/>
+        <location filename="../main_window.py" line="389"/>
         <source>Could not keep the computer awake: {0}</source>
         <translation>Computer konnte nicht wach gehalten werden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="469"/>
+        <location filename="../main_window.py" line="492"/>
         <source>Set a VIN in Settings (or refresh once) to see history.</source>
         <translation>FIN in den Einstellungen festlegen (oder einmal aktualisieren), um den Verlauf zu sehen.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="487"/>
+        <location filename="../main_window.py" line="510"/>
         <source>Could not load history: {0}</source>
         <translation>Verlauf konnte nicht geladen werden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="498"/>
+        <location filename="../main_window.py" line="521"/>
         <source>Nothing to export yet.</source>
         <translation>Noch nichts zu exportieren.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="506"/>
+        <location filename="../main_window.py" line="529"/>
         <source>Export {0}</source>
         <translation>{0} exportieren</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="514"/>
+        <location filename="../main_window.py" line="537"/>
         <source>Exporting {0}…</source>
         <translation>{0} wird exportiert…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="525"/>
+        <location filename="../main_window.py" line="548"/>
         <source>Export failed: {0}</source>
         <translation>Export fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="529"/>
+        <location filename="../main_window.py" line="552"/>
         <source>Exported {0} rows to {1}</source>
         <translation>{0} Zeilen nach {1} exportiert</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="550"/>
+        <location filename="../main_window.py" line="573"/>
         <source>Export drive as GPX</source>
         <translation>Fahrt als GPX exportieren</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="552"/>
+        <location filename="../main_window.py" line="575"/>
         <source>GPX track (*.gpx)</source>
         <translation>GPX-Track (*.gpx)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="565"/>
+        <location filename="../main_window.py" line="588"/>
         <source>GPX export failed: {0}</source>
         <translation>GPX-Export fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="569"/>
+        <location filename="../main_window.py" line="592"/>
         <source>Exported {0} track points to {1}</source>
         <translation>{0} Trackpunkte nach {1} exportiert</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="576"/>
+        <location filename="../main_window.py" line="599"/>
         <source>Chart saved to {0}</source>
         <translation>Diagramm gespeichert unter {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="578"/>
+        <location filename="../main_window.py" line="601"/>
         <source>Could not save {0}</source>
         <translation>{0} konnte nicht gespeichert werden</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="590"/>
+        <location filename="../main_window.py" line="613"/>
         <source>Still sending the previous command…</source>
         <translation>Vorheriger Befehl wird noch gesendet…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="607"/>
-        <location filename="../main_window.py" line="608"/>
+        <location filename="../main_window.py" line="630"/>
+        <location filename="../main_window.py" line="631"/>
         <source>{0} failed: {1}</source>
         <translation>{0} fehlgeschlagen: {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="615"/>
-        <location filename="../main_window.py" line="616"/>
+        <location filename="../main_window.py" line="638"/>
+        <location filename="../main_window.py" line="639"/>
         <source>{0}: done</source>
         <translation>{0}: erledigt</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="632"/>
+        <location filename="../main_window.py" line="655"/>
         <source>Could not save: {0}</source>
         <translation>Speichern fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="651"/>
+        <location filename="../main_window.py" line="675"/>
         <source>Saved at {0}.</source>
         <translation>Gespeichert um {0}.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="661"/>
+        <location filename="../main_window.py" line="685"/>
         <source>Sending to the car…</source>
         <translation>Wird an das Fahrzeug gesendet…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="665"/>
+        <location filename="../main_window.py" line="689"/>
         <source>Not set: {0}</source>
         <translation>Nicht festgelegt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="683"/>
+        <location filename="../main_window.py" line="707"/>
         <source>Cancelling…</source>
         <translation>Wird abgebrochen…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="690"/>
+        <location filename="../main_window.py" line="714"/>
         <source>Could not cancel: {0}</source>
         <translation>Abbrechen fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="751"/>
+        <location filename="../main_window.py" line="775"/>
         <source>(coordinates hidden)</source>
         <translation>(Koordinaten ausgeblendet)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="791"/>
+        <location filename="../main_window.py" line="815"/>
         <source>trip watch: {0} ({1} reads, ≈ ${2:.3f})</source>
         <translation>Fahrtverfolgung: {0} ({1} Abfragen, ≈ ${2:.3f})</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="801"/>
+        <location filename="../main_window.py" line="825"/>
         <source>Could not set purpose: {0}</source>
         <translation>Zweck konnte nicht festgelegt werden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="819"/>
+        <location filename="../main_window.py" line="843"/>
         <source>Could not rename place: {0}</source>
         <translation>Ort konnte nicht umbenannt werden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="825"/>
+        <location filename="../main_window.py" line="849"/>
         <source>Place saved. Use Rebuild labels to relabel drives.</source>
         <translation>Ort gespeichert. Mit „Bezeichnungen neu erstellen“ Fahrten neu bezeichnen.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="840"/>
+        <location filename="../main_window.py" line="864"/>
         <source>Rebuild failed: {0}</source>
         <translation>Neuaufbau fehlgeschlagen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="848"/>
+        <location filename="../main_window.py" line="872"/>
         <source>{0} places, {1} drives relabelled.</source>
         <translation>{0} Orte, {1} Fahrten neu bezeichnet.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="899"/>
+        <location filename="../main_window.py" line="923"/>
         <source>Log •</source>
         <translation>Protokoll •</translation>
     </message>
@@ -1300,141 +1305,151 @@ Fingerabdruck {2}</translation>
     </message>
     <message>
         <location filename="../tabs/settings.py" line="143"/>
+        <source>Refresh may wake the car</source>
+        <translation>Aktualisieren darf das Auto wecken</translation>
+    </message>
+    <message>
+        <location filename="../tabs/settings.py" line="146"/>
+        <source>Off: Refresh shows the last known state while the car sleeps and offers “Wake &amp; refresh”. A wake keeps the car awake ~15 min (~0.2 km of range).</source>
+        <translation>Aus: Aktualisieren zeigt den letzten bekannten Zustand, solange das Auto schläft, und bietet „Wecken &amp; aktualisieren“ an. Ein Wecken hält das Auto ~15 min wach (~0,2 km Reichweite).</translation>
+    </message>
+    <message>
+        <location filename="../tabs/settings.py" line="150"/>
         <source>Keep this computer awake while driving (lid closed)</source>
         <translation>Computer während der Fahrt wach halten (Deckel zu)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="146"/>
+        <location filename="../tabs/settings.py" line="153"/>
         <source>While the car is in gear over Bluetooth, SOCKS asks the system not to suspend on lid close. Costs laptop battery; the laptop must be awake when the drive starts.</source>
         <translation>Solange das Fahrzeug per Bluetooth in einer Fahrstufe ist, bittet SOCKS das System, beim Schließen des Deckels nicht in den Ruhezustand zu gehen. Kostet Laptop-Akku; der Laptop muss bei Fahrtbeginn wach sein.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="153"/>
+        <location filename="../tabs/settings.py" line="160"/>
         <source>System language</source>
         <translation>Systemsprache</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="154"/>
+        <location filename="../tabs/settings.py" line="161"/>
         <source>Language</source>
         <translation>Sprache</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="157"/>
+        <location filename="../tabs/settings.py" line="164"/>
         <source>Closing the window keeps SOCKS running in the system tray</source>
         <translation>Beim Schließen des Fensters läuft SOCKS im Infobereich weiter</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="160"/>
+        <location filename="../tabs/settings.py" line="167"/>
         <source>Set &amp;up…</source>
         <translation>Ei&amp;nrichten…</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="161"/>
+        <location filename="../tabs/settings.py" line="168"/>
         <source>Run the setup wizard: VIN, key, pairing, cloud</source>
         <translation>Einrichtungsassistent starten: FIN, Schlüssel, Kopplung, Cloud</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="163"/>
+        <location filename="../tabs/settings.py" line="170"/>
         <source>Save</source>
         <translation>Speichern</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="165"/>
+        <location filename="../tabs/settings.py" line="172"/>
         <source>Save settings (Ctrl+S)</source>
         <translation>Einstellungen speichern (Strg+S)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="173"/>
+        <location filename="../tabs/settings.py" line="180"/>
         <source>&amp;VIN:</source>
         <translation>&amp;FIN:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="174"/>
+        <location filename="../tabs/settings.py" line="181"/>
         <source>Private key:</source>
         <translation>Privater Schlüssel:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="176"/>
+        <location filename="../tabs/settings.py" line="183"/>
         <source>&amp;Units:</source>
         <translation>&amp;Einheiten:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="177"/>
+        <location filename="../tabs/settings.py" line="184"/>
         <source>Co&amp;nnection:</source>
         <translation>&amp;Verbindung:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="180"/>
+        <location filename="../tabs/settings.py" line="187"/>
         <source>&amp;Region:</source>
         <translation>&amp;Region:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="181"/>
+        <location filename="../tabs/settings.py" line="188"/>
         <source>Client &amp;ID:</source>
         <translation>Client-&amp;ID:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="182"/>
+        <location filename="../tabs/settings.py" line="189"/>
         <source>&amp;Poll interval:</source>
         <translation>&amp;Abfrageintervall:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="185"/>
+        <location filename="../tabs/settings.py" line="192"/>
         <source>Tari&amp;ff:</source>
         <translation>&amp;Tarif:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="199"/>
+        <location filename="../tabs/settings.py" line="207"/>
         <source>Lan&amp;guage:</source>
         <translation>Sprac&amp;he:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="203"/>
+        <location filename="../tabs/settings.py" line="211"/>
         <source>Open log folder</source>
         <translation>Protokollordner öffnen</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="230"/>
+        <location filename="../tabs/settings.py" line="238"/>
         <source>Restart SOCKS to apply.</source>
         <translation>SOCKS neu starten, um die Änderung zu übernehmen.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="300"/>
+        <location filename="../tabs/settings.py" line="308"/>
         <source>Import existing private key</source>
         <translation>Vorhandenen privaten Schlüssel importieren</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="302"/>
+        <location filename="../tabs/settings.py" line="310"/>
         <source>PEM key (*.pem);;All files (*)</source>
         <translation>PEM-Schlüssel (*.pem);;Alle Dateien (*)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="326"/>
+        <location filename="../tabs/settings.py" line="334"/>
         <source>Key file not found at this path.</source>
         <translation>Schlüsseldatei unter diesem Pfad nicht gefunden.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="342"/>
+        <location filename="../tabs/settings.py" line="350"/>
         <source>0 = off; otherwise at least {0} s. Polling never wakes a sleeping car.</source>
         <translation>0 = aus; sonst mindestens {0} s. Abfragen wecken nie ein schlafendes Fahrzeug.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="347"/>
+        <location filename="../tabs/settings.py" line="355"/>
         <source>With the cloud enabled, a poll that falls back to the cloud is a paid read.</source>
         <translation>Mit aktivierter Cloud ist eine Abfrage, die auf die Cloud zurückfällt, ein kostenpflichtiger Lesezugriff.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="350"/>
+        <location filename="../tabs/settings.py" line="358"/>
         <source>Up to ${0:.2f} a day at this interval.</source>
         <translation>Bis zu ${0:.2f} pro Tag bei diesem Intervall.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="359"/>
+        <location filename="../tabs/settings.py" line="367"/>
         <source>Starts when the car leaves Bluetooth range moving; stops when it is parked. Each poll is a paid cloud read ($0.002): about ${0:.3f} per hour of driving.</source>
         <translation>Beginnt, wenn das Fahrzeug fahrend die Bluetooth-Reichweite verlässt; endet, wenn es parkt. Jede Abfrage ist ein kostenpflichtiger Cloud-Lesezugriff ($0.002): etwa ${0:.3f} pro Fahrstunde.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="363"/>
+        <location filename="../tabs/settings.py" line="371"/>
         <source>Requires cloud access.</source>
         <translation>Erfordert Cloud-Zugang.</translation>
     </message>
@@ -1479,229 +1494,249 @@ Fingerabdruck {2}</translation>
 <context>
     <name>StatusTab</name>
     <message>
-        <location filename="../tabs/status.py" line="82"/>
+        <location filename="../tabs/status.py" line="83"/>
         <source>No vehicle data yet</source>
         <extracomment>(Command, argument in command units or None) — the window runs the confirm gate new display name for the car (&quot;&quot; = back to the name the car/VIN gives) (Command, arg): already confirmed by a completed slide gesture (no dialog)</extracomment>
         <translation>Noch keine Fahrzeugdaten</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="92"/>
+        <location filename="../tabs/status.py" line="93"/>
         <source>Name (empty = model name)</source>
         <translation>Name (leer = Modellname)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="93"/>
+        <location filename="../tabs/status.py" line="94"/>
         <source>Car name</source>
         <translation>Fahrzeugname</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="97"/>
+        <location filename="../tabs/status.py" line="98"/>
         <source>no data</source>
         <translation>keine Daten</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="98"/>
+        <location filename="../tabs/status.py" line="99"/>
         <source>&amp;Refresh</source>
         <translation>&amp;Aktualisieren</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="99"/>
+        <location filename="../tabs/status.py" line="100"/>
         <source>Read the current state from the car (F5)</source>
         <translation>Aktuellen Zustand vom Fahrzeug lesen (F5)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="110"/>
+        <location filename="../tabs/status.py" line="102"/>
+        <source>&amp;Wake &amp;&amp; refresh</source>
+        <translation>&amp;Wecken &amp;&amp; aktualisieren</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="104"/>
+        <source>Wake the car and read it. A wake keeps it awake for about 15 minutes.</source>
+        <translation>Weckt das Auto und liest es aus. Es bleibt dann etwa 15 Minuten wach.</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="119"/>
         <source>Range</source>
         <translation>Reichweite</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="111"/>
+        <location filename="../tabs/status.py" line="120"/>
         <source>Charging</source>
         <translation>Laden</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="112"/>
+        <location filename="../tabs/status.py" line="121"/>
         <source>Temperature</source>
         <translation>Temperatur</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="113"/>
+        <location filename="../tabs/status.py" line="122"/>
         <source>Locks &amp; closures</source>
         <translation>Schlösser und Klappen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="114"/>
+        <location filename="../tabs/status.py" line="123"/>
         <source>Odometer</source>
         <translation>Kilometerstand</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="115"/>
-        <location filename="../tabs/status.py" line="309"/>
+        <location filename="../tabs/status.py" line="124"/>
+        <location filename="../tabs/status.py" line="318"/>
         <source>Vehicle</source>
         <translation>Fahrzeug</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="144"/>
+        <location filename="../tabs/status.py" line="153"/>
         <source>Location</source>
         <translation>Standort</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="146"/>
+        <location filename="../tabs/status.py" line="155"/>
         <source>Open in &amp;map</source>
         <translation>In &amp;Karte öffnen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="147"/>
+        <location filename="../tabs/status.py" line="156"/>
         <source>Opens openstreetmap.org in your browser</source>
         <translation>Öffnet openstreetmap.org im Browser</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="149"/>
+        <location filename="../tabs/status.py" line="158"/>
         <source>Cop&amp;y</source>
         <translation>Ko&amp;pieren</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="260"/>
+        <location filename="../tabs/status.py" line="269"/>
         <source>Limit {0} %</source>
         <translation>Limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="271"/>
+        <location filename="../tabs/status.py" line="280"/>
         <source>starts {0}</source>
         <translation>Start {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="273"/>
+        <location filename="../tabs/status.py" line="282"/>
         <source>starts: off</source>
         <translation>Start: aus</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="280"/>
+        <location filename="../tabs/status.py" line="289"/>
         <source>departure {0}</source>
         <translation>Abfahrt {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="292"/>
+        <location filename="../tabs/status.py" line="301"/>
         <source>Target {0}</source>
         <translation>Ziel {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="301"/>
+        <location filename="../tabs/status.py" line="310"/>
         <source>Plug in the cable to charge</source>
         <translation>Zum Laden das Kabel anschließen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="314"/>
+        <location filename="../tabs/status.py" line="323"/>
         <source>Click to rename</source>
         <translation>Klicken zum Umbenennen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="364"/>
+        <location filename="../tabs/status.py" line="373"/>
         <source>GPS fix {0}</source>
         <translation>GPS-Fix {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="385"/>
+        <location filename="../tabs/status.py" line="395"/>
         <source>Refreshing…</source>
         <translation>Wird aktualisiert…</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="406"/>
+        <location filename="../tabs/status.py" line="418"/>
         <source>usable {0} %</source>
         <translation>nutzbar {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="408"/>
+        <location filename="../tabs/status.py" line="420"/>
         <source>ideal {0}</source>
         <translation>ideal {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="418"/>
+        <location filename="../tabs/status.py" line="430"/>
         <source>Unplugged</source>
         <translation>Nicht angeschlossen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="423"/>
+        <location filename="../tabs/status.py" line="435"/>
         <source>{0} to limit</source>
         <translation>{0} bis Limit</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="433"/>
+        <location filename="../tabs/status.py" line="445"/>
         <source>Plugged in · {0}</source>
         <translation>Angeschlossen · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="435"/>
+        <location filename="../tabs/status.py" line="447"/>
         <source>limit {0} %</source>
         <translation>Limit {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="443"/>
+        <location filename="../tabs/status.py" line="455"/>
         <source> · starts {0}</source>
         <translation> · Start {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="454"/>
+        <location filename="../tabs/status.py" line="466"/>
         <source>{0} inside</source>
         <translation>{0} innen</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="455"/>
+        <location filename="../tabs/status.py" line="467"/>
         <source>{0} outside{1}</source>
         <translation>{0} außen{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="459"/>
+        <location filename="../tabs/status.py" line="471"/>
         <source>Locked</source>
         <translation>Verriegelt</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="460"/>
+        <location filename="../tabs/status.py" line="472"/>
         <source>UNLOCKED</source>
         <translation>ENTRIEGELT</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="461"/>
+        <location filename="../tabs/status.py" line="473"/>
         <source>Lock state unknown</source>
         <translation>Verriegelungsstatus unbekannt</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="465"/>
+        <location filename="../tabs/status.py" line="477"/>
         <source>open: {0}</source>
         <translation>offen: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="467"/>
+        <location filename="../tabs/status.py" line="479"/>
         <source>windows: {0}</source>
         <translation>Fenster: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="476"/>
+        <location filename="../tabs/status.py" line="488"/>
         <source>Shift {0}</source>
         <translation>Fahrstufe {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="479"/>
+        <location filename="../tabs/status.py" line="491"/>
         <source>firmware {0}</source>
         <translation>Firmware {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="492"/>
+        <location filename="../tabs/status.py" line="506"/>
+        <source>asleep · last read {0}</source>
+        <translation>schläft · zuletzt gelesen {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="507"/>
+        <source>The car is asleep; it was not woken.</source>
+        <translation>Das Auto schläft; es wurde nicht geweckt.</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="515"/>
         <source>Read at {0}</source>
         <translation>Gelesen um {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="497"/>
+        <location filename="../tabs/status.py" line="520"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="498"/>
+        <location filename="../tabs/status.py" line="521"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Bluetooth-Signalstärke; die Entfernung ist nur grob geschätzt</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="501"/>
+        <location filename="../tabs/status.py" line="524"/>
         <source>Data source {0}, {1}</source>
         <translation>Datenquelle {0}, {1}</translation>
     </message>

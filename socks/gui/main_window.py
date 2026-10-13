@@ -136,6 +136,7 @@ class MainWindow(QMainWindow):
 
         self._actions()
         self.status_tab.refresh_requested.connect(lambda: self.refresh())
+        self.status_tab.wake_requested.connect(self.wake_refresh)
         self.status_tab.set_commands(commands)
         self.status_tab.command_requested.connect(self._on_command)
         self.status_tab.confirmed_command_requested.connect(self._on_command)
@@ -152,6 +153,7 @@ class MainWindow(QMainWindow):
         self.settings_tab.save_requested.connect(self._save_settings)
         self.settings_tab.wizard_requested.connect(self.open_wizard)
         self.settings_tab.awake.setChecked(self._awake_wanted())
+        self.settings_tab.refresh_wakes.setChecked(self._refresh_may_wake())
         self.settings_tab.set_log_file(ctx.extras.get("log_file"))
         self.settings_tab.set_language(
             str(ctx.gui_prefs.value("language", "auto")), str(ctx.extras.get("language", "en"))
@@ -250,7 +252,14 @@ class MainWindow(QMainWindow):
                 self._backend = be.build_router(s, token_provider(s))
         return self._backend
 
-    def refresh(self, *, wake: bool = True, ble_only: bool = False, poll: bool = False) -> None:
+    def refresh(
+        self, *, wake: bool | None = None, ble_only: bool = False, poll: bool = False
+    ) -> None:
+        """Read the car. ``wake=None`` (Refresh button, F5, tray, after a command): only
+        wakes if the user enabled "Refresh may wake the car"; otherwise an asleep car keeps
+        its last known state and the "Wake & refresh" button is offered."""
+        if wake is None:
+            wake = self._refresh_may_wake()
         """Read the car. Manual Refresh may wake it; polls never do (audit M2)."""
         if self.bridge.busy(self.status_tab):
             return
@@ -258,8 +267,15 @@ class MainWindow(QMainWindow):
 
     def first_read(self) -> None:
         """Automatic read after first paint: Bluetooth only (never a paid cloud
-        fallback); may wake the car like a manual Refresh (free over BLE)."""
-        self.refresh(wake=True, ble_only=True)
+        fallback); follows the same no-wake rule as Refresh."""
+        self.refresh(ble_only=True)
+
+    def wake_refresh(self) -> None:
+        """The one explicit path that wakes the car for a read."""
+        self.refresh(wake=True)
+
+    def _refresh_may_wake(self) -> bool:
+        return bool(self.ctx.gui_prefs.value("refresh_may_wake", False, type=bool))
 
     async def _refresh(self, wake: bool, ble_only: bool, poll: bool) -> None:
         self.status_tab.set_busy(True)
@@ -278,12 +294,19 @@ class MainWindow(QMainWindow):
             self.trip_watch.on_error(exc)
             await self._record_unavailable(is_asleep(exc))
             msg = describe(exc)
-            if poll and is_asleep(exc):
-                self._poll_note = self.tr("car asleep — poll at {0:%H:%M} skipped").format(
-                    datetime.now()
-                )
-                log.info("poll skipped: car asleep (not woken)")
-                self._tick_age()
+            if is_asleep(exc):
+                self.status_tab.show_asleep()
+                if poll:
+                    self._poll_note = self.tr("car asleep — poll at {0:%H:%M} skipped").format(
+                        datetime.now()
+                    )
+                    log.info("poll skipped: car asleep (not woken)")
+                    self._tick_age()
+                else:
+                    log.info("refresh: car asleep, not woken; showing last known state")
+                    self.statusBar().showMessage(
+                        self.tr("Car is asleep — showing last known state"), 15000
+                    )
                 return
             log.warning("refresh failed: %s", msg, exc_info=exc if self.ctx.debug else None)
             self.statusBar().showMessage(
@@ -635,6 +658,7 @@ class MainWindow(QMainWindow):
         self.ctx.gui_prefs.setValue("poll_in_background", self.settings_tab.poll_bg.isChecked())
         self.ctx.gui_prefs.setValue("language", self.settings_tab.language.currentData())
         self.ctx.gui_prefs.setValue("awake_while_driving", self.settings_tab.awake.isChecked())
+        self.ctx.gui_prefs.setValue("refresh_may_wake", self.settings_tab.refresh_wakes.isChecked())
         self._update_awake()
         self.ctx.gui_prefs.sync()
         with contextlib.suppress(OSError):

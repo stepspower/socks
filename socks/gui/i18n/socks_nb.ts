@@ -929,234 +929,239 @@ Fingeravtrykk {2}</translation>
         <translation>Starter…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="181"/>
+        <location filename="../main_window.py" line="183"/>
         <source>driving — {0} s</source>
         <translation>kjører — {0} s</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="183"/>
+        <location filename="../main_window.py" line="185"/>
         <source>awake lock</source>
         <translation>holder våken</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="184"/>
+        <location filename="../main_window.py" line="186"/>
         <source>This computer will not sleep while the car is driving</source>
         <translation>Denne datamaskinen går ikke i dvale mens bilen kjører</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="214"/>
+        <location filename="../main_window.py" line="216"/>
         <source>Tab {0}</source>
         <translation>Fane {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="215"/>
+        <location filename="../main_window.py" line="217"/>
         <source>Ctrl+{0}</source>
         <translation>Ctrl+{0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="225"/>
+        <location filename="../main_window.py" line="227"/>
         <source>Show SOCKS</source>
         <translation>Vis SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="226"/>
+        <location filename="../main_window.py" line="228"/>
         <source>Refresh</source>
         <translation>Oppdater</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="228"/>
+        <location filename="../main_window.py" line="230"/>
         <source>Quit</source>
         <translation>Avslutt</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="230"/>
+        <location filename="../main_window.py" line="232"/>
         <source>SOCKS</source>
         <translation>SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="282"/>
+        <location filename="../main_window.py" line="300"/>
         <source>car asleep — poll at {0:%H:%M} skipped</source>
         <translation>bilen sover — avlesning kl. {0:%H:%M} hoppet over</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="290"/>
+        <location filename="../main_window.py" line="308"/>
+        <source>Car is asleep — showing last known state</source>
+        <translation>Bilen sover — viser sist kjente tilstand</translation>
+    </message>
+    <message>
+        <location filename="../main_window.py" line="313"/>
         <source>Refresh failed: {0}</source>
         <translation>Oppdatering mislyktes: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="304"/>
+        <location filename="../main_window.py" line="327"/>
         <source>retrying ({0}/{1})…</source>
         <translation>prøver på nytt ({0}/{1})…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="312"/>
+        <location filename="../main_window.py" line="335"/>
         <source>weak Bluetooth signal — move closer to the car or press Refresh</source>
         <translation>svakt Bluetooth-signal — gå nærmere bilen eller trykk Oppdater</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="326"/>
+        <location filename="../main_window.py" line="349"/>
         <source>SOCKS — {0}: {1} · {2}</source>
         <translation>SOCKS — {0}: {1} · {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="334"/>
+        <location filename="../main_window.py" line="357"/>
         <source>Last update {0} ({1}) via {2}</source>
         <translation>Sist oppdatert {0} ({1}) via {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="366"/>
+        <location filename="../main_window.py" line="389"/>
         <source>Could not keep the computer awake: {0}</source>
         <translation>Kunne ikke holde datamaskinen våken: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="469"/>
+        <location filename="../main_window.py" line="492"/>
         <source>Set a VIN in Settings (or refresh once) to see history.</source>
         <translation>Angi VIN i Innstillinger (eller oppdater én gang) for å se historikk.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="487"/>
+        <location filename="../main_window.py" line="510"/>
         <source>Could not load history: {0}</source>
         <translation>Kunne ikke laste historikk: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="498"/>
+        <location filename="../main_window.py" line="521"/>
         <source>Nothing to export yet.</source>
         <translation>Ingenting å eksportere ennå.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="506"/>
+        <location filename="../main_window.py" line="529"/>
         <source>Export {0}</source>
         <translation>Eksporter {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="514"/>
+        <location filename="../main_window.py" line="537"/>
         <source>Exporting {0}…</source>
         <translation>Eksporterer {0}…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="525"/>
+        <location filename="../main_window.py" line="548"/>
         <source>Export failed: {0}</source>
         <translation>Eksport mislyktes: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="529"/>
+        <location filename="../main_window.py" line="552"/>
         <source>Exported {0} rows to {1}</source>
         <translation>Eksporterte {0} rader til {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="550"/>
+        <location filename="../main_window.py" line="573"/>
         <source>Export drive as GPX</source>
         <translation>Eksporter tur som GPX</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="552"/>
+        <location filename="../main_window.py" line="575"/>
         <source>GPX track (*.gpx)</source>
         <translation>GPX-spor (*.gpx)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="565"/>
+        <location filename="../main_window.py" line="588"/>
         <source>GPX export failed: {0}</source>
         <translation>GPX-eksport mislyktes: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="569"/>
+        <location filename="../main_window.py" line="592"/>
         <source>Exported {0} track points to {1}</source>
         <translation>Eksporterte {0} sporpunkter til {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="576"/>
+        <location filename="../main_window.py" line="599"/>
         <source>Chart saved to {0}</source>
         <translation>Diagram lagret i {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="578"/>
+        <location filename="../main_window.py" line="601"/>
         <source>Could not save {0}</source>
         <translation>Kunne ikke lagre {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="590"/>
+        <location filename="../main_window.py" line="613"/>
         <source>Still sending the previous command…</source>
         <translation>Sender fortsatt forrige kommando…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="607"/>
-        <location filename="../main_window.py" line="608"/>
+        <location filename="../main_window.py" line="630"/>
+        <location filename="../main_window.py" line="631"/>
         <source>{0} failed: {1}</source>
         <translation>{0} mislyktes: {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="615"/>
-        <location filename="../main_window.py" line="616"/>
+        <location filename="../main_window.py" line="638"/>
+        <location filename="../main_window.py" line="639"/>
         <source>{0}: done</source>
         <translation>{0}: utført</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="632"/>
+        <location filename="../main_window.py" line="655"/>
         <source>Could not save: {0}</source>
         <translation>Kunne ikke lagre: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="651"/>
+        <location filename="../main_window.py" line="675"/>
         <source>Saved at {0}.</source>
         <translation>Lagret kl. {0}.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="661"/>
+        <location filename="../main_window.py" line="685"/>
         <source>Sending to the car…</source>
         <translation>Sender til bilen…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="665"/>
+        <location filename="../main_window.py" line="689"/>
         <source>Not set: {0}</source>
         <translation>Ikke angitt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="683"/>
+        <location filename="../main_window.py" line="707"/>
         <source>Cancelling…</source>
         <translation>Avbryter…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="690"/>
+        <location filename="../main_window.py" line="714"/>
         <source>Could not cancel: {0}</source>
         <translation>Kunne ikke avbryte: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="751"/>
+        <location filename="../main_window.py" line="775"/>
         <source>(coordinates hidden)</source>
         <translation>(koordinater skjult)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="791"/>
+        <location filename="../main_window.py" line="815"/>
         <source>trip watch: {0} ({1} reads, ≈ ${2:.3f})</source>
         <translation>turovervåking: {0} ({1} avlesninger, ≈ ${2:.3f})</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="801"/>
+        <location filename="../main_window.py" line="825"/>
         <source>Could not set purpose: {0}</source>
         <translation>Kunne ikke angi formål: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="819"/>
+        <location filename="../main_window.py" line="843"/>
         <source>Could not rename place: {0}</source>
         <translation>Kunne ikke gi nytt navn til stedet: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="825"/>
+        <location filename="../main_window.py" line="849"/>
         <source>Place saved. Use Rebuild labels to relabel drives.</source>
         <translation>Sted lagret. Bruk Bygg etiketter på nytt for å merke turene på nytt.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="840"/>
+        <location filename="../main_window.py" line="864"/>
         <source>Rebuild failed: {0}</source>
         <translation>Ombygging mislyktes: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="848"/>
+        <location filename="../main_window.py" line="872"/>
         <source>{0} places, {1} drives relabelled.</source>
         <translation>{0} steder, {1} turer merket på nytt.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="899"/>
+        <location filename="../main_window.py" line="923"/>
         <source>Log •</source>
         <translation>Logg •</translation>
     </message>
@@ -1300,141 +1305,151 @@ Fingeravtrykk {2}</translation>
     </message>
     <message>
         <location filename="../tabs/settings.py" line="143"/>
+        <source>Refresh may wake the car</source>
+        <translation>Oppdater kan vekke bilen</translation>
+    </message>
+    <message>
+        <location filename="../tabs/settings.py" line="146"/>
+        <source>Off: Refresh shows the last known state while the car sleeps and offers “Wake &amp; refresh”. A wake keeps the car awake ~15 min (~0.2 km of range).</source>
+        <translation>Av: Oppdater viser sist kjente tilstand mens bilen sover og tilbyr «Vekk &amp; oppdater». En vekking holder bilen våken ~15 min (~0,2 km rekkevidde).</translation>
+    </message>
+    <message>
+        <location filename="../tabs/settings.py" line="150"/>
         <source>Keep this computer awake while driving (lid closed)</source>
         <translation>Hold denne datamaskinen våken under kjøring (lokket lukket)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="146"/>
+        <location filename="../tabs/settings.py" line="153"/>
         <source>While the car is in gear over Bluetooth, SOCKS asks the system not to suspend on lid close. Costs laptop battery; the laptop must be awake when the drive starts.</source>
         <translation>Mens bilen er i gir over Bluetooth, ber SOCKS systemet om ikke å gå i hvilemodus når lokket lukkes. Koster batteri på den bærbare; den må være våken når turen starter.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="153"/>
+        <location filename="../tabs/settings.py" line="160"/>
         <source>System language</source>
         <translation>Systemspråk</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="154"/>
+        <location filename="../tabs/settings.py" line="161"/>
         <source>Language</source>
         <translation>Språk</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="157"/>
+        <location filename="../tabs/settings.py" line="164"/>
         <source>Closing the window keeps SOCKS running in the system tray</source>
         <translation>Når vinduet lukkes, fortsetter SOCKS å kjøre i systemkurven</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="160"/>
+        <location filename="../tabs/settings.py" line="167"/>
         <source>Set &amp;up…</source>
         <translation>Sett &amp;opp…</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="161"/>
+        <location filename="../tabs/settings.py" line="168"/>
         <source>Run the setup wizard: VIN, key, pairing, cloud</source>
         <translation>Kjør oppsettveiviseren: VIN, nøkkel, paring, sky</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="163"/>
+        <location filename="../tabs/settings.py" line="170"/>
         <source>Save</source>
         <translation>Lagre</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="165"/>
+        <location filename="../tabs/settings.py" line="172"/>
         <source>Save settings (Ctrl+S)</source>
         <translation>Lagre innstillinger (Ctrl+S)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="173"/>
+        <location filename="../tabs/settings.py" line="180"/>
         <source>&amp;VIN:</source>
         <translation>&amp;VIN:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="174"/>
+        <location filename="../tabs/settings.py" line="181"/>
         <source>Private key:</source>
         <translation>Privat nøkkel:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="176"/>
+        <location filename="../tabs/settings.py" line="183"/>
         <source>&amp;Units:</source>
         <translation>&amp;Enheter:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="177"/>
+        <location filename="../tabs/settings.py" line="184"/>
         <source>Co&amp;nnection:</source>
         <translation>&amp;Tilkobling:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="180"/>
+        <location filename="../tabs/settings.py" line="187"/>
         <source>&amp;Region:</source>
         <translation>&amp;Region:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="181"/>
+        <location filename="../tabs/settings.py" line="188"/>
         <source>Client &amp;ID:</source>
         <translation>Client-&amp;ID:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="182"/>
+        <location filename="../tabs/settings.py" line="189"/>
         <source>&amp;Poll interval:</source>
         <translation>Av&amp;lesningsintervall:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="185"/>
+        <location filename="../tabs/settings.py" line="192"/>
         <source>Tari&amp;ff:</source>
         <translation>Tari&amp;ff:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="199"/>
+        <location filename="../tabs/settings.py" line="207"/>
         <source>Lan&amp;guage:</source>
         <translation>Spr&amp;åk:</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="203"/>
+        <location filename="../tabs/settings.py" line="211"/>
         <source>Open log folder</source>
         <translation>Åpne loggmappe</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="230"/>
+        <location filename="../tabs/settings.py" line="238"/>
         <source>Restart SOCKS to apply.</source>
         <translation>Start SOCKS på nytt for å ta i bruk.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="300"/>
+        <location filename="../tabs/settings.py" line="308"/>
         <source>Import existing private key</source>
         <translation>Importer eksisterende privat nøkkel</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="302"/>
+        <location filename="../tabs/settings.py" line="310"/>
         <source>PEM key (*.pem);;All files (*)</source>
         <translation>PEM-nøkkel (*.pem);;Alle filer (*)</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="326"/>
+        <location filename="../tabs/settings.py" line="334"/>
         <source>Key file not found at this path.</source>
         <translation>Fant ikke nøkkelfilen på denne stien.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="342"/>
+        <location filename="../tabs/settings.py" line="350"/>
         <source>0 = off; otherwise at least {0} s. Polling never wakes a sleeping car.</source>
         <translation>0 = av; ellers minst {0} s. Avlesning vekker aldri en sovende bil.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="347"/>
+        <location filename="../tabs/settings.py" line="355"/>
         <source>With the cloud enabled, a poll that falls back to the cloud is a paid read.</source>
         <translation>Med skyen aktivert er en avlesning som faller tilbake til skyen, en betalt lesing.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="350"/>
+        <location filename="../tabs/settings.py" line="358"/>
         <source>Up to ${0:.2f} a day at this interval.</source>
         <translation>Opptil ${0:.2f} per dag med dette intervallet.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="359"/>
+        <location filename="../tabs/settings.py" line="367"/>
         <source>Starts when the car leaves Bluetooth range moving; stops when it is parked. Each poll is a paid cloud read ($0.002): about ${0:.3f} per hour of driving.</source>
         <translation>Starter når bilen kjører ut av Bluetooth-rekkevidde; stopper når den er parkert. Hver avlesning er en betalt skylesing ($0.002): omtrent ${0:.3f} per kjøretime.</translation>
     </message>
     <message>
-        <location filename="../tabs/settings.py" line="363"/>
+        <location filename="../tabs/settings.py" line="371"/>
         <source>Requires cloud access.</source>
         <translation>Krever skytilgang.</translation>
     </message>
@@ -1479,229 +1494,249 @@ Fingeravtrykk {2}</translation>
 <context>
     <name>StatusTab</name>
     <message>
-        <location filename="../tabs/status.py" line="82"/>
+        <location filename="../tabs/status.py" line="83"/>
         <source>No vehicle data yet</source>
         <extracomment>(Command, argument in command units or None) — the window runs the confirm gate new display name for the car (&quot;&quot; = back to the name the car/VIN gives) (Command, arg): already confirmed by a completed slide gesture (no dialog)</extracomment>
         <translation>Ingen bildata ennå</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="92"/>
+        <location filename="../tabs/status.py" line="93"/>
         <source>Name (empty = model name)</source>
         <translation>Navn (tomt = modellnavn)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="93"/>
+        <location filename="../tabs/status.py" line="94"/>
         <source>Car name</source>
         <translation>Bilnavn</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="97"/>
+        <location filename="../tabs/status.py" line="98"/>
         <source>no data</source>
         <translation>ingen data</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="98"/>
+        <location filename="../tabs/status.py" line="99"/>
         <source>&amp;Refresh</source>
         <translation>&amp;Oppdater</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="99"/>
+        <location filename="../tabs/status.py" line="100"/>
         <source>Read the current state from the car (F5)</source>
         <translation>Les gjeldende tilstand fra bilen (F5)</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="110"/>
+        <location filename="../tabs/status.py" line="102"/>
+        <source>&amp;Wake &amp;&amp; refresh</source>
+        <translation>&amp;Vekk &amp;&amp; oppdater</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="104"/>
+        <source>Wake the car and read it. A wake keeps it awake for about 15 minutes.</source>
+        <translation>Vekk bilen og les den. Den holder seg våken i omtrent 15 minutter.</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="119"/>
         <source>Range</source>
         <translation>Rekkevidde</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="111"/>
+        <location filename="../tabs/status.py" line="120"/>
         <source>Charging</source>
         <translation>Lading</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="112"/>
+        <location filename="../tabs/status.py" line="121"/>
         <source>Temperature</source>
         <translation>Temperatur</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="113"/>
+        <location filename="../tabs/status.py" line="122"/>
         <source>Locks &amp; closures</source>
         <translation>Låser og luker</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="114"/>
+        <location filename="../tabs/status.py" line="123"/>
         <source>Odometer</source>
         <translation>Kilometerstand</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="115"/>
-        <location filename="../tabs/status.py" line="309"/>
+        <location filename="../tabs/status.py" line="124"/>
+        <location filename="../tabs/status.py" line="318"/>
         <source>Vehicle</source>
         <translation>Kjøretøy</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="144"/>
+        <location filename="../tabs/status.py" line="153"/>
         <source>Location</source>
         <translation>Posisjon</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="146"/>
+        <location filename="../tabs/status.py" line="155"/>
         <source>Open in &amp;map</source>
         <translation>Åpne i &amp;kart</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="147"/>
+        <location filename="../tabs/status.py" line="156"/>
         <source>Opens openstreetmap.org in your browser</source>
         <translation>Åpner openstreetmap.org i nettleseren</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="149"/>
+        <location filename="../tabs/status.py" line="158"/>
         <source>Cop&amp;y</source>
         <translation>Ko&amp;pier</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="260"/>
+        <location filename="../tabs/status.py" line="269"/>
         <source>Limit {0} %</source>
         <translation>Grense {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="271"/>
+        <location filename="../tabs/status.py" line="280"/>
         <source>starts {0}</source>
         <translation>start {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="273"/>
+        <location filename="../tabs/status.py" line="282"/>
         <source>starts: off</source>
         <translation>start: av</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="280"/>
+        <location filename="../tabs/status.py" line="289"/>
         <source>departure {0}</source>
         <translation>avreise {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="292"/>
+        <location filename="../tabs/status.py" line="301"/>
         <source>Target {0}</source>
         <translation>Mål {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="301"/>
+        <location filename="../tabs/status.py" line="310"/>
         <source>Plug in the cable to charge</source>
         <translation>Koble til kabelen for å lade</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="314"/>
+        <location filename="../tabs/status.py" line="323"/>
         <source>Click to rename</source>
         <translation>Klikk for å gi nytt navn</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="364"/>
+        <location filename="../tabs/status.py" line="373"/>
         <source>GPS fix {0}</source>
         <translation>GPS-fix {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="385"/>
+        <location filename="../tabs/status.py" line="395"/>
         <source>Refreshing…</source>
         <translation>Oppdaterer…</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="406"/>
+        <location filename="../tabs/status.py" line="418"/>
         <source>usable {0} %</source>
         <translation>brukbar {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="408"/>
+        <location filename="../tabs/status.py" line="420"/>
         <source>ideal {0}</source>
         <translation>ideell {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="418"/>
+        <location filename="../tabs/status.py" line="430"/>
         <source>Unplugged</source>
         <translation>Ikke tilkoblet</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="423"/>
+        <location filename="../tabs/status.py" line="435"/>
         <source>{0} to limit</source>
         <translation>{0} til grense</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="433"/>
+        <location filename="../tabs/status.py" line="445"/>
         <source>Plugged in · {0}</source>
         <translation>Tilkoblet · {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="435"/>
+        <location filename="../tabs/status.py" line="447"/>
         <source>limit {0} %</source>
         <translation>grense {0} %</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="443"/>
+        <location filename="../tabs/status.py" line="455"/>
         <source> · starts {0}</source>
         <translation> · starter {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="454"/>
+        <location filename="../tabs/status.py" line="466"/>
         <source>{0} inside</source>
         <translation>{0} inne</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="455"/>
+        <location filename="../tabs/status.py" line="467"/>
         <source>{0} outside{1}</source>
         <translation>{0} ute{1}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="459"/>
+        <location filename="../tabs/status.py" line="471"/>
         <source>Locked</source>
         <translation>Låst</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="460"/>
+        <location filename="../tabs/status.py" line="472"/>
         <source>UNLOCKED</source>
         <translation>ULÅST</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="461"/>
+        <location filename="../tabs/status.py" line="473"/>
         <source>Lock state unknown</source>
         <translation>Låsestatus ukjent</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="465"/>
+        <location filename="../tabs/status.py" line="477"/>
         <source>open: {0}</source>
         <translation>åpen: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="467"/>
+        <location filename="../tabs/status.py" line="479"/>
         <source>windows: {0}</source>
         <translation>vinduer: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="476"/>
+        <location filename="../tabs/status.py" line="488"/>
         <source>Shift {0}</source>
         <translation>Gir {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="479"/>
+        <location filename="../tabs/status.py" line="491"/>
         <source>firmware {0}</source>
         <translation>fastvare {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="492"/>
+        <location filename="../tabs/status.py" line="506"/>
+        <source>asleep · last read {0}</source>
+        <translation>sover · sist lest {0}</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="507"/>
+        <source>The car is asleep; it was not woken.</source>
+        <translation>Bilen sover; den ble ikke vekket.</translation>
+    </message>
+    <message>
+        <location filename="../tabs/status.py" line="515"/>
         <source>Read at {0}</source>
         <translation>Lest kl. {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="497"/>
+        <location filename="../tabs/status.py" line="520"/>
         <source>{0} dBm · ~{1} m</source>
         <translation>{0} dBm · ~{1} m</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="498"/>
+        <location filename="../tabs/status.py" line="521"/>
         <source>Bluetooth signal strength; distance is a rough estimate</source>
         <translation>Bluetooth-signalstyrke; avstanden er et grovt anslag</translation>
     </message>
     <message>
-        <location filename="../tabs/status.py" line="501"/>
+        <location filename="../tabs/status.py" line="524"/>
         <source>Data source {0}, {1}</source>
         <translation>Datakilde {0}, {1}</translation>
     </message>

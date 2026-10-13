@@ -99,6 +99,15 @@ with `socks --debug` to log Bluetooth and Fleet API details as well. Tokens, sec
 keys are removed from every line before it is written, so the file can be attached to a bug
 report — still read it over first, because it does contain your VIN and car state.
 
+### Refresh does not wake the car
+
+Refresh (the button, F5 or the tray menu) and the automatic read at start-up never wake a
+sleeping car. If it sleeps, SOCKS keeps showing the last known state, the source badge says
+"asleep · last read HH:MM", and a **Wake & refresh** button appears next to Refresh: that button
+is the only read that wakes the car. A wake keeps the car awake for about 15 minutes, which costs
+roughly 0.2 km of range. Prefer the old behaviour? Settings > **Refresh may wake the car**.
+Commands (climate, unlock, …) still wake the car when they need to.
+
 ## 7. How history accumulates
 
 SOCKS records a snapshot every time it reads the car, but only when something changed or at

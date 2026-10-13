@@ -65,6 +65,7 @@ def _names(items: tuple[str, ...]) -> str:
 
 class StatusTab(QWidget):
     refresh_requested = Signal()
+    wake_requested = Signal()
     #: (Command, argument in command units or None) — the window runs the confirm gate
     command_requested = Signal(object, object)
     #: new display name for the car ("" = back to the name the car/VIN gives)
@@ -98,12 +99,20 @@ class StatusTab(QWidget):
         self.refresh_btn = QPushButton(self.tr("&Refresh"))
         self.refresh_btn.setToolTip(self.tr("Read the current state from the car (F5)"))
         self.refresh_btn.clicked.connect(self.refresh_requested)
+        self.wake_btn = QPushButton(self.tr("&Wake && refresh"))
+        self.wake_btn.setToolTip(
+            self.tr("Wake the car and read it. A wake keeps it awake for about 15 minutes.")
+        )
+        self.wake_btn.clicked.connect(self.wake_requested)
+        self.wake_btn.hide()
+        self._asleep = False
 
         head = QHBoxLayout()
         head.addWidget(self.title)
         head.addWidget(self.rename)
         head.addWidget(self.chip)
         head.addStretch(1)
+        head.addWidget(self.wake_btn)
         head.addWidget(self.refresh_btn)
 
         self.gauge = Gauge()
@@ -382,6 +391,7 @@ class StatusTab(QWidget):
 
     def set_busy(self, busy: bool) -> None:
         self.refresh_btn.setEnabled(not busy)
+        self.wake_btn.setEnabled(not busy)
         self.refresh_btn.setText(self.tr("Refreshing…") if busy else "&Refresh")
 
     def set_units(self, units: str) -> None:
@@ -394,6 +404,8 @@ class StatusTab(QWidget):
 
     def update_state(self, s: Any) -> None:
         self._state = s
+        self._asleep = False
+        self.wake_btn.hide()
         u = self._units
         self._show_title()
         charging_name = s.charging.name
@@ -481,8 +493,19 @@ class StatusTab(QWidget):
         self.depart.set_charge_limit(s.charge_limit)
         self.update_age()
 
+    def show_asleep(self) -> None:
+        """A non-waking read found the car asleep: keep the last state, offer a wake."""
+        self._asleep = True
+        self.wake_btn.show()
+        self.update_age()
+
     def update_age(self) -> None:
         s = self._state
+        if self._asleep:
+            last = fmt.local_time(s.ts)[:5] if s is not None else "–"
+            self.chip.set_chip(self.tr("asleep · last read {0}").format(last), "muted")
+            self.chip.setToolTip(self.tr("The car is asleep; it was not woken."))
+            return
         if s is None:
             return
         ts = s.ts if s.ts.tzinfo else s.ts.replace(tzinfo=UTC)
