@@ -356,68 +356,68 @@
 <context>
     <name>DepartCard</name>
     <message>
-        <location filename="../tabs/depart.py" line="55"/>
+        <location filename="../tabs/depart.py" line="58"/>
         <source>Depart by {0}</source>
         <translation>Avresa kl. {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="62"/>
+        <location filename="../tabs/depart.py" line="65"/>
         <source>Charge limit</source>
         <translation>Laddgräns</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="63"/>
+        <location filename="../tabs/depart.py" line="66"/>
         <source>Cabin</source>
         <translation>Kupé</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="64"/>
-        <location filename="../tabs/depart.py" line="231"/>
+        <location filename="../tabs/depart.py" line="67"/>
+        <location filename="../tabs/depart.py" line="335"/>
         <source>Departure</source>
         <translation>Avresa</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="100"/>
+        <location filename="../tabs/depart.py" line="103"/>
         <source>Not set: {0}</source>
         <translation>Inte inställt: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="103"/>
+        <location filename="../tabs/depart.py" line="106"/>
         <source>{0} {1} — failed: {2}</source>
         <translation>{0} {1} — misslyckades: {2}</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="112"/>
+        <location filename="../tabs/depart.py" line="115"/>
         <source>{0} {1} — already set</source>
         <translation>{0} {1} — redan inställt</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="118"/>
+        <location filename="../tabs/depart.py" line="121"/>
         <source>{0} {1} — ok</source>
         <translation>{0} {1} — ok</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="131"/>
+        <location filename="../tabs/depart.py" line="134"/>
         <source>car not reachable</source>
         <translation>bilen går inte att nå</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="236"/>
+        <location filename="../tabs/depart.py" line="340"/>
         <source>&amp;Depart by…</source>
         <translation>&amp;Avresa kl.…</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="237"/>
+        <location filename="../tabs/depart.py" line="341"/>
         <source>Have the car charged and the cabin ready at a time</source>
         <translation>Ha bilen laddad och kupén redo vid en viss tid</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="245"/>
+        <location filename="../tabs/depart.py" line="349"/>
         <source>Cancel departure</source>
         <translation>Avbryt avresa</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="292"/>
+        <location filename="../tabs/depart.py" line="396"/>
         <source>Departure done — cleared</source>
         <translation>Avresa klar — borttagen</translation>
     </message>
@@ -425,28 +425,73 @@
 <context>
     <name>DepartDialog</name>
     <message>
-        <location filename="../tabs/depart.py" line="159"/>
-        <location filename="../tabs/depart.py" line="199"/>
+        <location filename="../tabs/depart.py" line="170"/>
+        <source>= {0} tomorrow</source>
+        <translation>= {0} i morgon</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="172"/>
+        <source>= {0} today</source>
+        <translation>= {0} i dag</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="190"/>
+        <location filename="../tabs/depart.py" line="271"/>
         <source>Depart by</source>
         <translation>Avresa kl.</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="188"/>
+        <location filename="../tabs/depart.py" line="205"/>
+        <source>in {0} min</source>
+        <translation>om {0} min</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="207"/>
+        <source>{0} h</source>
+        <translation>{0} h</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="213"/>
+        <source>Leave in {0} minutes</source>
+        <translation>Avresa om {0} minuter</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="221"/>
+        <source> minutes</source>
+        <translation> minuter</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="222"/>
+        <source>Leave in minutes</source>
+        <translation>Avresa om minuter</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="223"/>
+        <source>Apply</source>
+        <translation>Tillämpa</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="226"/>
+        <source>in</source>
+        <translation>om</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="260"/>
         <source>&amp;Leave at:</source>
         <translation>&amp;Avresa kl.:</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="189"/>
+        <location filename="../tabs/depart.py" line="261"/>
         <source>C&amp;harge to:</source>
         <translation>&amp;Ladda till:</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="190"/>
+        <location filename="../tabs/depart.py" line="262"/>
         <source>Ca&amp;bin:</source>
         <translation>&amp;Kupé:</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="193"/>
+        <location filename="../tabs/depart.py" line="265"/>
         <source>The car charges so it reaches this level and warms or cools the cabin in time for this departure. It is cleared automatically afterwards.</source>
         <translation>Bilen laddar till den här nivån och värmer eller kyler kupén i tid för avresan. Den tas bort automatiskt efteråt.</translation>
     </message>
@@ -929,239 +974,239 @@ Fingeravtryck {2}</translation>
         <translation>Startar…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="183"/>
+        <location filename="../main_window.py" line="184"/>
         <source>driving — {0} s</source>
         <translation>kör — {0} s</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="185"/>
+        <location filename="../main_window.py" line="186"/>
         <source>awake lock</source>
         <translation>håller vaken</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="186"/>
+        <location filename="../main_window.py" line="187"/>
         <source>This computer will not sleep while the car is driving</source>
         <translation>Datorn går inte i viloläge medan bilen körs</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="216"/>
+        <location filename="../main_window.py" line="217"/>
         <source>Tab {0}</source>
         <translation>Flik {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="217"/>
+        <location filename="../main_window.py" line="218"/>
         <source>Ctrl+{0}</source>
         <translation>Ctrl+{0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="227"/>
+        <location filename="../main_window.py" line="228"/>
         <source>Show SOCKS</source>
         <translation>Visa SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="228"/>
+        <location filename="../main_window.py" line="229"/>
         <source>Refresh</source>
         <translation>Uppdatera</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="230"/>
+        <location filename="../main_window.py" line="231"/>
         <source>Quit</source>
         <translation>Avsluta</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="232"/>
+        <location filename="../main_window.py" line="233"/>
         <source>SOCKS</source>
         <translation>SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="300"/>
+        <location filename="../main_window.py" line="301"/>
         <source>car asleep — poll at {0:%H:%M} skipped</source>
         <translation>bilen sover — avläsning kl. {0:%H:%M} hoppades över</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="308"/>
+        <location filename="../main_window.py" line="309"/>
         <source>Car is asleep — showing last known state</source>
         <translation>Bilen sover — visar senast kända läge</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="313"/>
+        <location filename="../main_window.py" line="314"/>
         <source>Refresh failed: {0}</source>
         <translation>Uppdatering misslyckades: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="327"/>
+        <location filename="../main_window.py" line="328"/>
         <source>retrying ({0}/{1})…</source>
         <translation>försöker igen ({0}/{1})…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="335"/>
+        <location filename="../main_window.py" line="336"/>
         <source>weak Bluetooth signal — move closer to the car or press Refresh</source>
         <translation>svag Bluetooth-signal — gå närmare bilen eller tryck Uppdatera</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="349"/>
+        <location filename="../main_window.py" line="350"/>
         <source>SOCKS — {0}: {1} · {2}</source>
         <translation>SOCKS — {0}: {1} · {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="357"/>
+        <location filename="../main_window.py" line="358"/>
         <source>Last update {0} ({1}) via {2}</source>
         <translation>Senast uppdaterad {0} ({1}) via {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="389"/>
+        <location filename="../main_window.py" line="390"/>
         <source>Could not keep the computer awake: {0}</source>
         <translation>Kunde inte hålla datorn vaken: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="492"/>
+        <location filename="../main_window.py" line="493"/>
         <source>Set a VIN in Settings (or refresh once) to see history.</source>
         <translation>Ange VIN i Inställningar (eller uppdatera en gång) för att se historik.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="510"/>
+        <location filename="../main_window.py" line="511"/>
         <source>Could not load history: {0}</source>
         <translation>Kunde inte läsa in historik: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="521"/>
+        <location filename="../main_window.py" line="522"/>
         <source>Nothing to export yet.</source>
         <translation>Inget att exportera ännu.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="529"/>
+        <location filename="../main_window.py" line="530"/>
         <source>Export {0}</source>
         <translation>Exportera {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="537"/>
+        <location filename="../main_window.py" line="538"/>
         <source>Exporting {0}…</source>
         <translation>Exporterar {0}…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="548"/>
+        <location filename="../main_window.py" line="549"/>
         <source>Export failed: {0}</source>
         <translation>Export misslyckades: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="552"/>
+        <location filename="../main_window.py" line="553"/>
         <source>Exported {0} rows to {1}</source>
         <translation>Exporterade {0} rader till {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="573"/>
+        <location filename="../main_window.py" line="574"/>
         <source>Export drive as GPX</source>
         <translation>Exportera resa som GPX</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="575"/>
+        <location filename="../main_window.py" line="576"/>
         <source>GPX track (*.gpx)</source>
         <translation>GPX-spår (*.gpx)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="588"/>
+        <location filename="../main_window.py" line="589"/>
         <source>GPX export failed: {0}</source>
         <translation>GPX-export misslyckades: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="592"/>
+        <location filename="../main_window.py" line="593"/>
         <source>Exported {0} track points to {1}</source>
         <translation>Exporterade {0} spårpunkter till {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="599"/>
+        <location filename="../main_window.py" line="600"/>
         <source>Chart saved to {0}</source>
         <translation>Diagram sparat i {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="601"/>
+        <location filename="../main_window.py" line="602"/>
         <source>Could not save {0}</source>
         <translation>Kunde inte spara {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="613"/>
+        <location filename="../main_window.py" line="614"/>
         <source>Still sending the previous command…</source>
         <translation>Skickar fortfarande föregående kommando…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="630"/>
         <location filename="../main_window.py" line="631"/>
+        <location filename="../main_window.py" line="632"/>
         <source>{0} failed: {1}</source>
         <translation>{0} misslyckades: {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="638"/>
         <location filename="../main_window.py" line="639"/>
+        <location filename="../main_window.py" line="640"/>
         <source>{0}: done</source>
         <translation>{0}: klart</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="655"/>
+        <location filename="../main_window.py" line="656"/>
         <source>Could not save: {0}</source>
         <translation>Kunde inte spara: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="675"/>
+        <location filename="../main_window.py" line="676"/>
         <source>Saved at {0}.</source>
         <translation>Sparat kl. {0}.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="685"/>
+        <location filename="../main_window.py" line="686"/>
         <source>Sending to the car…</source>
         <translation>Skickar till bilen…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="689"/>
+        <location filename="../main_window.py" line="690"/>
         <source>Not set: {0}</source>
         <translation>Inte inställt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="707"/>
+        <location filename="../main_window.py" line="708"/>
         <source>Cancelling…</source>
         <translation>Avbryter…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="714"/>
+        <location filename="../main_window.py" line="715"/>
         <source>Could not cancel: {0}</source>
         <translation>Kunde inte avbryta: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="775"/>
+        <location filename="../main_window.py" line="776"/>
         <source>(coordinates hidden)</source>
         <translation>(koordinater dolda)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="815"/>
+        <location filename="../main_window.py" line="816"/>
         <source>trip watch: {0} ({1} reads, ≈ ${2:.3f})</source>
         <translation>resebevakning: {0} ({1} avläsningar, ≈ ${2:.3f})</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="825"/>
+        <location filename="../main_window.py" line="826"/>
         <source>Could not set purpose: {0}</source>
         <translation>Kunde inte ange syfte: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="843"/>
+        <location filename="../main_window.py" line="844"/>
         <source>Could not rename place: {0}</source>
         <translation>Kunde inte byta namn på platsen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="849"/>
+        <location filename="../main_window.py" line="850"/>
         <source>Place saved. Use Rebuild labels to relabel drives.</source>
         <translation>Platsen sparad. Använd Bygg om etiketter för att märka om resor.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="864"/>
+        <location filename="../main_window.py" line="865"/>
         <source>Rebuild failed: {0}</source>
         <translation>Ombyggnad misslyckades: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="872"/>
+        <location filename="../main_window.py" line="873"/>
         <source>{0} places, {1} drives relabelled.</source>
         <translation>{0} platser, {1} resor ommärkta.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="923"/>
+        <location filename="../main_window.py" line="924"/>
         <source>Log •</source>
         <translation>Logg •</translation>
     </message>

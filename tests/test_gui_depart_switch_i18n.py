@@ -130,3 +130,55 @@ def test_install_dutch_catalogue(qapp: object) -> None:
     assert QCoreApplication.translate("MainWindow", "Refresh") == "Vernieuwen"
     assert i18n.install(qapp, "en") == "en"
     assert QCoreApplication.translate("MainWindow", "Refresh") == "Refresh"
+
+
+# ------------------------------------------------------- relative presets
+
+
+def _dlg(now: datetime, tmp_path, plan: object = None):  # noqa: ANN001, ANN202
+    from PySide6.QtCore import QSettings
+
+    from socks.gui.tabs.depart import DepartDialog
+
+    prefs = QSettings(str(tmp_path / "gui.ini"), QSettings.Format.IniFormat)
+    return DepartDialog(None, units="metric", charge_to=80, prefs=prefs, now=lambda: now), prefs
+
+
+def test_preset_chip_sets_time_rounded_up(tmp_path) -> None:  # noqa: ANN001
+    from PySide6.QtCore import QTime
+
+    now = datetime(2026, 10, 13, 7, 21, 30).astimezone()
+    dlg, prefs = _dlg(now, tmp_path)
+    dlg.presets.button(20).click()
+    assert dlg.time.time() == QTime(7, 42)  # 07:41:30 → next whole minute
+    assert dlg.hint.text() == "= 07:42 today"
+    assert int(prefs.value("depart_last_preset")) == 20
+    dlg.presets.button(120).click()
+    assert dlg.time.time() == QTime(9, 22)
+    dlg.custom.setValue(95)
+    dlg.apply_minutes(dlg.custom.value())
+    assert dlg.time.time() == QTime(8, 57) and dlg.presets.checkedButton() is None
+
+
+def test_preset_crosses_midnight_matches_core_rule(tmp_path) -> None:  # noqa: ANN001
+    from PySide6.QtCore import QTime
+
+    now = datetime(2026, 10, 13, 23, 55, 0).astimezone()
+    dlg, _p = _dlg(now, tmp_path)
+    dlg.presets.button(10).click()
+    assert dlg.time.time() == QTime(0, 5)
+    assert dlg.hint.text() == "= 00:05 tomorrow"
+    plan = dlg.plan(now.astimezone(UTC))
+    local = plan.depart_at.astimezone()
+    assert (local.day, local.hour, local.minute) == (14, 0, 5)  # core: next occurrence
+
+
+def test_last_preset_is_preselected(tmp_path) -> None:  # noqa: ANN001
+    from PySide6.QtCore import QTime
+
+    now = datetime(2026, 10, 13, 6, 0, 0).astimezone()
+    dlg, prefs = _dlg(now, tmp_path)
+    dlg.presets.button(45).click()
+    again, _p = _dlg(now, tmp_path)
+    assert again.presets.checkedButton() is again.presets.button(45)
+    assert again.time.time() == QTime(6, 45)

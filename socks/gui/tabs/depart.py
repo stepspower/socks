@@ -8,12 +8,14 @@ active plan lives in ``Settings.depart_plan``.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, time
+from collections.abc import Callable
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
 from PySide6.QtCore import QT_TRANSLATE_NOOP, QCoreApplication, Qt, QTime, QTimer, Signal
 from PySide6.QtGui import QFont, QPaintEvent
 from PySide6.QtWidgets import (
+    QButtonGroup,
     QDialog,
     QDialogButtonBox,
     QDoubleSpinBox,
@@ -24,6 +26,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QSlider,
+    QSpinBox,
     QTimeEdit,
     QVBoxLayout,
     QWidget,
@@ -145,6 +148,32 @@ def result_failed(lines: list[str] | str | None) -> str | None:
 # -------------------------------------------------------------------- dialog
 
 
+PRESETS_MIN = (10, 20, 30, 45, 60, 120)
+PRESET_KEY = "depart_last_preset"
+
+
+def relative_target(now: datetime, minutes: int) -> datetime:
+    """``now`` + ``minutes``, rounded up to the next whole minute (local time)."""
+    t = now + timedelta(minutes=minutes)
+    if t.second or t.microsecond:
+        t = t.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    return t
+
+
+def day_hint(hh: int, mm: int, now: datetime) -> str:
+    """ "= 07:42 today" / "= 00:10 tomorrow" — the same next-occurrence rule as core.depart:
+    a time of day at or before now means tomorrow."""
+    local = now.astimezone()
+    cand = local.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    tomorrow = cand <= local
+    text = (
+        QCoreApplication.translate("DepartDialog", "= {0} tomorrow")
+        if tomorrow
+        else QCoreApplication.translate("DepartDialog", "= {0} today")
+    )
+    return text.format(f"{hh:02d}:{mm:02d}")
+
+
 class DepartDialog(QDialog):
     def __init__(
         self,
@@ -154,12 +183,50 @@ class DepartDialog(QDialog):
         charge_to: int | None,
         plan: Any = None,
         focus: str = "time",
+        prefs: Any = None,
+        now: Callable[[], datetime] | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(self.tr("Depart by"))
         self.units = units
+        self.prefs = prefs
+        self._now = now or (lambda: datetime.now().astimezone())
         self.time = QTimeEdit()
         self.time.setDisplayFormat("HH:mm")
+        self.hint = QLabel("")
+        self.time.timeChanged.connect(lambda _t: self._update_hint())
+        # relative presets: they only fill the time field, which stays the source of truth
+        self.presets = QButtonGroup(self)
+        self.presets.setExclusive(True)
+        preset_row = QHBoxLayout()
+        preset_row.setSpacing(6)
+        for minutes in PRESETS_MIN:
+            if minutes == PRESETS_MIN[0]:
+                text = self.tr("in {0} min").format(minutes)
+            elif minutes % 60 == 0:
+                text = self.tr("{0} h").format(minutes // 60)
+            else:
+                text = str(minutes)
+            b = QPushButton(text)
+            b.setCheckable(True)
+            b.setFlat(True)
+            b.setToolTip(self.tr("Leave in {0} minutes").format(minutes))
+            b.clicked.connect(lambda _c=False, m=minutes: self.apply_minutes(m))
+            self.presets.addButton(b, minutes)
+            preset_row.addWidget(b)
+        preset_row.addStretch(1)
+        self.custom = QSpinBox()
+        self.custom.setRange(5, 720)
+        self.custom.setValue(90)
+        self.custom.setSuffix(self.tr(" minutes"))
+        self.custom.setAccessibleName(self.tr("Leave in minutes"))
+        custom_apply = QPushButton(self.tr("Apply"))
+        custom_apply.clicked.connect(lambda: self.apply_minutes(self.custom.value()))
+        custom_row = QHBoxLayout()
+        custom_row.addWidget(QLabel(self.tr("in")))
+        custom_row.addWidget(self.custom)
+        custom_row.addWidget(custom_apply)
+        custom_row.addStretch(1)
         self.charge = QSlider(Qt.Orientation.Horizontal)
         self.charge.setRange(50, 100)
         self.charge.setPageStep(5)
@@ -185,7 +252,12 @@ class DepartDialog(QDialog):
         charge_row.addWidget(self.charge, 1)
         charge_row.addWidget(self.charge_label)
         form = QFormLayout()
-        form.addRow(QLabel(self.tr("&Leave at:"), buddy=self.time), self.time)
+        form.addRow("", preset_row)
+        form.addRow("", custom_row)
+        time_row = QHBoxLayout()
+        time_row.addWidget(self.time)
+        time_row.addWidget(self.hint, 1)
+        form.addRow(QLabel(self.tr("&Leave at:"), buddy=self.time), time_row)
         form.addRow(QLabel(self.tr("C&harge to:"), buddy=self.charge), charge_row)
         form.addRow(QLabel(self.tr("Ca&bin:"), buddy=self.cabin), self.cabin)
         note = QLabel(
@@ -204,9 +276,40 @@ class DepartDialog(QDialog):
         lay.addLayout(form)
         lay.addWidget(note)
         lay.addWidget(buttons)
+        last = int(self.prefs.value(PRESET_KEY, 0, type=int)) if self.prefs is not None else 0
+        if last:
+            b = self.presets.button(last)
+            if b is not None:
+                b.setChecked(True)
+            else:
+                self.custom.setValue(last)
+            if plan is None:  # a new plan starts from the remembered offset
+                self.apply_minutes(last, remember=False)
+        self._update_hint()
         {"time": self.time, "charge": self.charge, "cabin": self.cabin}.get(
             focus, self.time
         ).setFocus()
+
+    def apply_minutes(self, minutes: int, remember: bool = True) -> None:
+        """Set the time field to now + ``minutes`` (rounded up to a whole minute)."""
+        t = relative_target(self._now(), int(minutes))
+        self.time.setTime(QTime(t.hour, t.minute))
+        b = self.presets.button(int(minutes))
+        if b is not None:
+            b.setChecked(True)
+        else:
+            checked = self.presets.checkedButton()
+            if checked is not None:  # exclusive groups need this to clear the selection
+                self.presets.setExclusive(False)
+                checked.setChecked(False)
+                self.presets.setExclusive(True)
+        if remember and self.prefs is not None:
+            self.prefs.setValue(PRESET_KEY, int(minutes))
+        self._update_hint()
+
+    def _update_hint(self) -> None:
+        t = self.time.time()
+        self.hint.setText(day_hint(t.hour(), t.minute(), self._now()))
 
     def plan(self, now: datetime | None = None) -> Any:
         t = self.time.time()
@@ -227,6 +330,7 @@ class DepartCard(QFrame):
         self.setFrameShape(QFrame.Shape.NoFrame)  # flat card (painted)
         self.units = "metric"
         self.plan: Any = None
+        self.prefs: Any = None  # gui.ini (QSettings), set by the main window
         self._charge_limit: int | None = None
         title = QLabel(self.tr("Departure"))
         f = QFont(self.font())
@@ -294,7 +398,12 @@ class DepartCard(QFrame):
 
     def _open(self, focus: str) -> None:
         dlg = DepartDialog(
-            self, units=self.units, charge_to=self._charge_limit, plan=self.plan, focus=focus
+            self,
+            units=self.units,
+            charge_to=self._charge_limit,
+            plan=self.plan,
+            focus=focus,
+            prefs=self.prefs,
         )
         try:
             if dlg.exec() == QDialog.DialogCode.Accepted:

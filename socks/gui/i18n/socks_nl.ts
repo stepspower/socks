@@ -356,68 +356,68 @@
 <context>
     <name>DepartCard</name>
     <message>
-        <location filename="../tabs/depart.py" line="55"/>
+        <location filename="../tabs/depart.py" line="58"/>
         <source>Depart by {0}</source>
         <translation>Vertrek om {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="62"/>
+        <location filename="../tabs/depart.py" line="65"/>
         <source>Charge limit</source>
         <translation>Laadlimiet</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="63"/>
+        <location filename="../tabs/depart.py" line="66"/>
         <source>Cabin</source>
         <translation>Interieur</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="64"/>
-        <location filename="../tabs/depart.py" line="231"/>
+        <location filename="../tabs/depart.py" line="67"/>
+        <location filename="../tabs/depart.py" line="335"/>
         <source>Departure</source>
         <translation>Vertrek</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="100"/>
+        <location filename="../tabs/depart.py" line="103"/>
         <source>Not set: {0}</source>
         <translation>Niet ingesteld: {0}</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="103"/>
+        <location filename="../tabs/depart.py" line="106"/>
         <source>{0} {1} — failed: {2}</source>
         <translation>{0} {1} — mislukt: {2}</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="112"/>
+        <location filename="../tabs/depart.py" line="115"/>
         <source>{0} {1} — already set</source>
         <translation>{0} {1} — al ingesteld</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="118"/>
+        <location filename="../tabs/depart.py" line="121"/>
         <source>{0} {1} — ok</source>
         <translation>{0} {1} — ok</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="131"/>
+        <location filename="../tabs/depart.py" line="134"/>
         <source>car not reachable</source>
         <translation>auto niet bereikbaar</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="236"/>
+        <location filename="../tabs/depart.py" line="340"/>
         <source>&amp;Depart by…</source>
         <translation>&amp;Vertrek om…</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="237"/>
+        <location filename="../tabs/depart.py" line="341"/>
         <source>Have the car charged and the cabin ready at a time</source>
         <translation>Auto op een tijdstip geladen en het interieur op temperatuur</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="245"/>
+        <location filename="../tabs/depart.py" line="349"/>
         <source>Cancel departure</source>
         <translation>Vertrek annuleren</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="292"/>
+        <location filename="../tabs/depart.py" line="396"/>
         <source>Departure done — cleared</source>
         <translation>Vertrek voltooid — gewist</translation>
     </message>
@@ -425,28 +425,73 @@
 <context>
     <name>DepartDialog</name>
     <message>
-        <location filename="../tabs/depart.py" line="159"/>
-        <location filename="../tabs/depart.py" line="199"/>
+        <location filename="../tabs/depart.py" line="170"/>
+        <source>= {0} tomorrow</source>
+        <translation>= {0} morgen</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="172"/>
+        <source>= {0} today</source>
+        <translation>= {0} vandaag</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="190"/>
+        <location filename="../tabs/depart.py" line="271"/>
         <source>Depart by</source>
         <translation>Vertrek om</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="188"/>
+        <location filename="../tabs/depart.py" line="205"/>
+        <source>in {0} min</source>
+        <translation>over {0} min</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="207"/>
+        <source>{0} h</source>
+        <translation>{0} u</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="213"/>
+        <source>Leave in {0} minutes</source>
+        <translation>Vertrek over {0} minuten</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="221"/>
+        <source> minutes</source>
+        <translation> minuten</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="222"/>
+        <source>Leave in minutes</source>
+        <translation>Vertrek over minuten</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="223"/>
+        <source>Apply</source>
+        <translation>Toepassen</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="226"/>
+        <source>in</source>
+        <translation>over</translation>
+    </message>
+    <message>
+        <location filename="../tabs/depart.py" line="260"/>
         <source>&amp;Leave at:</source>
         <translation>&amp;Vertrek om:</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="189"/>
+        <location filename="../tabs/depart.py" line="261"/>
         <source>C&amp;harge to:</source>
         <translation>&amp;Laden tot:</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="190"/>
+        <location filename="../tabs/depart.py" line="262"/>
         <source>Ca&amp;bin:</source>
         <translation>&amp;Interieur:</translation>
     </message>
     <message>
-        <location filename="../tabs/depart.py" line="193"/>
+        <location filename="../tabs/depart.py" line="265"/>
         <source>The car charges so it reaches this level and warms or cools the cabin in time for this departure. It is cleared automatically afterwards.</source>
         <translation>De auto laadt tot dit niveau en verwarmt of koelt het interieur op tijd voor dit vertrek. Daarna wordt het automatisch gewist.</translation>
     </message>
@@ -929,239 +974,239 @@ Vingerafdruk {2}</translation>
         <translation>Starten…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="183"/>
+        <location filename="../main_window.py" line="184"/>
         <source>driving — {0} s</source>
         <translation>rijden — {0} s</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="185"/>
+        <location filename="../main_window.py" line="186"/>
         <source>awake lock</source>
         <translation>wakker houden</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="186"/>
+        <location filename="../main_window.py" line="187"/>
         <source>This computer will not sleep while the car is driving</source>
         <translation>Deze computer gaat niet slapen terwijl de auto rijdt</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="216"/>
+        <location filename="../main_window.py" line="217"/>
         <source>Tab {0}</source>
         <translation>Tabblad {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="217"/>
+        <location filename="../main_window.py" line="218"/>
         <source>Ctrl+{0}</source>
         <translation>Ctrl+{0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="227"/>
+        <location filename="../main_window.py" line="228"/>
         <source>Show SOCKS</source>
         <translation>SOCKS tonen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="228"/>
+        <location filename="../main_window.py" line="229"/>
         <source>Refresh</source>
         <translation>Vernieuwen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="230"/>
+        <location filename="../main_window.py" line="231"/>
         <source>Quit</source>
         <translation>Afsluiten</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="232"/>
+        <location filename="../main_window.py" line="233"/>
         <source>SOCKS</source>
         <translation>SOCKS</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="300"/>
+        <location filename="../main_window.py" line="301"/>
         <source>car asleep — poll at {0:%H:%M} skipped</source>
         <translation>auto slaapt — peiling om {0:%H:%M} overgeslagen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="308"/>
+        <location filename="../main_window.py" line="309"/>
         <source>Car is asleep — showing last known state</source>
         <translation>Auto slaapt — laatste bekende status wordt getoond</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="313"/>
+        <location filename="../main_window.py" line="314"/>
         <source>Refresh failed: {0}</source>
         <translation>Vernieuwen mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="327"/>
+        <location filename="../main_window.py" line="328"/>
         <source>retrying ({0}/{1})…</source>
         <translation>opnieuw proberen ({0}/{1})…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="335"/>
+        <location filename="../main_window.py" line="336"/>
         <source>weak Bluetooth signal — move closer to the car or press Refresh</source>
         <translation>zwak Bluetooth-signaal — ga dichter bij de auto of klik op Vernieuwen</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="349"/>
+        <location filename="../main_window.py" line="350"/>
         <source>SOCKS — {0}: {1} · {2}</source>
         <translation>SOCKS — {0}: {1} · {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="357"/>
+        <location filename="../main_window.py" line="358"/>
         <source>Last update {0} ({1}) via {2}</source>
         <translation>Laatst bijgewerkt {0} ({1}) via {2}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="389"/>
+        <location filename="../main_window.py" line="390"/>
         <source>Could not keep the computer awake: {0}</source>
         <translation>Kon de computer niet wakker houden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="492"/>
+        <location filename="../main_window.py" line="493"/>
         <source>Set a VIN in Settings (or refresh once) to see history.</source>
         <translation>Stel een VIN in bij Instellingen (of vernieuw één keer) om de geschiedenis te zien.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="510"/>
+        <location filename="../main_window.py" line="511"/>
         <source>Could not load history: {0}</source>
         <translation>Kon geschiedenis niet laden: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="521"/>
+        <location filename="../main_window.py" line="522"/>
         <source>Nothing to export yet.</source>
         <translation>Nog niets te exporteren.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="529"/>
+        <location filename="../main_window.py" line="530"/>
         <source>Export {0}</source>
         <translation>{0} exporteren</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="537"/>
+        <location filename="../main_window.py" line="538"/>
         <source>Exporting {0}…</source>
         <translation>{0} exporteren…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="548"/>
+        <location filename="../main_window.py" line="549"/>
         <source>Export failed: {0}</source>
         <translation>Exporteren mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="552"/>
+        <location filename="../main_window.py" line="553"/>
         <source>Exported {0} rows to {1}</source>
         <translation>{0} rijen geëxporteerd naar {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="573"/>
+        <location filename="../main_window.py" line="574"/>
         <source>Export drive as GPX</source>
         <translation>Rit exporteren als GPX</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="575"/>
+        <location filename="../main_window.py" line="576"/>
         <source>GPX track (*.gpx)</source>
         <translation>GPX-spoor (*.gpx)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="588"/>
+        <location filename="../main_window.py" line="589"/>
         <source>GPX export failed: {0}</source>
         <translation>GPX-export mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="592"/>
+        <location filename="../main_window.py" line="593"/>
         <source>Exported {0} track points to {1}</source>
         <translation>{0} spoorpunten geëxporteerd naar {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="599"/>
+        <location filename="../main_window.py" line="600"/>
         <source>Chart saved to {0}</source>
         <translation>Grafiek opgeslagen in {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="601"/>
+        <location filename="../main_window.py" line="602"/>
         <source>Could not save {0}</source>
         <translation>Kon {0} niet opslaan</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="613"/>
+        <location filename="../main_window.py" line="614"/>
         <source>Still sending the previous command…</source>
         <translation>Vorige opdracht wordt nog verzonden…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="630"/>
         <location filename="../main_window.py" line="631"/>
+        <location filename="../main_window.py" line="632"/>
         <source>{0} failed: {1}</source>
         <translation>{0} mislukt: {1}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="638"/>
         <location filename="../main_window.py" line="639"/>
+        <location filename="../main_window.py" line="640"/>
         <source>{0}: done</source>
         <translation>{0}: klaar</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="655"/>
+        <location filename="../main_window.py" line="656"/>
         <source>Could not save: {0}</source>
         <translation>Kon niet opslaan: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="675"/>
+        <location filename="../main_window.py" line="676"/>
         <source>Saved at {0}.</source>
         <translation>Opgeslagen om {0}.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="685"/>
+        <location filename="../main_window.py" line="686"/>
         <source>Sending to the car…</source>
         <translation>Verzenden naar de auto…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="689"/>
+        <location filename="../main_window.py" line="690"/>
         <source>Not set: {0}</source>
         <translation>Niet ingesteld: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="707"/>
+        <location filename="../main_window.py" line="708"/>
         <source>Cancelling…</source>
         <translation>Annuleren…</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="714"/>
+        <location filename="../main_window.py" line="715"/>
         <source>Could not cancel: {0}</source>
         <translation>Kon niet annuleren: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="775"/>
+        <location filename="../main_window.py" line="776"/>
         <source>(coordinates hidden)</source>
         <translation>(coördinaten verborgen)</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="815"/>
+        <location filename="../main_window.py" line="816"/>
         <source>trip watch: {0} ({1} reads, ≈ ${2:.3f})</source>
         <translation>ritvolging: {0} ({1} keer gelezen, ≈ ${2:.3f})</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="825"/>
+        <location filename="../main_window.py" line="826"/>
         <source>Could not set purpose: {0}</source>
         <translation>Kon doel niet instellen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="843"/>
+        <location filename="../main_window.py" line="844"/>
         <source>Could not rename place: {0}</source>
         <translation>Kon plaats niet hernoemen: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="849"/>
+        <location filename="../main_window.py" line="850"/>
         <source>Place saved. Use Rebuild labels to relabel drives.</source>
         <translation>Plaats opgeslagen. Gebruik Labels opnieuw opbouwen om ritten opnieuw te labelen.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="864"/>
+        <location filename="../main_window.py" line="865"/>
         <source>Rebuild failed: {0}</source>
         <translation>Opnieuw opbouwen mislukt: {0}</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="872"/>
+        <location filename="../main_window.py" line="873"/>
         <source>{0} places, {1} drives relabelled.</source>
         <translation>{0} plaatsen, {1} ritten opnieuw gelabeld.</translation>
     </message>
     <message>
-        <location filename="../main_window.py" line="923"/>
+        <location filename="../main_window.py" line="924"/>
         <source>Log •</source>
         <translation>Logboek •</translation>
     </message>

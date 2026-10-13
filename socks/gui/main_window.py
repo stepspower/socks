@@ -141,6 +141,7 @@ class MainWindow(QMainWindow):
         self.status_tab.command_requested.connect(self._on_command)
         self.status_tab.confirmed_command_requested.connect(self._on_command)
         self.status_tab.depart.set_plan(ctx.settings.depart_plan)
+        self.status_tab.depart.prefs = ctx.gui_prefs
         self.status_tab.set_name_override(ctx.settings.car_name)
         self.status_tab.rename_requested.connect(self._rename_car)
         self.status_tab.depart.arm_requested.connect(self._arm_departure)
