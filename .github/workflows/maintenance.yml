@@ -55,7 +55,7 @@ jobs:
         run: |
           current=$(sed -n "s/^runtime-version: '\(.*\)'/\1/p" packaging/flatpak/net.stepspower.Socks.yml)
           branches=$(curl -fsS https://flathub.org/api/v2/summary/org.kde.Platform \
-            | python3 -c "import sys,json; print(' '.join(sorted(json.load(sys.stdin)['branches'], key=lambda v: tuple(int(x) for x in v.split('.')))))")
+            | python3 -c "import re,sys,json; print(' '.join(sorted((b for b in json.load(sys.stdin)['branches'] if re.fullmatch(r'\d+\.\d+', b)), key=lambda v: tuple(int(x) for x in v.split('.')))))")
           newest=$(echo "$branches" | tr ' ' '\n' | tail -1)
           pyside=$(curl -fsS https://api.github.com/repos/flathub/io.qt.PySide.BaseApp/branches \
             | python3 -c "import sys,json; print(' '.join(b['name'] for b in json.load(sys.stdin) if b['name'].startswith('branch/')))")
