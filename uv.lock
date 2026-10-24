@@ -1439,7 +1439,7 @@ wheels = [
 
 [[package]]
 name = "tesla-fleet-api"
-version = "1.17.3"
+version = "1.18.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -1451,9 +1451,9 @@ dependencies = [
     { name = "protobuf" },
     { name = "tesla-protocol" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/c0/b1db0e7e61f6877c88071cadfdfa1e2c90121eb27031e32f762b58ca590b/tesla_fleet_api-1.17.3.tar.gz", hash = "sha256:44ae1bbcd2b12579f0488ac87d6d27a0ce143cf1878437f91051cb6c29454c0a", size = 260621, upload-time = "2026-10-06T04:11:46.257Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b8/a0/ef3384e0c4f7e543fc4f6ed0ae9627be8ebe09d91978e83b558ce65ffffb/tesla_fleet_api-1.18.1.tar.gz", hash = "sha256:a8d06c79ef1ab677d2e742be1d11b21d4754cfcf13689ba93ebd9e71c851d1b9", size = 273849, upload-time = "2026-10-20T05:46:47.697Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/a8/d7ebc9cc8b7f610ac1dbc538763657104070dc59b5418930fccc26ee58f1/tesla_fleet_api-1.17.3-py3-none-any.whl", hash = "sha256:9ac84c1f4bb2d845d93d2ccac01756ccbef89ae76ad50977b9573b15165e6794", size = 154593, upload-time = "2026-10-06T04:11:44.426Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/af/65816b072add1242656ba3ae2b9213071456f62b2c4d883f3fa118e40aff/tesla_fleet_api-1.18.1-py3-none-any.whl", hash = "sha256:f6ff109aa50b8e3853920096d0d8c6b671d8178211428366f40fcfc91cdfe9f6", size = 156994, upload-time = "2026-10-20T05:46:45.921Z" },
 ]
 
 [[package]]
