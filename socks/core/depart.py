@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import contextlib
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
 from socks.core.backend import CommandError
@@ -96,10 +96,12 @@ def next_occurrence(hhmm: str, now: datetime) -> datetime:
         raise ValueError(f"time must be HH:MM, got {hhmm!r}") from None
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
         raise ValueError(f"time must be HH:MM, got {hhmm!r}")
-    local = now.astimezone()
-    at = local.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    if at <= local:
-        at += timedelta(days=1)
+    # Build each candidate as a naive wall-clock time and localise it on its own date, so a
+    # DST change between now and then picks that day's offset (not now's fixed offset).
+    today = now.astimezone().date()
+    at = datetime.combine(today, time(hour, minute)).astimezone()
+    if at <= now:
+        at = datetime.combine(today + timedelta(days=1), time(hour, minute)).astimezone()
     return at
 
 
