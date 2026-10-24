@@ -117,6 +117,27 @@ def test_next_occurrence() -> None:
             depart.next_occurrence(bad, NOW)
 
 
+def test_next_occurrence_across_dst() -> None:
+    # Europe/Amsterdam leaves summer time on 2026-10-25 03:00 CEST and enters it on
+    # 2026-03-29 02:00 CET. 07:30 must stay 07:30 wall-clock on the far side of the change.
+    for now, offset in (
+        (datetime(2026, 10, 24, 19, 0, tzinfo=UTC), 1),  # Sat 21:00 CEST -> Sun 07:30 CET
+        (datetime(2026, 10, 24, 23, 30, tzinfo=UTC), 1),  # Sun 01:30 CEST, same day
+        (datetime(2026, 3, 28, 19, 0, tzinfo=UTC), 2),  # Sat 20:00 CET -> Sun 07:30 CEST
+    ):
+        at = depart.next_occurrence("07:30", now)
+        assert (at.hour, at.minute) == (7, 30)
+        assert at.utcoffset() == timedelta(hours=offset)
+        assert at > now and at - now < timedelta(days=1)
+    plan = make_plan(
+        depart.next_occurrence("07:30", datetime(2026, 10, 24, 19, 0, tzinfo=UTC)),
+        85,
+        20.5,
+        now=datetime(2026, 10, 24, 19, 0, tzinfo=UTC),
+    )
+    assert plan.minutes_after_midnight == 450
+
+
 def test_cli_depart(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["depart"]) == EXIT_OK
     assert "No departure planned" in capsys.readouterr().out
